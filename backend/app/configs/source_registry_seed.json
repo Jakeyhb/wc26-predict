@@ -1,0 +1,44 @@
+[
+  {
+    "domain": "fifa.com",
+    "source_name": "FIFA",
+    "reliability_score": 0.98,
+    "tier": 1,
+    "notes": "Official FIFA source"
+  },
+  {
+    "domain": "inside.fifa.com",
+    "source_name": "Inside FIFA",
+    "reliability_score": 0.97,
+    "tier": 1,
+    "notes": "Official FIFA editorial source"
+  },
+  {
+    "domain": "espn.com",
+    "source_name": "ESPN",
+    "reliability_score": 0.82,
+    "tier": 2,
+    "notes": "Major media"
+  },
+  {
+    "domain": "skysports.com",
+    "source_name": "Sky Sports",
+    "reliability_score": 0.8,
+    "tier": 2,
+    "notes": "Major sports media"
+  },
+  {
+    "domain": "bbc.co.uk",
+    "source_name": "BBC Sport",
+    "reliability_score": 0.85,
+    "tier": 2,
+    "notes": "Major public media"
+  },
+  {
+    "domain": "theathletic.com",
+    "source_name": "The Athletic",
+    "reliability_score": 0.78,
+    "tier": 3,
+    "notes": "Professional sports media"
+  }
+]

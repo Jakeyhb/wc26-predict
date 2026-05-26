@@ -1,0 +1,56 @@
+"""PredictionLearningLog — per-match error attribution for self-evolution.
+
+After each match finishes, this records:
+- Overall error magnitude (Brier)
+- Which component contributed most to the error
+- Whether the model or market was closer
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import DateTime, Float, Boolean, String, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, JSONVariant
+
+
+class PredictionLearningLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Per-match learning record — one row per prediction that was evaluated."""
+
+    __tablename__ = "prediction_learning_log"
+
+    match_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
+    prediction_run_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    snapshot_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
+
+    # Overall error
+    error_magnitude: Mapped[float] = mapped_column(Float, nullable=False)  # Brier
+    error_direction: Mapped[str] = mapped_column(String(30))  # overestimate_home, etc.
+
+    # Per-component error attribution (all should sum to ~1.0)
+    dc_error_contribution: Mapped[float | None] = mapped_column(Float)
+    enhancer_error_contribution: Mapped[float | None] = mapped_column(Float)
+    elo_error_contribution: Mapped[float | None] = mapped_column(Float)
+    signal_error_contribution: Mapped[float | None] = mapped_column(Float)
+    market_error_contribution: Mapped[float | None] = mapped_column(Float)
+
+    # Marginal contributions (leave-one-out): positive = component helped
+    dc_marginal: Mapped[float | None] = mapped_column(Float)
+    enhancer_marginal: Mapped[float | None] = mapped_column(Float)
+    elo_marginal: Mapped[float | None] = mapped_column(Float)
+    market_marginal: Mapped[float | None] = mapped_column(Float)
+    signal_marginal: Mapped[float | None] = mapped_column(Float)
+
+    # Model vs Market
+    model_was_right: Mapped[bool | None] = mapped_column(Boolean)
+    divergence_at_prediction: Mapped[float | None] = mapped_column(Float)
+
+    # Context
+    context_tags: Mapped[dict | None] = mapped_column(JSONVariant)
+    signal_verdicts: Mapped[dict | None] = mapped_column(JSONVariant)
