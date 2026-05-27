@@ -3,16 +3,36 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-import sentry_sdk
+# Optional imports — backend can run in degraded mode without these
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    _sentry_available = True
+except ImportError:
+    sentry_sdk = None  # type: ignore
+    _sentry_available = False
+
+try:
+    from redis import Redis
+    _redis_available = True
+except ImportError:
+    Redis = None  # type: ignore
+    _redis_available = False
+
+try:
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.middleware import SlowAPIMiddleware
+    _slowapi_available = True
+except ImportError:
+    RateLimitExceeded = Exception  # type: ignore
+    SlowAPIMiddleware = None  # type: ignore
+    _slowapi_available = False
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from redis import Redis
-from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sqlalchemy import text
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
@@ -25,7 +45,7 @@ configure_logging()
 settings = get_settings()
 logger = get_logger(__name__)
 
-if settings.sentry_dsn:
+if _sentry_available and settings.sentry_dsn:
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         integrations=[FastApiIntegration(), CeleryIntegration()],
@@ -42,7 +62,7 @@ async def _wait_for_database() -> None:
                 await session.execute(text("SELECT 1"))
             logger.info("Database connection ready on startup (attempt %s)", attempt)
             return
-        except Exception as exc:  # pragma: no cover - exercised at runtime
+        except Exception as exc:
             last_error = exc
             logger.warning("Database startup check failed on attempt %s/3: %s", attempt, exc)
             if attempt < 3:
@@ -51,11 +71,14 @@ async def _wait_for_database() -> None:
 
 
 async def _check_redis_startup() -> None:
+    if not _redis_available:
+        logger.info("Redis package not installed; continuing in degraded mode")
+        return
     try:
         redis = Redis.from_url(settings.redis_url)
         await asyncio.to_thread(redis.ping)
         logger.info("Redis connection ready on startup")
-    except Exception as exc:  # pragma: no cover - exercised at runtime
+    except Exception as exc:
         logger.warning("Redis unavailable on startup; continuing in degraded mode: %s", exc)
 
 
@@ -68,7 +91,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 app.state.limiter = limiter
-app.add_middleware(SlowAPIMiddleware)
+if _slowapi_available and SlowAPIMiddleware is not None:
+    app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -83,9 +107,10 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
-    return JSONResponse(status_code=429, content={"detail": RATE_LIMIT_MESSAGE})
+if _slowapi_available:
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(status_code=429, content={"detail": RATE_LIMIT_MESSAGE})
 
 
 @app.middleware("http")
