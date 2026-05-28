@@ -28,10 +28,6 @@ export type {
   RunType,
   ScheduleResponse,
   TriggerPredictionResponse,
-  TeamItem,
-  CustomPredictionRequest,
-  CustomPredictionResponse,
-  PredictionStatusResponse,
 } from "@wc26/shared";
 
 export interface PaginatedResponse<T> {

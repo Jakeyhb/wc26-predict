@@ -1,192 +1,138 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { TeamSelector } from "../components/TeamSelector";
-import { PredictionProgress } from "../components/PredictionProgress";
-import { PredictionResult } from "../components/PredictionResult";
-import { UsageTracker } from "../components/UsageTracker";
-import { submitCustomPrediction, fetchPredictionStatus } from "../lib/api";
-import { hasReachedLimit, incrementUsage } from "../lib/usage";
-import type { TeamItem, PredictionStatusResponse } from "../lib/types";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { MatchCard } from "../components/MatchCard";
+import { Skeleton } from "../components/Skeleton";
+import { fetchUpcomingMatches } from "../lib/api";
+import type { MatchCard as MatchCardType } from "../lib/types";
 
-type PageState = "select" | "predicting" | "result" | "error" | "limit";
+const FILTERS = [
+  { key: "all", label: "全部" },
+  { key: "FIFA World Cup 2026", label: "世界杯" },
+  { key: "Champions League", label: "欧冠" },
+  { key: "club", label: "联赛" },
+] as const;
 
 export function HomePage() {
-  const [homeTeam, setHomeTeam] = useState<TeamItem | null>(null);
-  const [awayTeam, setAwayTeam] = useState<TeamItem | null>(null);
-  const [neutral, setNeutral] = useState(true);
-  const [state, setState] = useState<PageState>("select");
-  const [predictionId, setPredictionId] = useState<string | null>(null);
-  const [matchId, setMatchId] = useState<string | null>(null);
-  const [result, setResult] = useState<PredictionStatusResponse["result"] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [startedAt, setStartedAt] = useState<Date | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [filter, setFilter] = useState<string>("all");
 
-  const canPredict = homeTeam && awayTeam && !hasReachedLimit();
+  const matchesQuery = useQuery({
+    queryKey: ["matches", "upcoming", "all"],
+    queryFn: () => fetchUpcomingMatches(),
+  });
 
-  const handlePredict = useCallback(async () => {
-    if (!homeTeam || !awayTeam) return;
-    if (hasReachedLimit()) { setState("limit"); return; }
+  const allMatches = matchesQuery.data ?? [];
 
-    setState("predicting");
-    setError(null);
-    setResult(null);
-    setStartedAt(new Date());
-
-    try {
-      const resp = await submitCustomPrediction({
-        home_team: homeTeam.name,
-        away_team: awayTeam.name,
-        competition: "Custom Match",
-        is_neutral_venue: neutral,
-      });
-      setPredictionId(resp.prediction_id);
-      setMatchId(resp.match_id);
-      incrementUsage(resp.prediction_id, homeTeam.name, awayTeam.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "提交预测失败");
-      setState("error");
-    }
-  }, [homeTeam, awayTeam, neutral]);
-
-  // Poll for prediction status
-  useEffect(() => {
-    if (!predictionId || state !== "predicting") return;
-
-    let attempts = 0;
-    const poll = async () => {
-      attempts++;
-      try {
-        const status = await fetchPredictionStatus(predictionId);
-        if (status.status === "completed" && status.result) {
-          setResult(status.result);
-          setState("result");
-          if (pollRef.current) clearInterval(pollRef.current);
-        } else if (status.status === "failed") {
-          setError(status.error ?? "预测失败");
-          setState("error");
-          if (pollRef.current) clearInterval(pollRef.current);
-        }
-        // Timeout after 180s
-        if (attempts > 36) {
-          setError("预测超时，请重试");
-          setState("error");
-          if (pollRef.current) clearInterval(pollRef.current);
-        }
-      } catch {
-        // Keep polling on network errors
-      }
-    };
-
-    poll(); // immediate first poll
-    pollRef.current = setInterval(poll, 5000); // then every 5s
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [predictionId, state]);
-
-  const handleReset = () => {
-    setState("select");
-    setHomeTeam(null);
-    setAwayTeam(null);
-    setPredictionId(null);
-    setResult(null);
-    setError(null);
-  };
-
-  // Check limit on mount
-  useEffect(() => {
-    if (hasReachedLimit()) setState("limit");
-  }, []);
+  const filtered = allMatches.filter((m) => {
+    if (filter === "all") return true;
+    if (filter === "club") return m.competition_type === "club";
+    return m.competition === filter;
+  });
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 py-6">
+    <div className="mx-auto max-w-2xl space-y-6 py-4">
       {/* Hero */}
       <section className="text-center">
         <div className="text-xs uppercase tracking-[0.3em] text-text-muted">2026 World Cup Prediction Desk</div>
-        <h1 className="mt-3 font-display text-[36px] leading-tight text-white">WC26 Predict</h1>
-        <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-          选择两支球队，让 AI 预测引擎为你生成深度分析报告。
+        <h1 className="mt-3 font-display text-[34px] leading-tight text-white">WC26 Predict</h1>
+        <p className="mt-2 text-sm text-text-secondary">
+          基于 Dixon-Coles + Elo 预测引擎，选择一场比赛获取深度分析报告。
         </p>
       </section>
 
-      {/* Limit reached */}
-      {state === "limit" ? (
-        <section className="rounded-[32px] border border-accent-amber/20 bg-accent-amber/5 px-5 py-8 text-center">
-          <div className="font-display text-2xl text-accent-amber">内测次数已用完</div>
-          <p className="mt-3 text-sm text-text-secondary">
-            每位用户限 3 次免费预测。感谢参与内测！正式版即将上线，届时将支持无限次数。
-          </p>
-        </section>
-      ) : null}
-
-      {/* Team selection */}
-      {state === "select" || state === "error" ? (
-        <section className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-6 space-y-4">
-          <div>
-            <div className="text-xs uppercase tracking-[0.24em] text-text-muted mb-2">主队</div>
-            <TeamSelector value={homeTeam} onChange={setHomeTeam} placeholder="选择主队..." disabledTeam={awayTeam} />
-          </div>
-          <div className="flex items-center justify-center">
-            <div className="font-display text-sm text-text-muted">VS</div>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-[0.24em] text-text-muted mb-2">客队</div>
-            <TeamSelector value={awayTeam} onChange={setAwayTeam} placeholder="选择客队..." disabledTeam={homeTeam} />
-          </div>
-
-          {/* Neutral venue toggle */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={neutral}
-              onChange={(e) => setNeutral(e.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-white/5 text-accent-blue focus:ring-accent-blue"
-            />
-            <span className="text-sm text-text-secondary">中立场地</span>
-          </label>
-
-          {/* Error */}
-          {error ? (
-            <div className="rounded-[20px] border border-accent-red/30 bg-accent-red/5 px-4 py-3 text-sm text-accent-red">
-              {error}
-            </div>
-          ) : null}
-
-          {/* Predict button */}
+      {/* Filter tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {FILTERS.map((f) => (
           <button
-            disabled={!canPredict}
-            onClick={handlePredict}
-            className={`w-full rounded-[28px] px-6 py-4 text-center text-sm font-medium transition ${
-              canPredict
-                ? "bg-accent-blue text-white hover:opacity-80"
-                : "cursor-not-allowed bg-white/5 text-text-muted"
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`shrink-0 rounded-full px-4 py-2 text-sm transition ${
+              filter === f.key
+                ? "bg-white text-black font-medium"
+                : "bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white"
             }`}
           >
-            {!homeTeam || !awayTeam ? "请选择两支球队" : hasReachedLimit() ? "次数已用完" : "开始预测"}
+            {f.label}
           </button>
+        ))}
+      </div>
 
-          <UsageTracker />
-        </section>
-      ) : null}
+      {/* Match list */}
+      <div className="space-y-4">
+        {matchesQuery.isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-[32px]" />
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-10 text-center text-sm text-text-secondary">
+            暂无符合条件的比赛
+          </div>
+        ) : (
+          filtered.map((match) => (
+            <Link key={match.id} to={`/match/${match.id}`} className="block">
+              <div className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-5 transition hover:border-white/20 hover:bg-bg-card">
+                {/* Match info */}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-text-muted">
+                      {match.competition} · {match.stage || ""}
+                    </div>
+                    <div className="mt-2 font-display text-2xl text-white">
+                      {match.home_team.name} vs {match.away_team.name}
+                    </div>
+                    <div className="mt-1 text-sm text-text-secondary">
+                      {format(new Date(match.match_date), "MM/dd HH:mm")}
+                    </div>
+                  </div>
+                  {match.latest_prediction ? (
+                    <div className="shrink-0 text-right">
+                      <div className="flex items-center gap-3">
+                        <ProbBadge value={match.latest_prediction.home_win_prob} color="var(--accent-blue)" />
+                        <ProbBadge value={match.latest_prediction.draw_prob} color="rgba(255,255,255,0.55)" />
+                        <ProbBadge value={match.latest_prediction.away_win_prob} color="var(--accent-green)" />
+                      </div>
+                      <div className="mt-2 text-xs text-text-muted">
+                        置信度 {Math.round((match.latest_prediction.confidence_score ?? 0) * 100)}%
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="shrink-0 text-xs text-text-muted">待预测</span>
+                  )}
+                </div>
+                {/* Probability bar */}
+                {match.latest_prediction ? (
+                  <div className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-white/8">
+                    <div
+                      className="h-full bg-accent-blue transition-all"
+                      style={{ width: `${(match.latest_prediction.home_win_prob ?? 0) * 100}%` }}
+                    />
+                    <div
+                      className="h-full bg-white/20 transition-all"
+                      style={{ width: `${(match.latest_prediction.draw_prob ?? 0) * 100}%` }}
+                    />
+                    <div
+                      className="h-full bg-accent-green transition-all"
+                      style={{ width: `${(match.latest_prediction.away_win_prob ?? 0) * 100}%` }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Predicting */}
-      {state === "predicting" && startedAt ? (
-        <section className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-6">
-          <PredictionProgress startedAt={startedAt} status="running" />
-          <button
-            onClick={() => { setState("error"); setError("用户取消了预测"); }}
-            className="mx-auto mt-4 block text-sm text-text-muted hover:text-text-secondary transition"
-          >
-            取消
-          </button>
-        </section>
-      ) : null}
-
-      {/* Result */}
-      {state === "result" && result ? (
-        <PredictionResult result={result as any} onNewPrediction={handleReset} />
-      ) : null}
+function ProbBadge({ value, color }: { value: number | null | undefined; color: string }) {
+  const pct = Math.round((value ?? 0) * 100);
+  return (
+    <div className="text-center">
+      <div className="font-display text-lg" style={{ color }}>
+        {pct}%
+      </div>
     </div>
   );
 }

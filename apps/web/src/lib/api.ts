@@ -2,8 +2,6 @@ import {
   accuracyStatsSchema,
   adminDashboardSummarySchema,
   conflictSignalGroupItemSchema,
-  customPredictionRequestSchema,
-  customPredictionResponseSchema,
   evidenceResponseSchema,
   feedbackRequestSchema,
   feedbackResponseSchema,
@@ -19,11 +17,9 @@ import {
   pendingArticleItemSchema,
   predictionHistoryItemSchema,
   predictionSnapshotSchema,
-  predictionStatusResponseSchema,
   recentPredictionsResponseSchema,
   reviewSummarySchema,
   scheduleResponseSchema,
-  teamItemSchema,
   triggerPredictionResponseSchema,
 } from "@wc26/shared";
 import { z } from "zod";
@@ -45,8 +41,6 @@ import type {
   AccuracyStats,
   AdminDashboardSummary,
   ConflictSignalGroupItem,
-  CustomPredictionRequest,
-  CustomPredictionResponse,
   EvidenceResponse,
   HermesDigestResponse,
   FeedbackRequest,
@@ -62,12 +56,10 @@ import type {
   PendingSignalItem,
   PredictionHistoryItem,
   PredictionSnapshot,
-  PredictionStatusResponse,
   RecentPredictionItem,
   ReviewSummary,
   RunType,
   ScheduleResponse,
-  TeamItem,
   TriggerPredictionResponse,
 } from "./types";
 
@@ -416,28 +408,4 @@ export async function generateAnalysis(matchId: string, extraContext = ""): Prom
     throw new Error(message || "生成分析失败");
   }
   return response.json();
-}
-
-// ── Custom Prediction API ────────────────────────────────
-
-export async function fetchTeams(): Promise<TeamItem[]> {
-  return withMockFallback(
-    () => request("/api/teams", z.array(teamItemSchema)),
-    [],
-  );
-}
-
-export async function submitCustomPrediction(
-  payload: CustomPredictionRequest,
-): Promise<CustomPredictionResponse> {
-  return request("/api/predictions/custom", customPredictionResponseSchema, {
-    method: "POST",
-    body: JSON.stringify(customPredictionRequestSchema.parse(payload)),
-  });
-}
-
-export async function fetchPredictionStatus(
-  predictionId: string,
-): Promise<PredictionStatusResponse> {
-  return request(`/api/predictions/status/${predictionId}`, predictionStatusResponseSchema);
 }
