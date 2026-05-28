@@ -79,6 +79,7 @@ async def _run_prediction(prediction_id: str, home_name: str, away_name: str, co
     try:
         _predictions[prediction_id]["status"] = "running"
 
+        from uuid import UUID as _UUID
         from app.services.prediction_orchestrator import PredictionOrchestrator
         from app.models.team import Team
         from app.models.match import Match
@@ -88,13 +89,13 @@ async def _run_prediction(prediction_id: str, home_name: str, away_name: str, co
             home_team = await _resolve_or_create_team(db, home_name)
             away_team = await _resolve_or_create_team(db, away_name)
 
-            # Find or create match record
+            # Find or create match record (use UUID format for ORM compatibility)
             match_id = _hash_match_id(home_team.id, away_team.id, competition)
             match = await db.get(Match, match_id)
             if not match:
                 match = Match(
                     id=match_id,
-                    external_id=f"adhoc_{home_team.id[:8]}_{away_team.id[:8]}_{int(datetime.now(timezone.utc).timestamp())}",
+                    external_id=f"adhoc_{home_team.id.hex[:8]}_{away_team.id.hex[:8]}_{int(datetime.now(timezone.utc).timestamp())}",
                     home_team_id=home_team.id,
                     away_team_id=away_team.id,
                     match_date=datetime.now(timezone.utc),
@@ -147,26 +148,26 @@ async def _run_prediction(prediction_id: str, home_name: str, away_name: str, co
         _predictions[prediction_id]["status"] = "completed"
 
     except Exception as exc:
+        import traceback
         _predictions[prediction_id]["status"] = "failed"
-        _predictions[prediction_id]["error"] = str(exc)
+        _predictions[prediction_id]["error"] = traceback.format_exc()
 
 
-async def _resolve_or_create_team(db: AsyncSession, name: str) -> Team:
+def _hash_match_id(home_id, away_id, competition: str):
+    from uuid import UUID as _UUID
+    import hashlib
+    raw = f"custom_{home_id}_{away_id}_{competition}"
+    return _UUID(hashlib.md5(raw.encode()).hexdigest())
+
+async def _resolve_or_create_team(db: AsyncSession, name: str):
     """Find an existing team by name or create a new one."""
+    from uuid import uuid4
     from app.services.team_resolver import TeamResolver
 
     resolver = TeamResolver()
-    team = await resolver.resolve_team(db, name)
+    team = await resolver.resolve_team(name, db)
     if not team:
-        import hashlib
-        tid = hashlib.md5(f"nt_{name.lower().strip()}".encode()).hexdigest()
-        team = Team(id=tid, name=name, team_type="national", elo_rating=1500.0)
+        team = Team(id=uuid4(), name=name, team_type="national", elo_rating=1500.0)
         db.add(team)
         await db.flush()
     return team
-
-
-def _hash_match_id(home_id: str, away_id: str, competition: str) -> str:
-    import hashlib
-    raw = f"custom_{home_id}_{away_id}_{competition}"
-    return hashlib.md5(raw.encode()).hexdigest()

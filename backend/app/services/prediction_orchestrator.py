@@ -131,7 +131,7 @@ class PredictionOrchestrator:
                 0.95,
                 0.45 + min(0.25, len(training_df) / 300) + abs(base_prediction["home_win_prob"] - base_prediction["away_win_prob"]) * 0.2,
             )
-            adjusted_prediction = self.signal_adjuster.apply_signals(
+            adjusted_prediction = await self.signal_adjuster.apply_signals(
                 {**base_prediction, "confidence_score": confidence_score},
                 approved_signal_payload,
                 match_context,
