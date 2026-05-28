@@ -23,7 +23,7 @@ export default function App() {
             WC26 Predict
           </Link>
           <nav className="flex items-center gap-2 text-sm text-text-secondary">
-            <TopNavLink to="/" label="首页" />
+            <TopNavLink to="/" label="预测" />
             <TopNavLink to="/schedule" label="赛程" />
             <TopNavLink to="/stats" label="准确率" />
             <TopNavLink to="/admin/dashboard" label="后台" />

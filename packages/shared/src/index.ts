@@ -496,6 +496,42 @@ export type ManualMatchCreateRequest = z.infer<typeof manualMatchCreateRequestSc
 export type ManualMatchCreateResponse = z.infer<typeof manualMatchCreateResponseSchema>;
 export type MatchResultUpdateRequest = z.infer<typeof matchResultUpdateRequestSchema>;
 
+// ── Custom Prediction API ────────────────────────────────
+
+export const teamItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  name_zh: z.string().nullable().optional(),
+  fifa_code: z.string().nullable().optional(),
+  team_type: z.string(),
+});
+
+export const customPredictionRequestSchema = z.object({
+  home_team: z.string().min(1),
+  away_team: z.string().min(1),
+  competition: z.string().default("Custom Match"),
+  is_neutral_venue: z.boolean().default(false),
+});
+
+export const customPredictionResponseSchema = z.object({
+  prediction_id: z.string(),
+  match_id: z.string(),
+  status: z.string(),
+});
+
+export const predictionStatusResponseSchema = z.object({
+  prediction_id: z.string(),
+  status: z.string(),
+  match_id: z.string().nullable().optional(),
+  result: z.record(z.string(), z.unknown()).nullable().optional(),
+  error: z.string().nullable().optional(),
+});
+
+export type TeamItem = z.infer<typeof teamItemSchema>;
+export type CustomPredictionRequest = z.infer<typeof customPredictionRequestSchema>;
+export type CustomPredictionResponse = z.infer<typeof customPredictionResponseSchema>;
+export type PredictionStatusResponse = z.infer<typeof predictionStatusResponseSchema>;
+
 export function parseJsonArray<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {

@@ -39,7 +39,7 @@ from app.database import AsyncSessionLocal
 from app.exceptions import AppError
 from app.logging import configure_logging, get_logger
 from app.rate_limit import RATE_LIMIT_MESSAGE, limiter
-from app.routers import admin, analysis, feedback, health, matches, predictions, signals, stats
+from app.routers import admin, analysis, custom_predictions, feedback, health, matches, predictions, signals, stats
 
 configure_logging()
 settings = get_settings()
@@ -124,8 +124,27 @@ async def log_requests(request: Request, call_next):
 app.include_router(health.router)
 app.include_router(matches.router, prefix=settings.api_prefix)
 app.include_router(predictions.router, prefix=settings.api_prefix)
+app.include_router(custom_predictions.router, prefix=settings.api_prefix + "/predictions")
 app.include_router(signals.router, prefix=settings.api_prefix)
 app.include_router(feedback.router, prefix=settings.api_prefix)
 app.include_router(stats.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(analysis.router, prefix=settings.api_prefix)
+
+
+# ── Teams endpoint (for frontend team selector) ──────────
+@app.get(settings.api_prefix + "/teams")
+async def list_teams():
+    import sqlite3, os
+    db_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "data", "local_stage2.db",
+    )
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT id, name, name_zh, fifa_code, team_type FROM teams ORDER BY name"
+    ).fetchall()
+    result = [dict(r) for r in rows]
+    conn.close()
+    return result
