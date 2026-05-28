@@ -67,7 +67,13 @@ export function HomePage() {
 
       {/* Match list */}
       <div className="space-y-4">
-        {matchesQuery.isLoading ? (
+        {matchesQuery.isError ? (
+          <div className="rounded-[32px] border border-accent-red/30 bg-accent-red/5 px-5 py-10 text-center">
+            <div className="text-sm text-accent-red">连接服务器失败</div>
+            <div className="mt-2 text-xs text-text-muted">后端服务暂时不可用，请稍后重试</div>
+            <button onClick={() => matchesQuery.refetch()} className="mt-4 rounded-full bg-accent-blue px-5 py-2 text-sm text-white transition hover:opacity-80">点击重试</button>
+          </div>
+        ) : matchesQuery.isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-40 rounded-[32px]" />
           ))
