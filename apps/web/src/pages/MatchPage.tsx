@@ -18,6 +18,9 @@ export function MatchPage() {
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [predictionTriggering, setPredictionTriggering] = useState(false);
+  const [predictionJobId, setPredictionJobId] = useState<string | null>(null);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
   const matchQuery = useQuery({
     queryKey: ["match", matchId, "detail"],
     queryFn: () => fetchMatch(matchId),
@@ -107,6 +110,43 @@ export function MatchPage() {
     setArticleExpanded(match?.competition_type !== "club");
   }, [match?.competition_type, matchId]);
 
+  // Poll prediction status after triggering
+  useEffect(() => {
+    if (!predictionJobId || !predictionTriggering) return;
+    const timer = setInterval(async () => {
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ""}/api/predictions/${matchId}/status`);
+        const data = await resp.json();
+        if (data.status === "completed") {
+          setPredictionTriggering(false);
+          latestQuery.refetch();
+          matchQuery.refetch();
+        } else if (data.status === "failed") {
+          setPredictionTriggering(false);
+          setPredictionError("预测生成失败，请重试");
+        }
+      } catch { /* keep polling */ }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [predictionJobId, predictionTriggering, matchId]);
+
+  const handleTriggerPrediction = async () => {
+    setPredictionTriggering(true);
+    setPredictionError(null);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ""}/api/predictions/${matchId}/trigger-public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_type: "t_minus_24h" }),
+      });
+      const data = await resp.json();
+      setPredictionJobId(data.prediction_id);
+    } catch (err) {
+      setPredictionTriggering(false);
+      setPredictionError(err instanceof Error ? err.message : "触发失败");
+    }
+  };
+
   if (matchQuery.isLoading || latestQuery.isLoading) {
     return (
       <div className="space-y-4">
@@ -117,8 +157,59 @@ export function MatchPage() {
     );
   }
 
-  if (!match || !latest) {
-    return <EmptyState title="暂无预测数据" description="该比赛还没有生成快照，等到下一次任务或管理员手动触发后会出现。" />;
+  if (!match) {
+    return <EmptyState title="比赛未找到" description="该比赛不存在或已被移除。" />;
+  }
+
+  if (!latest) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6 py-8">
+        <section className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-6 text-center">
+          <div className="text-xs uppercase tracking-[0.24em] text-text-muted">{match.competition}</div>
+          <div className="mt-3 font-display text-3xl text-white">
+            {match.home_team.name} vs {match.away_team.name}
+          </div>
+          <div className="mt-2 text-sm text-text-secondary">
+            {format(new Date(match.match_date), "MM/dd HH:mm")} · {match.stage}
+          </div>
+        </section>
+
+        {predictionTriggering ? (
+          <section className="rounded-[32px] border border-accent-blue/20 bg-accent-blue/5 px-5 py-10 text-center">
+            <svg className="mx-auto h-16 w-16 animate-[spin_3s_linear_infinite]" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+              <circle cx="32" cy="32" r="28" fill="none" stroke="var(--accent-blue)" strokeWidth="4"
+                strokeDasharray="60 200" strokeLinecap="round" />
+            </svg>
+            <div className="mt-5 font-display text-lg text-white">正在生成实时预测...</div>
+            <div className="mt-2 text-sm text-text-secondary">
+              系统正在基于最新赔率、天气和训练数据运行三层预测引擎
+            </div>
+            <div className="mt-1 text-xs text-text-muted">预计 30-90 秒</div>
+          </section>
+        ) : predictionError ? (
+          <section className="rounded-[32px] border border-accent-red/30 bg-accent-red/5 px-5 py-10 text-center">
+            <div className="text-sm text-accent-red">{predictionError}</div>
+            <button onClick={handleTriggerPrediction} className="mt-4 rounded-full bg-accent-blue px-5 py-2 text-sm text-white hover:opacity-80">点击重试</button>
+          </section>
+        ) : (
+          <section className="rounded-[32px] border border-white/8 bg-bg-card/75 px-5 py-10 text-center">
+            <div className="font-display text-xl text-white">暂无预测数据</div>
+            <div className="mt-3 text-sm text-text-secondary">
+              点击下方按钮，系统将获取最新赔率、天气和赛事数据，<br />
+              通过三层预测引擎实时生成预测。
+            </div>
+            <button
+              onClick={handleTriggerPrediction}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent-blue px-6 py-3 text-sm font-medium text-white transition hover:opacity-80"
+            >
+              🔄 触发实时预测
+            </button>
+            <div className="mt-2 text-xs text-text-muted">预计耗时 30-90 秒</div>
+          </section>
+        )}
+      </div>
+    );
   }
 
   return (

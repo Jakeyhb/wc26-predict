@@ -138,6 +138,57 @@ async def get_prediction_history(request: Request, match_id: UUID, db: AsyncSess
     ]
 
 
+# ── Public prediction trigger (no admin auth, rate-limited) ──
+
+import asyncio
+import uuid as _uuid
+from datetime import datetime as _dt, timezone as _tz
+
+_prediction_jobs: dict[str, dict] = {}  # prediction_id -> {status, match_id, error}
+
+@router.post("/{match_id}/trigger-public")
+@limiter.limit("3/minute")
+async def trigger_prediction_public(
+    request: Request,
+    match_id: UUID,
+    payload: TriggerPredictionRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Public prediction trigger. Rate-limited to 3/min. Runs async."""
+    job_id = _uuid.uuid4().hex[:12]
+    _prediction_jobs[job_id] = {"status": "running", "match_id": str(match_id), "error": None}
+
+    asyncio.create_task(_run_prediction_bg(job_id, match_id, payload.run_type))
+
+    return {"prediction_id": job_id, "match_id": str(match_id), "status": "running"}
+
+
+@router.get("/{match_id}/status")
+async def get_prediction_job_status(match_id: UUID) -> dict:
+    """Check if a prediction is currently running for this match."""
+    for job_id, info in _prediction_jobs.items():
+        if info["match_id"] == str(match_id):
+            # Also try to fetch latest prediction
+            return {
+                "prediction_id": job_id,
+                "status": info["status"],
+                "has_result": False,
+            }
+    return {"status": "none", "has_result": False}
+
+
+async def _run_prediction_bg(job_id: str, match_id: UUID, run_type: str):
+    try:
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            orchestrator = PredictionOrchestrator()
+            await orchestrator.run_prediction(match_id=match_id, run_type=run_type, db=db)
+        _prediction_jobs[job_id]["status"] = "completed"
+    except Exception as e:
+        _prediction_jobs[job_id]["status"] = "failed"
+        _prediction_jobs[job_id]["error"] = str(e)
+
+
 @router.post("/{match_id}/trigger")
 @limiter.limit("100/minute")
 async def trigger_prediction(
