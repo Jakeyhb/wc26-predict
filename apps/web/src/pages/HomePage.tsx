@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { MatchCard } from "../components/MatchCard";
 import { Skeleton } from "../components/Skeleton";
-import { fetchUpcomingMatches } from "../lib/api";
+import { fetchScheduleGroups } from "../lib/api";
 import type { MatchCard as MatchCardType } from "../lib/types";
 
 const FILTERS = [
@@ -18,11 +18,18 @@ export function HomePage() {
   const [filter, setFilter] = useState<string>("all");
 
   const matchesQuery = useQuery({
-    queryKey: ["matches", "upcoming", "all"],
-    queryFn: () => fetchUpcomingMatches(),
+    queryKey: ["matches", "schedule", filter],
+    queryFn: () =>
+      fetchScheduleGroups({
+        competition: filter === "club" ? undefined : filter === "all" ? undefined : filter,
+        competitionType: filter === "club" ? "club" : filter === "all" ? undefined : "national",
+        daysAhead: 30,
+        page: 1,
+        pageSize: 50,
+      }),
   });
 
-  const allMatches = matchesQuery.data ?? [];
+  const allMatches = (matchesQuery.data?.groups ?? []).flatMap((g) => g.matches);
 
   const filtered = allMatches.filter((m) => {
     if (filter === "all") return true;
