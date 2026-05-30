@@ -144,7 +144,11 @@ async def run_snapshot(
         rest_days={"home": 5, "away": 5},
     )
 
-    # Fuse DC + Enhancer (68:32)
+    # ── Scene-based Model Config ─────────────────────────────
+    cfg = _get_model_config(competition, stage=(await _get_match_stage(home_team, away_team, competition)))
+    print(f"  场景配置: {cfg['label']} (DC{cfg['dc_weight']:.0%}+Enh{cfg['enh_weight']:.0%}+Elo{cfg['elo_weight']:.0%}+Pi{cfg['pi_weight']:.0%})")
+
+    # Fuse DC + Enhancer (dynamic weight)
     dc_enh = {
         "home_win_prob": float(dc_pred["home_win_prob"]),
         "draw_prob": float(dc_pred["draw_prob"]),
@@ -157,7 +161,7 @@ async def run_snapshot(
             "draw_prob": float(enh_pred["draw_prob"]),
             "away_win_prob": float(enh_pred["away_win_prob"]),
         },
-        base_weight=0.68,
+        base_weight=cfg["dc_weight"],
     ))
 
     # ── Layer 3: Elo ──
@@ -172,13 +176,13 @@ async def run_snapshot(
 
     # Clean model (DC + Enhancer + Elo, no odds)
     clean = dict(dc_enh)
-    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=0.09))
+    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=cfg["elo_weight"]))
 
     # ── Layer 4: Pi-Rating（零中心的进球差评分，跨联赛比较更准确）──
     pi = PiRatingWrapper()
     pi.fit(df)
     pi_pred = pi.predict(home_team, away_team, is_neutral=is_neutral)
-    clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=0.10))
+    clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=cfg["pi_weight"]))
     pi_ratings_dict = pi.get_ratings_dict()
 
     # ── CalibrationMonitor（仅记录，不修改概率）──
@@ -715,6 +719,62 @@ async def _lookup_match_id(db, home_team: str, away_team: str, competition: str 
 # ═══════════════════════════════════════════════════════════
 #  Markdown report
 # ═══════════════════════════════════════════════════════════
+def _get_model_config(competition: str, stage: str = "") -> dict:
+    """Select model weights based on competition type and stage."""
+    c = competition.lower()
+    s = (stage or "").lower()
+
+    # UCL Final: less DC weight (less league data for this unique match),
+    # more Pi-Rating (cross-league comparison)
+    if ("champions" in c or "ucl" in c) and (s == "final"):
+        return {
+            "label": "UCL_FINAL",
+            "dc_weight": 0.42, "enh_weight": 0.30,
+            "elo_weight": 0.08, "pi_weight": 0.12,
+            "market_max": 0.08,
+        }
+    # UCL Knockout: moderate adjustment
+    if ("champions" in c or "ucl" in c) and any(k in s for k in ["quarter", "semi", "last_16", "playoff"]):
+        return {
+            "label": "UCL_KNOCKOUT",
+            "dc_weight": 0.45, "enh_weight": 0.28,
+            "elo_weight": 0.07, "pi_weight": 0.10,
+            "market_max": 0.10,
+        }
+    # World Cup: highest DC weight (more national team data)
+    if "world cup" in c:
+        return {
+            "label": "WORLD_CUP",
+            "dc_weight": 0.55, "enh_weight": 0.25,
+            "elo_weight": 0.05, "pi_weight": 0.05,
+            "market_max": 0.10,
+        }
+
+    # Default: Premier League / Ligue 1 / generic
+    return {
+        "label": "LEAGUE",
+        "dc_weight": 0.50, "enh_weight": 0.30,
+        "elo_weight": 0.05, "pi_weight": 0.05,
+        "market_max": 0.10,
+    }
+
+
+async def _get_match_stage(home_team: str, away_team: str, competition: str) -> str:
+    """Look up match stage from the database."""
+    try:
+        import sqlite3, os
+        db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "local_stage2.db")
+        conn = sqlite3.connect(db)
+        r = conn.execute(
+            "SELECT stage FROM matches WHERE competition=? AND home_team_id IN (SELECT id FROM teams WHERE name=?) AND away_team_id IN (SELECT id FROM teams WHERE name=?) ORDER BY match_date DESC LIMIT 1",
+            (competition, home_team, away_team),
+        ).fetchone()
+        conn.close()
+        return r[0] if r else ""
+    except Exception:
+        return ""
+
+
 def _build_provenance(result: dict[str, Any]) -> str:
     """Build data provenance panel lines for report."""
     lines = []
