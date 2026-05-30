@@ -852,6 +852,16 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines.append(f"> 信号调整：{len(adj_log)} 条事件影响概率")
         if risk:
             lines.append(f"> 风险标签：{'，'.join(risk)}")
+    # ── Model vs Market edge ──
+    baseline = result.get("calibration_monitor", {}).get("baseline_probs", {})
+    if baseline:
+        lines.append("")
+        lines.append(f"> 模型独立预测（DC+Enhancer+Elo）：主 {baseline['home_win_prob']:.1%} / 平 {baseline['draw_prob']:.1%} / 客 {baseline['away_win_prob']:.1%}")
+        md_edge = result.get("market_divergence", {})
+        market = md_edge.get("market_probs")
+        if market:
+            edge_h = baseline['home_win_prob'] - market.get('home_prob', 0)
+            lines.append(f"> 模型真实优势（vs Pinnacle）：主 {edge_h:+.1%}")
     lines += [
         "",
         "### Top 3 比分",
