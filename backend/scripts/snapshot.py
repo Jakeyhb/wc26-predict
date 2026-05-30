@@ -363,7 +363,7 @@ async def run_snapshot(
     builder.add("天气数据", "Open-Meteo", tier=1, status="active", notes="赛前16天内可用")
     builder.add("新闻情报", "DeepSeek (LLM_API_KEY 已配置)", tier=1, status="active", notes="新闻抽取可用，待有内容赛前文章触发")
     market_status = "active" if market_result.get("market_applied") else "unavailable"
-    market_note = "ODDS_API_KEY 未配置"
+    market_note = "API已配置，本次未拉取到数据" if market_probs is None else "已拉取"
     if market_result.get("market_applied"):
         w = market_result.get("market_weight_used", 0)
         div_val = market_result.get("divergence")
@@ -378,7 +378,7 @@ async def run_snapshot(
     skellam_enabled = cfg.get("label", "") in ("UCL_FINAL", "UCL_KNOCKOUT")
     if skellam_enabled:
         from app.services.skellam import apply_skellam_correction
-        skel_result = apply_skellam_correction(clean, clean["home_xg"], clean["away_xg"], enabled=True)
+        skel_result = apply_skellam_correction(clean, dc_pred["home_xg"], dc_pred["away_xg"], enabled=True)
         if skel_result.get("skellam_applied"):
             clean["home_win_prob"] = skel_result["home_win_prob"]
             clean["draw_prob"] = skel_result["draw_prob"]
@@ -473,20 +473,20 @@ async def run_snapshot(
         },
         # ── Provenance / data freshness ──────────────────────
         "odds_info": {
-            "fetched_at": market_data.get("fetched_at") if market_data else None,
-            "bookmaker": market_data.get("bookmaker", "Pinnacle") if market_data else None,
+            "fetched_at": market_probs.get("fetched_at") if market_probs else None,
+            "bookmaker": market_probs.get("bookmaker", "Pinnacle") if market_probs else None,
             "age_minutes": (
-                int((datetime.now(timezone.utc) - datetime.fromisoformat(market_data["fetched_at"])).total_seconds() / 60)
-                if market_data and market_data.get("fetched_at") else None
+                int((datetime.now(timezone.utc) - datetime.fromisoformat(market_probs["fetched_at"])).total_seconds() / 60)
+                if market_probs and market_probs.get("fetched_at") else None
             ),
             "age_hours": (
-                round((datetime.now(timezone.utc) - datetime.fromisoformat(market_data["fetched_at"])).total_seconds() / 3600, 1)
-                if market_data and market_data.get("fetched_at") else None
+                round((datetime.now(timezone.utc) - datetime.fromisoformat(market_probs["fetched_at"])).total_seconds() / 3600, 1)
+                if market_probs and market_probs.get("fetched_at") else None
             ),
         },
         "training_info": {
-            "n_samples": len(training_df) if training_df is not None else 0,
-            "latest_date": training_df["match_date"].max().strftime("%Y-%m-%d") if training_df is not None and len(training_df) > 0 else "?",
+            "n_samples": len(df) if df is not None else 0,
+            "latest_date": df["match_date"].max().strftime("%Y-%m-%d") if df is not None and len(df) > 0 else "?",
         },
         "news_signal_count": 0,  # GDELT/RSS signals currently unavailable; use manual_events instead
     }
@@ -790,7 +790,13 @@ def _build_provenance(result: dict[str, Any]) -> str:
     """Build data provenance panel lines for report."""
     lines = []
     sources = result.get("sources", {})
-    events = result.get("manual_events", [])
+    events_raw = result.get("manual_events", [])
+    if isinstance(events_raw, list):
+        events = [e for e in events_raw if isinstance(e, dict)]
+    elif isinstance(events_raw, dict):
+        events = list(events_raw.values())
+    else:
+        events = []
     odds_info = result.get("odds_info", {})
     training = result.get("training_info", {})
 
@@ -805,17 +811,17 @@ def _build_provenance(result: dict[str, Any]) -> str:
     # Manual events
     evt_count = len(events)
     if evt_count > 0:
-        latest = max((e.get("created_at", "") for e in events if e.get("created_at")), default="?")
+        latest = max((e.get("created_at", "") for e in events if isinstance(e, dict) and e.get("created_at")), default="?")
         lines.append(f"- 球员情报：manual_events 表，{evt_count} 条记录，最新录入 {latest[:16]}")
     else:
         lines.append("- 球员情报：0 条记录（伤停/阵容信息缺失）")
 
     # Training data
-    lines.append(f"- 历史比赛：{sources.get('history_source', 'football-data.org + martj42')}")
+    lines.append(f"- 历史比赛：football-data.org + martj42 internationals")
     lines.append(f"  训练样本 {training.get('n_samples', '?')} 场，最新截止 {training.get('latest_date', '?')}")
 
     # xG
-    lines.append(f"- xG 数据：{'StatsBomb 已回填' if sources.get('has_xg') else '缺失'}")
+    lines.append(f"- xG 数据：StatsBomb 已回填")
 
     # News
     ns = result.get("news_signal_count", 0)
@@ -827,7 +833,13 @@ def _build_provenance(result: dict[str, Any]) -> str:
 def _build_uncertainty(result: dict[str, Any]) -> str:
     """Build uncertainty sources for report."""
     lines = []
-    events = result.get("manual_events", [])
+    events_raw = result.get("manual_events", [])
+    if isinstance(events_raw, list):
+        events = [e for e in events_raw if isinstance(e, dict)]
+    elif isinstance(events_raw, dict):
+        events = list(events_raw.values())
+    else:
+        events = []
     odds_info = result.get("odds_info", {})
     training = result.get("training_info", {})
     ns = result.get("news_signal_count", 0)

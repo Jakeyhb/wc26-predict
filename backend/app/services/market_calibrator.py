@@ -46,9 +46,13 @@ class MarketCalibrator:
         return self._client
 
     async def is_available(self) -> bool:
-        """Check if the odds API is configured and reachable."""
-        if self._available is not None:
-            return self._available
+        """Check if the odds API is configured and reachable.
+
+        Always re-checks if previously unavailable — transient errors
+        (network blips, DNS, timeouts) should not permanently disable odds.
+        """
+        if self._available is not None and self._available:
+            return True
         if not self.api_key:
             logger.info("ODDS_API_KEY not configured — market calibrator disabled")
             self._available = False

@@ -140,8 +140,8 @@ def store_signals(signals: list[dict], home_team: str, away_team: str) -> int:
             conn.execute(
                 """INSERT INTO manual_events
                    (id, event_type, team_name, player_name, severity, confidence,
-                    source, source_url, notes, created_by, created_at, expires_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto-rss', ?, ?)""",
+                    source_name, source_url, note, status, created_by, created_at, expires_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'auto-rss', ?, ?)""",
                 (
                     f"rss_{sig.get('signal_type', '?')}_{int(datetime.now(timezone.utc).timestamp())}_{stored}",
                     sig.get("signal_type", "OTHER").upper(),
