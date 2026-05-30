@@ -37,6 +37,7 @@ if str(BACKEND_DIR) not in sys.path:
 from app.database import AsyncSessionLocal
 from app.services.dixon_coles import DixonColesModel, load_training_frame, WC26_FIFA_TIERS
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
+from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.source_logger import SourceLogBuilder, render_source_table
 from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_probabilities
 from app.services.snapshot_store import save_prediction_snapshot
@@ -171,7 +172,14 @@ async def run_snapshot(
 
     # Clean model (DC + Enhancer + Elo, no odds)
     clean = dict(dc_enh)
-    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=0.15))
+    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=0.09))
+
+    # ── Layer 4: Pi-Rating（零中心的进球差评分，跨联赛比较更准确）──
+    pi = PiRatingWrapper()
+    pi.fit(df)
+    pi_pred = pi.predict(home_team, away_team, is_neutral=is_neutral)
+    clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=0.10))
+    pi_ratings_dict = pi.get_ratings_dict()
 
     # ── CalibrationMonitor（仅记录，不修改概率）──
     # 回测样本 < 20，校准器不启用为生产权重。
@@ -426,6 +434,11 @@ async def run_snapshot(
                 "draw": float(elo_pred.draw_prob),
                 "away": float(elo_pred.away_win_prob),
             },
+            "pi_rating": {
+                "home": float(pi_pred["home_win_prob"]),
+                "draw": float(pi_pred["draw_prob"]),
+                "away": float(pi_pred["away_win_prob"]),
+            },
         },
         "market_divergence": {
             "applied": market_result.get("market_applied", False),
@@ -441,6 +454,7 @@ async def run_snapshot(
             "enhancer_rows": enhancer.training_sample_count,
             "enhancer_features": len(enhancer.feature_columns),
             "elo_matches": elo._match_count,
+            "pi_matches": pi._match_count,
         },
         # ── Provenance / data freshness ──────────────────────
         "odds_info": {
