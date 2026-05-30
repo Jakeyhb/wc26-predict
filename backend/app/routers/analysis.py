@@ -53,6 +53,9 @@ async def generate_analysis(req: AnalysisRequest):
     if not DEEPSEEK_KEY:
         raise HTTPException(status_code=500, detail="LLM_API_KEY 未配置，请在 .env.local 中设置")
 
+    # Normalize match_id: strip dashes (snapshot uses dashes, DB stores without)
+    clean_id = req.match_id.replace("-", "")
+
     # ── Read match & prediction data ─────────────────────────
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -63,7 +66,7 @@ async def generate_analysis(req: AnalysisRequest):
            JOIN teams ht ON m.home_team_id = ht.id
            JOIN teams at ON m.away_team_id = at.id
            WHERE m.id = ?""",
-        (req.match_id,),
+        (clean_id,),
     ).fetchone()
 
     if not match:
@@ -75,7 +78,7 @@ async def generate_analysis(req: AnalysisRequest):
         """SELECT * FROM prediction_runs
            WHERE match_id = ?
            ORDER BY created_at DESC LIMIT 1""",
-        (req.match_id,),
+        (clean_id,),
     ).fetchone()
 
     # Recent form (last 5 matches each team)
