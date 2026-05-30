@@ -374,6 +374,17 @@ async def run_snapshot(
     builder.add("市场共识", "The Odds API", tier=2, status=market_status, notes=market_note)
     source_log = builder.build(f"{home_team} vs {away_team}")
 
+    # ── Skellam draw correction (UCL knockout/final only) ──
+    skellam_enabled = cfg.get("label", "") in ("UCL_FINAL", "UCL_KNOCKOUT")
+    if skellam_enabled:
+        from app.services.skellam import apply_skellam_correction
+        skel_result = apply_skellam_correction(clean, clean["home_xg"], clean["away_xg"], enabled=True)
+        if skel_result.get("skellam_applied"):
+            clean["home_win_prob"] = skel_result["home_win_prob"]
+            clean["draw_prob"] = skel_result["draw_prob"]
+            clean["away_win_prob"] = skel_result["away_win_prob"]
+            print(f"  Skellam 平局修正: {skel_result.get('skellam_correction_pp', 0)*100:+.1f}pp")
+
     # ── Missing data ──
     missing = _identify_missing()
 
