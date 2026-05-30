@@ -131,6 +131,30 @@ class PredictionOrchestrator:
                 0.95,
                 0.45 + min(0.25, len(training_df) / 300) + abs(base_prediction["home_win_prob"] - base_prediction["away_win_prob"]) * 0.2,
             )
+            # Data completeness penalty: knowledge gaps reduce confidence
+            data_penalties: list[tuple[str, float]] = []
+            # 1. No injury/signal intelligence
+            if len(approved_signal_payload) == 0:
+                data_penalties.append(("no_intel_signals", 0.05))
+            # 2. Sparse training data for club-level granularity
+            if len(training_df) < 200:
+                data_penalties.append(("sparse_training", 0.10))
+            elif len(training_df) < 500:
+                data_penalties.append(("sparse_training", 0.05))
+            # 3. Market divergence >8pp = market knows something we don't
+            if market_result.get("divergence_triggered"):
+                data_penalties.append(("market_divergence", 0.05))
+            # 4. Odds data was stale or unavailable
+            if not market_result.get("market_applied"):
+                data_penalties.append(("no_market_calibration", 0.03))
+
+            total_penalty = sum(p for _, p in data_penalties)
+            confidence_score = max(0.30, confidence_score - total_penalty)
+            # Add penalty descriptors as risk tags for transparency
+            if data_penalties:
+                penalty_tags = [f"数据缺失-{reason}" for reason, _ in data_penalties]
+                base_prediction.setdefault("risk_tags", [])
+                base_prediction["risk_tags"] = list(set(base_prediction.get("risk_tags", []) + penalty_tags))
             adjusted_prediction = await self.signal_adjuster.apply_signals(
                 {**base_prediction, "confidence_score": confidence_score},
                 approved_signal_payload,
