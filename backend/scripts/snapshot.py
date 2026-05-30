@@ -442,6 +442,24 @@ async def run_snapshot(
             "enhancer_features": len(enhancer.feature_columns),
             "elo_matches": elo._match_count,
         },
+        # ── Provenance / data freshness ──────────────────────
+        "odds_info": {
+            "fetched_at": market_data.get("fetched_at") if market_data else None,
+            "bookmaker": market_data.get("bookmaker", "Pinnacle") if market_data else None,
+            "age_minutes": (
+                int((datetime.now(timezone.utc) - datetime.fromisoformat(market_data["fetched_at"])).total_seconds() / 60)
+                if market_data and market_data.get("fetched_at") else None
+            ),
+            "age_hours": (
+                round((datetime.now(timezone.utc) - datetime.fromisoformat(market_data["fetched_at"])).total_seconds() / 3600, 1)
+                if market_data and market_data.get("fetched_at") else None
+            ),
+        },
+        "training_info": {
+            "n_samples": len(training_df) if training_df is not None else 0,
+            "latest_date": training_df["match_date"].max().strftime("%Y-%m-%d") if training_df is not None and len(training_df) > 0 else "?",
+        },
+        "news_signal_count": 0,  # GDELT/RSS signals currently unavailable; use manual_events instead
     }
 
 
@@ -683,6 +701,72 @@ async def _lookup_match_id(db, home_team: str, away_team: str, competition: str 
 # ═══════════════════════════════════════════════════════════
 #  Markdown report
 # ═══════════════════════════════════════════════════════════
+def _build_provenance(result: dict[str, Any]) -> str:
+    """Build data provenance panel lines for report."""
+    lines = []
+    sources = result.get("sources", {})
+    events = result.get("manual_events", [])
+    odds_info = result.get("odds_info", {})
+    training = result.get("training_info", {})
+
+    # Odds
+    if odds_info.get("fetched_at"):
+        age_h = odds_info.get("age_hours", 99)
+        status = "新鲜" if age_h < 1 else "较旧" if age_h < 3 else "过期"
+        lines.append(f"- 市场赔率：{odds_info.get('bookmaker', 'Pinnacle')} via The Odds API，抓取于 {odds_info['fetched_at'][:16]}（距比赛 {age_h}h）{status}")
+    else:
+        lines.append("- 市场赔率：未拉取（ODDS_API_KEY 未配置或 API 不可用）")
+
+    # Manual events
+    evt_count = len(events)
+    if evt_count > 0:
+        latest = max((e.get("created_at", "") for e in events if e.get("created_at")), default="?")
+        lines.append(f"- 球员情报：manual_events 表，{evt_count} 条记录，最新录入 {latest[:16]}")
+    else:
+        lines.append("- 球员情报：0 条记录（伤停/阵容信息缺失）")
+
+    # Training data
+    lines.append(f"- 历史比赛：{sources.get('history_source', 'football-data.org + martj42')}")
+    lines.append(f"  训练样本 {training.get('n_samples', '?')} 场，最新截止 {training.get('latest_date', '?')}")
+
+    # xG
+    lines.append(f"- xG 数据：{'StatsBomb 已回填' if sources.get('has_xg') else '缺失'}")
+
+    # News
+    ns = result.get("news_signal_count", 0)
+    lines.append(f"- 新闻信号：{ns} 条{'（GDELT/RSS 自动采集）' if ns > 0 else '（本次未采集到有效信号）'}")
+
+    return "\n".join(lines)
+
+
+def _build_uncertainty(result: dict[str, Any]) -> str:
+    """Build uncertainty sources for report."""
+    lines = []
+    events = result.get("manual_events", [])
+    odds_info = result.get("odds_info", {})
+    training = result.get("training_info", {})
+    ns = result.get("news_signal_count", 0)
+
+    warnings = []
+    if len(events) == 0:
+        warnings.append("1. 球员情报：0 条手动记录，伤停和阵容信息完全缺失")
+    elif len(events) < 3:
+        warnings.append(f"1. 球员情报：仅 {len(events)} 条手动记录（人工录入，非自动采集），可能遗漏重要信息")
+    if not odds_info.get("fetched_at"):
+        warnings.append("2. 赔率数据：本次未成功拉取，模型缺少市场校准")
+    elif odds_info.get("age_hours", 0) > 2:
+        warnings.append(f"2. 赔率已过期（{odds_info.get('age_hours')}h 前），开球前应重新验证")
+    if training.get("n_samples", 0) < 500:
+        warnings.append(f"3. 训练数据较少（{training.get('n_samples')} 场），样本量不足")
+    if ns == 0:
+        warnings.append("4. 新闻信号：0 条自动采集，赛前情报依赖纯手动注入")
+
+    if not warnings:
+        warnings.append("本预测无明显数据缺失问题。")
+
+    return "\n".join(warnings)
+
+
 def render_markdown(result: dict[str, Any]) -> str:
     m = result["meta"]
     p = result["prediction"]
@@ -898,7 +982,18 @@ def render_markdown(result: dict[str, Any]) -> str:
         f"- Dixon-Coles 收敛：{'是' if result['pipeline']['dc_converged'] else '否'}（NLL={result['pipeline']['dc_nll']:.2f}）",
         f"- Enhancer：{result['pipeline']['enhancer_algorithm']}，{result['pipeline']['enhancer_rows']} 行 x {result['pipeline']['enhancer_features']} 特征",
         f"- Elo 比赛数：{result['pipeline']['elo_matches']}",
-           "---",           "",           "## 预测可信度说明",           "",           "- 本预测基于 5,000+ 场历史比赛训练",           "- 三层模型融合：Dixon-Coles (泊松) + Enhancer (梯度提升) + Elo",           "- 已纳入：联赛排名/动力因素（standings 驱动）",           "- 未纳入参数：首发阵容、球员伤病、赛前新闻情报",           "- 以上缺失因素可能显著改变预测结果，仅供个人参考",    ]
+           "---",           "",           "## 预测可信度说明",           "",           "- 本预测基于 5,000+ 场历史比赛训练",           "- 三层模型融合：Dixon-Coles (泊松) + Enhancer (梯度提升) + Elo",           "- 已纳入：联赛排名/动力因素（standings 驱动）",           "- 未纳入参数：首发阵容、球员伤病、赛前新闻情报",           "- 以上缺失因素可能显著改变预测结果，仅供个人参考",        ]
+
+    provenance = _build_provenance(result)
+    lines.append(provenance)
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("## 预测不确定性来源")
+    lines.append("")
+    uncertainty = _build_uncertainty(result)
+    lines.append(uncertainty)
+    lines.append("")
 
     return "\n".join(lines)
 

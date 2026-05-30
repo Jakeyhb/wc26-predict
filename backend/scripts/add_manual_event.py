@@ -75,6 +75,8 @@ def validate_args(args) -> list[str]:
             )
         if args.source is None:
             errors.append("--source is required (no source = no trust)")
+        if args.source_url is None and not args.force:
+            errors.append("--source-url is required (use --force to skip)")
         if args.confidence is not None and not (0.0 <= args.confidence <= 1.0):
             errors.append("--confidence must be between 0.0 and 1.0")
 

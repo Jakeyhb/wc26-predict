@@ -115,7 +115,9 @@ class MarketCalibrator:
                     if self._teams_match(match_data, home_team, away_team):
                         result = self._extract_probs(match_data, home_team, away_team)
                         if result:
+                            from datetime import datetime as _dt, timezone as _tz
                             result["sport_key"] = sport_key
+                            result["fetched_at"] = _dt.now(_tz.utc).isoformat()
                             logger.info(
                                 f"Market data found for {home_team} vs {away_team} "
                                 f"in {sport_key}: home={result['home_prob']:.3f}"
