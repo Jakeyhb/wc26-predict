@@ -164,24 +164,36 @@ class SignalAdjuster:
         return 0.03
 
     async def _get_dynamic_multiplier(self, signal_type: str) -> float:
-        """Read current_weight_multiplier from signal_track_record.
+        """Read accuracy_rate from signal_track_record to scale magnitude.
 
-        Returns multiplier in [0.4, 1.0]. Default 1.0 if no record.
+        Historical accuracy → multiplier:
+          rate > 0.80 → 1.0  (proven reliable)
+          rate 0.50-0.80 → 0.8 (moderate evidence)
+          rate < 0.50 → 0.5  (poor track record)
+          no history → 0.7    (conservative default — no empirical basis)
+
+        Returns multiplier in [0.4, 1.0].
         """
         try:
             from app.database import AsyncSessionLocal
             from sqlalchemy import text
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    text("SELECT current_weight_multiplier FROM signal_track_record WHERE signal_type = :st"),
+                    text("SELECT accuracy_rate, total_used FROM signal_track_record WHERE signal_type = :st"),
                     {"st": signal_type.upper()},
                 )
                 row = result.fetchone()
-                if row:
-                    return float(row[0])
+                if row and row[1] >= 3:  # Require at least 3 uses to trust history
+                    rate = float(row[0])
+                    if rate > 0.80:
+                        return 1.0
+                    elif rate > 0.50:
+                        return 0.8
+                    else:
+                        return 0.5
         except Exception:
             pass
-        return 1.0
+        return 0.7  # Conservative default: no empirical basis for magnitude
 
     def _rebuild_matrix(self, home_xg: float, away_xg: float, max_goals: int = 5) -> np.ndarray:
         matrix = np.zeros((max_goals + 1, max_goals + 1))
