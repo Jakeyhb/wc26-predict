@@ -88,7 +88,7 @@ async def run_snapshot(
 
     # ── Load training data ──
     # Detect national vs club competition
-    is_national = any(kw in competition.lower() for kw in ["world cup", "euro", "copa", "nations", "international"])
+    is_national = any(kw in competition.lower() for kw in ["world cup", "euro", "copa", "nations", "international", "friendly", "asian cup", "gold cup", "african cup"])
     comp_type = "national" if is_national else "club"
     team_t = "national" if is_national else "club"
 
@@ -1124,7 +1124,7 @@ async def main(home_team: str, away_team: str, competition: str, is_neutral: boo
         is_neutral=is_neutral,
         competition=competition,
         competitions=competitions,
-        competition_weight=1.5 if "World Cup" in competition else 0.9,
+        competition_weight=1.5 if "World Cup" in competition else (0.5 if "Friendly" in competition else 0.9),
     )
 
     markdown = render_markdown(result)
