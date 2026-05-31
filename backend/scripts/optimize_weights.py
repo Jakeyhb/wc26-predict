@@ -23,10 +23,15 @@ COMPONENTS = ["dc", "enhancer", "elo", "pi_rating"]
 
 
 def ranked_probability_score(pred, actual):
-    """RPS = mean((cum_pred - cum_actual)^2) for 3 outcomes."""
+    """RPS = mean((cum_pred - cum_actual)^2) for first r-1=2 outcomes.
+
+    Only first 2 cumulative terms carry information; the 3rd always sums to 1.0.
+    RPS range: 0 (perfect) to 1 (worst).
+    """
     cp = np.cumsum(pred[:3])
     ca = np.cumsum([1.0 if i == actual else 0.0 for i in range(3)])
-    return float(np.mean((cp - ca) ** 2))
+    # Only first (r-1)=2 terms — the 3rd diff is always zero
+    return float(np.mean((cp[:-1] - ca[:-1]) ** 2))
 
 
 def load_data():

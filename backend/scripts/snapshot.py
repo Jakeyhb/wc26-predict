@@ -38,6 +38,7 @@ from app.database import AsyncSessionLocal
 from app.services.dixon_coles import DixonColesModel, load_training_frame, WC26_FIFA_TIERS
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
+from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.source_logger import SourceLogBuilder, render_source_table
 from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_probabilities
 from app.services.snapshot_store import save_prediction_snapshot
@@ -144,6 +145,11 @@ async def run_snapshot(
         rest_days={"home": 5, "away": 5},
     )
 
+    # ── Weibull Copula (optional, complements DC for over/under) ──
+    wb = WeibullWrapper()
+    wb_fitted = wb.fit(df, timeout=60)
+    wb_pred = wb.predict(home_team, away_team, is_neutral) if wb_fitted else None
+
     # ── Scene-based Model Config ─────────────────────────────
     cfg = _get_model_config(competition, stage=(await _get_match_stage(home_team, away_team, competition)))
     print(f"  场景配置: {cfg['label']} (DC{cfg['dc_weight']:.0%}+Enh{cfg['enh_weight']:.0%}+Elo{cfg['elo_weight']:.0%}+Pi{cfg['pi_weight']:.0%})")
@@ -163,6 +169,9 @@ async def run_snapshot(
         },
         base_weight=cfg["dc_weight"],
     ))
+
+    # ── Fuse DC+Enhancer with Weibull (UCL scenes: 15% weight) ──
+    dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=cfg.get("weibull_weight", 0.15)))
 
     # ── Layer 3: Elo ──
     elo = EloRatingSystem()

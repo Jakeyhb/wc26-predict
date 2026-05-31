@@ -157,6 +157,15 @@ async def add_event(args) -> None:
             for e in errors:
                 print(f"   - {e}")
 
+        # ── Source credibility assessment ──
+        cred = _assess_credibility(args.source_url or "")
+        if cred == "LOW":
+            args.confidence = min(args.confidence, 0.50)
+            print(f"⚠️  低可信度来源，confidence 自动下调至 {args.confidence:.0%}")
+        elif cred == "UNKNOWN":
+            args.confidence = min(args.confidence, 0.65)
+            print(f"⚠️  未知来源，confidence 自动下调至 {args.confidence:.0%}")
+
         event = ManualEvent(
             team_name=args.team,
             player_name=args.player,
@@ -216,6 +225,46 @@ async def list_events(team: str | None = None, limit: int = 20) -> None:
             player = e.player_name or "—"
             note = (e.note or "")[:40]
             print(f"{created:<22} {e.event_type:<18} {e.team_name:<20} {player:<15} {e.severity:<8} {e.confidence:.0%}     {note}")
+
+
+# ── Source credibility whitelist ──────────────────────────────
+
+CREDIBLE_SOURCES = {
+    "HIGH": [
+        "skysports.com", "bbc.co.uk", "espn.com", "lequipe.fr",
+        "arsenal.com", "psg.fr", "uefa.com", "bild.de", "guardian.com",
+        "onefootball.com", "sportingnews.com", "yahoo.com/sports",
+        "kicker.de", "gianlucadimarzio.com",
+    ],
+    "MEDIUM": [
+        "goal.com", "telegraph.co.uk", "marca.com", "mirror.co.uk",
+        "rotowire.com", "foxsports.com", "dailymail.com",
+    ],
+    "LOW": [
+        "twitter.com", "reddit.com", "tiktok.com", "facebook.com",
+        "instagram.com", "youtube.com",
+    ],
+}
+
+
+def _assess_credibility(source_url: str) -> str:
+    """Determine source credibility tier from URL.
+
+    Returns: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN"
+    """
+    if not source_url:
+        return "LOW"
+    url_lower = source_url.lower()
+    for domain in CREDIBLE_SOURCES["HIGH"]:
+        if domain in url_lower:
+            return "HIGH"
+    for domain in CREDIBLE_SOURCES["MEDIUM"]:
+        if domain in url_lower:
+            return "MEDIUM"
+    for domain in CREDIBLE_SOURCES["LOW"]:
+        if domain in url_lower:
+            return "LOW"
+    return "UNKNOWN"
 
 
 async def main() -> None:

@@ -329,6 +329,31 @@ async def check_celery_beat_task_count() -> CheckResult:
     return CheckResult("Celery Beat任务数量", ok, detail if not ok else f"configured={len(actual_tasks)}")
 
 
+async def check_market_odds_freshness() -> CheckResult:
+    """Verify market odds data has not expired."""
+    try:
+        import sqlite3, os
+        db = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data", "local_stage2.db",
+        )
+        conn = sqlite3.connect(db)
+        r = conn.execute(
+            "SELECT fetched_at FROM market_odds ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        conn.close()
+        if not r or not r[0]:
+            return CheckResult("赔率数据时效", False, "market_odds 为空或无时间戳")
+        age_h = (__import__("datetime").datetime.now() - __import__("datetime").datetime.fromisoformat(r[0])).total_seconds() / 3600
+        if age_h > 24:
+            return CheckResult("赔率数据时效", False, f"赔率过期 {age_h:.1f}h，请重新抓取")
+        elif age_h > 6:
+            return CheckResult("赔率数据时效", True, f"赔率较旧 {age_h:.1f}h，建议更新")
+        return CheckResult("赔率数据时效", True, f"赔率新鲜 {age_h:.1f}h")
+    except Exception as e:
+        return CheckResult("赔率数据时效", False, str(e))
+
+
 async def main(stage: int) -> None:
     configure_logging()
     stage_one_checks: list[Callable[[], Awaitable[CheckResult]]] = [
@@ -351,6 +376,7 @@ async def main(stage: int) -> None:
         check_league_data_loaded,
         check_model_artifacts_by_type,
         check_celery_beat_task_count,
+        check_market_odds_freshness,
     ]
     checks = stage_one_checks if stage == 1 else [*stage_one_checks, *stage_two_checks]
 
