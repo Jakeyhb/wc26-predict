@@ -19,6 +19,14 @@ class SignalAdjuster:
         "travel_fatigue": 0.06,
     }
 
+    # World Cup venue altitudes (meters)
+    VENUE_ALTITUDE = {
+        "Estadio Azteca": 2240,       # Mexico City
+        "Estadio BBVA": 537,           # Monterrey
+        "Estadio Akron": 1560,         # Guadalajara
+    }
+    HIGH_ALTITUDE_THRESHOLD = 1500   # Significant physiological impact
+
     async def apply_signals(
         self,
         base_prediction: dict[str, Any],

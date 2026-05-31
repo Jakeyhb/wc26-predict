@@ -39,16 +39,21 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
     since = now - timedelta(days=days)
 
     async with AsyncSessionLocal() as db:
-        # Find matches finished in the window
-        stmt = (
-            select(Match, MatchResult)
-            .join(MatchResult, MatchResult.match_id == Match.id)
-            .where(Match.match_date >= since)
-            .where(Match.match_date < now)
-            .order_by(Match.match_date.desc())
-        )
-        result = await db.execute(stmt)
-        finished_matches = result.all()
+        # Find matches finished in the window (use raw SQL to bypass UUID ORM issue)
+        from sqlalchemy import text
+        stmt = text("""
+            SELECT m.id as m_id, mr.home_goals, mr.away_goals,
+                   m.match_date, m.home_team_id, m.away_team_id,
+                   ht.name as home_name, at.name as away_name
+            FROM matches m
+            JOIN match_results mr ON mr.match_id = m.id
+            JOIN teams ht ON m.home_team_id = ht.id
+            JOIN teams at ON m.away_team_id = at.id
+            WHERE m.match_date >= :since AND m.match_date < :now AND m.status = 'finished'
+            ORDER BY m.match_date DESC
+        """)
+        result = await db.execute(stmt, {"since": since, "now": now})
+        finished_matches = result.fetchall()
 
         processed = 0
         skipped_no_snapshot = 0
@@ -56,16 +61,17 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
         total_brier = 0.0
         engine = get_learning_engine()
 
-        for match, match_result in finished_matches:
-            home_goals = match_result.home_goals
-            away_goals = match_result.away_goals
+        for row in finished_matches:
+            home_goals = row.home_goals
+            away_goals = row.away_goals
             if home_goals is None or away_goals is None:
                 continue
 
-            # Find prediction snapshots for this match
+            # Find prediction snapshots — use raw UUID format for CHAR(32) compatibility
+            match_id_raw = row.m_id
             snap_stmt = (
                 select(PredictionSnapshot)
-                .where(PredictionSnapshot.match_id == match.id)
+                .where(PredictionSnapshot.match_id.like(f"{match_id_raw}%"))
                 .order_by(PredictionSnapshot.generated_at.desc())
                 .limit(1)
             )
@@ -87,7 +93,7 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                 continue
 
             if dry_run:
-                print(f"[DRY-RUN] {match.match_date.date()} {snapshot.home_team} "
+                print(f"[DRY-RUN] {row.match_date[:10]} {snapshot.home_team} "
                       f"{home_goals}-{away_goals} {snapshot.away_team}")
                 processed += 1
                 continue
@@ -100,7 +106,7 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                 await db.commit()
                 total_brier += error_log.error_magnitude
                 processed += 1
-                print(f"  ✓ {match.match_date.date()} {snapshot.home_team} "
+                print(f"  ✓ {row.match_date[:10]} {snapshot.home_team} "
                       f"{home_goals}-{away_goals} {snapshot.away_team} "
                       f"Brier={error_log.error_magnitude:.3f} "
                       f"dir={error_log.error_direction}")
