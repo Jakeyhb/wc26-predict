@@ -26,6 +26,56 @@ class SignalAdjuster:
         "Estadio Akron": 1560,         # Guadalajara
     }
     HIGH_ALTITUDE_THRESHOLD = 1500   # Significant physiological impact
+    HIGH_ALTITUDE_XG_FACTOR = 0.95   # Reduce xG for both teams at altitude
+
+    def apply_venue_factors(
+        self,
+        home_xg: float,
+        away_xg: float,
+        venue: str | None = None,
+        match_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Apply venue-based adjustments (altitude, etc.) to xG values.
+
+        Called BEFORE signal adjustment so venue effects compose with
+        manual-event signal effects.
+
+        Returns {home_xg, away_xg, risk_tags, adjustment_log}
+        """
+        risk_tags: list[str] = []
+        adjustment_log: list[dict[str, Any]] = []
+        adjusted_home_xg = float(home_xg)
+        adjusted_away_xg = float(away_xg)
+
+        # Try to get venue from match_context if not explicitly provided
+        venue_name = venue
+        if not venue_name and match_context:
+            venue_name = match_context.get("venue", match_context.get("venue_name"))
+        if not venue_name and match_context:
+            # Try to find venue in competition-specific keys
+            venue_name = match_context.get("stadium")
+
+        if venue_name and venue_name in self.VENUE_ALTITUDE:
+            altitude = self.VENUE_ALTITUDE[venue_name]
+            if altitude >= self.HIGH_ALTITUDE_THRESHOLD:
+                factor = self.HIGH_ALTITUDE_XG_FACTOR
+                adjusted_home_xg *= factor
+                adjusted_away_xg *= factor
+                risk_tags.append("高海拔场地")
+                adjustment_log.append({
+                    "type": "venue_altitude",
+                    "venue": venue_name,
+                    "altitude_m": altitude,
+                    "xg_factor": factor,
+                    "description": f"{venue_name} 海拔 {altitude}m，双方 xG × {factor}",
+                })
+
+        return {
+            "home_xg": adjusted_home_xg,
+            "away_xg": adjusted_away_xg,
+            "risk_tags": risk_tags,
+            "adjustment_log": adjustment_log,
+        }
 
     async def apply_signals(
         self,

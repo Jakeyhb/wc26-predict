@@ -189,10 +189,16 @@ async def run_snapshot(
 
     # ── Layer 4: Pi-Rating（零中心的进球差评分，跨联赛比较更准确）──
     pi = PiRatingWrapper()
-    pi.fit(df)
-    pi_pred = pi.predict(home_team, away_team, is_neutral=is_neutral)
-    clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=cfg["pi_weight"]))
-    pi_ratings_dict = pi.get_ratings_dict()
+    pi_pred = None
+    pi_ratings_dict: dict[str, float] = {}
+    try:
+        pi.fit(df)
+        pi_pred = pi.predict(home_team, away_team, is_neutral=is_neutral)
+        pi_ratings_dict = pi.get_ratings_dict()
+    except Exception:
+        pass  # Pi-Rating is optional — gracefully skip if penaltyblog unavailable
+    if pi_pred:
+        clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=cfg["pi_weight"]))
 
     # ── CalibrationMonitor（仅记录，不修改概率）──
     # 回测样本 < 20，校准器不启用为生产权重。
@@ -207,96 +213,112 @@ async def run_snapshot(
     home_form = _recent_form(df, home_team, 5)
     away_form = _recent_form(df, away_team, 5)
 
-    # ── Motivation (standings-derived or WC-specific) ──
-    home_motivation = None
-    away_motivation = None
-    if "World Cup" in competition:
-        # Use WC-specific group-stage motivation calculator
-        home_motivation = await compute_wc_motivation(db, home_team, competition)
-        away_motivation = await compute_wc_motivation(db, away_team, competition)
-    if not home_motivation:
-        home_motivation = await _lookup_motivation(db, home_team, competition)
-    if not away_motivation:
-        away_motivation = await _lookup_motivation(db, away_team, competition)
+    # ── Enrichment queries (need a fresh DB session) ──
+    # The training-data session above is already closed; open a new one for
+    # motivation / events / signal-adjustment lookups.
+    async with AsyncSessionLocal() as db:
+        # ── Motivation (standings-derived or WC-specific) ──
+        home_motivation = None
+        away_motivation = None
+        if "World Cup" in competition:
+            home_motivation = await compute_wc_motivation(db, home_team, competition)
+            away_motivation = await compute_wc_motivation(db, away_team, competition)
+        if not home_motivation:
+            home_motivation = await _lookup_motivation(db, home_team, competition)
+        if not away_motivation:
+            away_motivation = await _lookup_motivation(db, away_team, competition)
 
-    # ── Match ID lookup (for post-match learning) ──
-    match_id = await _lookup_match_id(db, home_team, away_team)
+        # ── Match ID lookup (for post-match learning) ──
+        match_id = await _lookup_match_id(db, home_team, away_team)
 
-    # ── Manual events ──
-    home_events = await _lookup_manual_events(db, home_team)
-    away_events = await _lookup_manual_events(db, away_team)
-
-    # ── Signal adjustment (apply manual events to baseline) ──
-    adjuster = SignalAdjuster()
-    all_manual = []
-    for ev in home_events:
-        ev_copy = dict(ev)
-        ev_copy["_side"] = "home"
-        all_manual.append(ev_copy)
-    for ev in away_events:
-        ev_copy = dict(ev)
-        ev_copy["_side"] = "away"
-        all_manual.append(ev_copy)
-
-    signal_adjustment_log: list[dict[str, Any]] = []
-    risk_tags: list[str] = []
-    if all_manual:
-        home_team_id = await _resolve_team_id(db, home_team)
-        away_team_id = await _resolve_team_id(db, away_team)
-
-        signals_for_adjuster: list[dict[str, Any]] = []
-        for ev in all_manual:
-            sig_type = ev["event_type"].lower()
-            # Map event types that SignalAdjuster doesn't natively handle
-            if sig_type == "rotation_hint":
-                sig_type = "lineup_hint"
-
-            team_id = str(home_team_id) if ev["_side"] == "home" else str(away_team_id)
-            key_players = [ev["player"]] if ev.get("player") else []
-
-            # Infer availability from severity for injury events
-            availability = None
-            if sig_type == "injury":
-                sev = ev.get("severity", "medium")
-                if sev == "critical":
-                    availability = "out"
-                elif sev in ("high", "medium"):
-                    availability = "doubtful"
-
-            signals_for_adjuster.append({
-                "signal_type": sig_type,
-                "team_id": team_id,
-                "confidence": float(ev.get("confidence", 0.5)),
-                "key_players": key_players,
-                "summary_zh": ev.get("note", ""),
-                "normalized_availability": availability,
-            })
-
-        adjusted = await adjuster.apply_signals(
-            base_prediction={
-                "home_xg": dc_pred["home_xg"],
-                "away_xg": dc_pred["away_xg"],
-                "confidence_score": 0.7,
-            },
-            approved_signals=signals_for_adjuster,
-            match_context={
-                "home_team_id": str(home_team_id) if home_team_id else "",
-                "away_team_id": str(away_team_id) if away_team_id else "",
-                "home_team_name": home_team,
-                "away_team_name": away_team,
-            },
+        # ── Venue lookup + altitude adjustment ──
+        # Applied BEFORE signal adjustment; venue effects compose with manual events.
+        venue_name = await _lookup_venue(db, home_team, away_team, competition)
+        adjuster = SignalAdjuster()
+        risk_tags: list[str] = []
+        venue_factors = adjuster.apply_venue_factors(
+            dc_pred["home_xg"], dc_pred["away_xg"],
+            venue=venue_name,
         )
+        if venue_factors["risk_tags"]:
+            dc_pred["home_xg"] = venue_factors["home_xg"]
+            dc_pred["away_xg"] = venue_factors["away_xg"]
+            risk_tags.extend(venue_factors["risk_tags"])
+            print(f"  海拔调整: {venue_name} → xG × {SignalAdjuster.HIGH_ALTITUDE_XG_FACTOR}")
 
-        # Override baseline probabilities with adjusted
-        clean["home_win_prob"] = adjusted["home_win_prob"]
-        clean["draw_prob"] = adjusted["draw_prob"]
-        clean["away_win_prob"] = adjusted["away_win_prob"]
-        # Also use adjusted xG and score matrix
-        dc_pred["home_xg"] = adjusted["home_xg"]
-        dc_pred["away_xg"] = adjusted["away_xg"]
-        dc_pred["top3_scores"] = adjusted["top3_scores"]
-        signal_adjustment_log = adjusted.get("adjustment_log", [])
-        risk_tags = adjusted.get("risk_tags", [])
+        # ── Manual events ──
+        home_events = await _lookup_manual_events(db, home_team)
+        away_events = await _lookup_manual_events(db, away_team)
+
+        # ── Signal adjustment (apply manual events to baseline) ──
+        all_manual = []
+        for ev in home_events:
+            ev_copy = dict(ev)
+            ev_copy["_side"] = "home"
+            all_manual.append(ev_copy)
+        for ev in away_events:
+            ev_copy = dict(ev)
+            ev_copy["_side"] = "away"
+            all_manual.append(ev_copy)
+
+        signal_adjustment_log: list[dict[str, Any]] = []
+        if all_manual:
+            home_team_id = await _resolve_team_id(db, home_team)
+            away_team_id = await _resolve_team_id(db, away_team)
+
+            signals_for_adjuster: list[dict[str, Any]] = []
+            for ev in all_manual:
+                sig_type = ev["event_type"].lower()
+                # Map event types that SignalAdjuster doesn't natively handle
+                if sig_type == "rotation_hint":
+                    sig_type = "lineup_hint"
+
+                team_id = str(home_team_id) if ev["_side"] == "home" else str(away_team_id)
+                key_players = [ev["player"]] if ev.get("player") else []
+
+                # Infer availability from severity for injury events
+                availability = None
+                if sig_type == "injury":
+                    sev = ev.get("severity", "medium")
+                    if sev == "critical":
+                        availability = "out"
+                    elif sev in ("high", "medium"):
+                        availability = "doubtful"
+
+                signals_for_adjuster.append({
+                    "signal_type": sig_type,
+                    "team_id": team_id,
+                    "confidence": float(ev.get("confidence", 0.5)),
+                    "key_players": key_players,
+                    "summary_zh": ev.get("note", ""),
+                    "normalized_availability": availability,
+                })
+
+            adjusted = await adjuster.apply_signals(
+                base_prediction={
+                    "home_xg": dc_pred["home_xg"],
+                    "away_xg": dc_pred["away_xg"],
+                    "confidence_score": 0.7,
+                },
+                approved_signals=signals_for_adjuster,
+                match_context={
+                    "home_team_id": str(home_team_id) if home_team_id else "",
+                    "away_team_id": str(away_team_id) if away_team_id else "",
+                    "home_team_name": home_team,
+                    "away_team_name": away_team,
+                },
+            )
+
+            # Override baseline probabilities with adjusted
+            clean["home_win_prob"] = adjusted["home_win_prob"]
+            clean["draw_prob"] = adjusted["draw_prob"]
+            clean["away_win_prob"] = adjusted["away_win_prob"]
+            # Also use adjusted xG and score matrix
+            dc_pred["home_xg"] = adjusted["home_xg"]
+            dc_pred["away_xg"] = adjusted["away_xg"]
+            dc_pred["top3_scores"] = adjusted["top3_scores"]
+            signal_adjustment_log = adjusted.get("adjustment_log", [])
+            risk_tags.extend(adjusted.get("risk_tags", []))
 
     # ── Context Adjuster (learned situational biases) ──
     context_tags = []
@@ -311,7 +333,8 @@ async def run_snapshot(
     try:
         from app.services.context_adjuster import get_context_adjuster
         ctx_adjuster = get_context_adjuster()
-        ctx_result = await ctx_adjuster.apply_context_adjustments(clean, context_tags, db)
+        async with AsyncSessionLocal() as ctx_db:
+            ctx_result = await ctx_adjuster.apply_context_adjustments(clean, context_tags, ctx_db)
         if ctx_result.get("context_adjustments"):
             clean["home_win_prob"] = ctx_result["home_win_prob"]
             clean["draw_prob"] = ctx_result["draw_prob"]
@@ -353,7 +376,7 @@ async def run_snapshot(
         # ── Persist market odds to DB for audit trail ──
         if market_probs:
             await _save_market_odds(
-                db, home_team, away_team, competition,
+                home_team, away_team, competition,
                 market_probs, market_result.get("divergence")
             )
     except Exception as e:
@@ -459,9 +482,9 @@ async def run_snapshot(
                 "away": float(elo_pred.away_win_prob),
             },
             "pi_rating": {
-                "home": float(pi_pred["home_win_prob"]),
-                "draw": float(pi_pred["draw_prob"]),
-                "away": float(pi_pred["away_win_prob"]),
+                "home": float(pi_pred["home_win_prob"]) if pi_pred else 0.33,
+                "draw": float(pi_pred["draw_prob"]) if pi_pred else 0.33,
+                "away": float(pi_pred["away_win_prob"]) if pi_pred else 0.33,
             },
         },
         "market_divergence": {
@@ -539,14 +562,15 @@ def _recent_form(df: pd.DataFrame, team: str, n: int = 5) -> list[dict[str, Any]
 #  Market odds persistence
 # ═══════════════════════════════════════════════════════════
 async def _save_market_odds(
-    db, home_team: str, away_team: str, competition: str,
+    home_team: str, away_team: str, competition: str,
     market_probs: dict, divergence: float | None,
 ) -> None:
     """Persist fetched market implied probabilities to market_odds table."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     try:
-        await db.execute(
+        async with AsyncSessionLocal() as mkt_db:
+            await mkt_db.execute(
             text(
                 "INSERT INTO market_odds "
                 "(home_implied_prob, draw_implied_prob, away_implied_prob, "
@@ -562,7 +586,7 @@ async def _save_market_odds(
                 "id": str(__import__("uuid").uuid4()).replace("-", ""),
             },
         )
-        await db.commit()
+            await mkt_db.commit()
     except Exception:
         pass  # market_odds persistence is best-effort
 
@@ -623,6 +647,8 @@ async def _lookup_motivation(db, team_name: str, competition: str) -> dict[str, 
 async def _lookup_manual_events(db, team_name: str, limit: int = 5) -> list[dict[str, Any]]:
     """Look up active, unexpired manual events for a team.
 
+    Uses raw SQL to avoid ORM UUID conversion issues with CHAR(32) primary keys.
+
     Filters out:
       - Expired events (expires_at < now)
       - Events referencing players who no longer belong to this team
@@ -631,41 +657,66 @@ async def _lookup_manual_events(db, team_name: str, limit: int = 5) -> list[dict
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
-        # ── Query active events ──
+        # ── Query active events via raw SQL (bypass ORM UUID issue) ──
+        stmt = text("""
+            SELECT id, team_name, event_type, player_name, severity, confidence,
+                   source_name, note, expires_at, created_at
+            FROM manual_events
+            WHERE team_name LIKE :team_pattern
+              AND status = 'active'
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """)
         result = await db.execute(
-            select(ManualEvent).where(
-                ManualEvent.team_name.ilike(f"%{team_name}%"),
-                ManualEvent.status == "active",
-            ).order_by(ManualEvent.created_at.desc()).limit(limit * 2)  # fetch extra to allow filtering
+            stmt,
+            {"team_pattern": f"%{team_name}%", "limit": limit * 2},
         )
-        events = result.scalars().all()
+        rows = result.fetchall()
+
+        if not rows:
+            return []
 
         # ── Resolve team UUID for player validation ──
-        team_id = await _resolve_team_id(db, team_name)
+        team_id = None
+        team_result = await db.execute(
+            select(Team.id).where(Team.name == team_name)
+        )
+        team_row = team_result.scalar_one_or_none()
+        if team_row:
+            team_id = str(team_row)
 
         validated = []
         filtered_out = []
-        for e in events:
+        for row in rows:
+            eid, e_team, e_type, e_player, e_sev, e_conf, e_src, e_note, e_expires, e_created = row
+
             # ── Check 1: Expiry ──
-            if e.expires_at and e.expires_at < now_iso:
-                filtered_out.append(f"{e.event_type}/{e.player_name or 'N/A'}: 已过期 ({e.expires_at})")
+            if e_expires and e_expires < now_iso:
+                filtered_out.append(f"{e_type}/{e_player or 'N/A'}: 已过期")
                 continue
 
             # ── Check 2: Player belongs to this team ──
-            if e.player_name and team_id:
+            if e_player and team_id:
                 player_result = await db.execute(
-                    select(Player.team_id).where(Player.name == e.player_name)
+                    text("SELECT team_id FROM players WHERE name = :pname"),
+                    {"pname": e_player},
                 )
-                player_team_rows = player_result.all()
-                player_team_ids = [str(row[0]) for row in player_team_rows]
+                player_team_rows = player_result.fetchall()
+                player_team_ids = [str(r[0]) for r in player_team_rows]
                 if player_team_ids and team_id not in player_team_ids:
                     filtered_out.append(
-                        f"{e.event_type}/{e.player_name}: "
-                        f"球员不属于 {team_name} (player_team={player_team_ids})"
+                        f"{e_type}/{e_player}: 球员不属于 {team_name}"
                     )
                     continue
 
-            validated.append(e)
+            validated.append({
+                "event_type": e_type,
+                "player": e_player,
+                "severity": e_sev,
+                "confidence": e_conf,
+                "source": e_src,
+                "note": e_note,
+            })
             if len(validated) >= limit:
                 break
 
@@ -673,18 +724,9 @@ async def _lookup_manual_events(db, team_name: str, limit: int = 5) -> list[dict
             print(f"  [lookup_manual_events] 过滤 {len(filtered_out)} 条无效事件: "
                   + "; ".join(filtered_out[:3]))
 
-        return [
-            {
-                "event_type": e.event_type,
-                "player": e.player_name,
-                "severity": e.severity,
-                "confidence": e.confidence,
-                "source": e.source_name,
-                "note": e.note,
-            }
-            for e in validated
-        ]
-    except Exception:
+        return validated
+    except Exception as e:
+        print(f"  [lookup_manual_events] 查询失败: {e}")
         return []
 
 
@@ -732,6 +774,37 @@ async def _lookup_match_id(db, home_team: str, away_team: str, competition: str 
             mid = str(row[0]).replace("-", "")
             return mid
         return None
+    except Exception:
+        return None
+
+
+async def _lookup_venue(db, home_team: str, away_team: str, competition: str | None = None) -> str | None:
+    """Look up the venue/stadium for a match from the matches table."""
+    try:
+        from app.models.match import Match
+
+        home_id_result = await db.execute(
+            select(Team.id).where(Team.name.ilike(f"%{home_team}%")).limit(1)
+        )
+        away_id_result = await db.execute(
+            select(Team.id).where(Team.name.ilike(f"%{away_team}%")).limit(1)
+        )
+        home_id = home_id_result.scalar_one_or_none()
+        away_id = away_id_result.scalar_one_or_none()
+
+        if not home_id or not away_id:
+            return None
+
+        stmt = (
+            select(Match.venue)
+            .where(Match.home_team_id == home_id)
+            .where(Match.away_team_id == away_id)
+            .order_by(Match.match_date.desc())
+            .limit(1)
+        )
+        venue_result = await db.execute(stmt)
+        row = venue_result.first()
+        return str(row[0]) if row and row[0] else None
     except Exception:
         return None
 

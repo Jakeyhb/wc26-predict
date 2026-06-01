@@ -92,11 +92,14 @@ class ZhipuAdapter(OpenAICompatibleAdapter):
 
 
 def get_llm_adapter() -> LLMAdapter:
-    if settings.llm_provider == "qwen":
-        return QwenAdapter()
     if settings.llm_provider == "deepseek":
         return DeepSeekAdapter()
-    return ZhipuAdapter()
+    if settings.llm_provider == "qwen":
+        return QwenAdapter()
+    if settings.llm_provider == "zhipu":
+        return ZhipuAdapter()
+    # Fallback to DeepSeek (default provider)
+    return DeepSeekAdapter()
 
 
 def _extract_json_payload(raw: str) -> Any:

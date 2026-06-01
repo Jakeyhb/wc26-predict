@@ -44,10 +44,10 @@ class Settings(BaseSettings):
     event_registry_base_url: str = "https://eventregistry.org/api/v1"
     gdelt_base_url: str = "https://api.gdeltproject.org/api/v2/doc/doc"
 
-    llm_provider: Literal["qwen", "deepseek", "zhipu"] = Field(default="qwen", alias="LLM_PROVIDER")
+    llm_provider: Literal["qwen", "deepseek", "zhipu"] = Field(default="deepseek", alias="LLM_PROVIDER")
     llm_base_url: str | None = Field(default=None, alias="LLM_BASE_URL")
     llm_api_key: str | None = Field(default=None, alias="LLM_API_KEY")
-    llm_model: str = Field(default="qwen-plus", alias="LLM_MODEL")
+    llm_model: str = Field(default="deepseek-chat", alias="LLM_MODEL")
     llm_timeout_seconds: int = 30
     llm_max_retries: int = 2
     odds_api_key: str | None = Field(default=None, alias="ODDS_API_KEY")

@@ -40,3 +40,4 @@ backend/data/injuries.json
 backend/data/lineup_probes/
 *.bak
 backend/tmp/
+backend/package.json
