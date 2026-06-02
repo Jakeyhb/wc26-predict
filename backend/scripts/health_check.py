@@ -163,7 +163,7 @@ async def check_news_api() -> CheckResult:
     try:
         service = NewsIngestService()
         articles = await service.fetch_gdelt(hours_back=1)
-        return CheckResult("新闻采集API可访问", len(articles) >= 0, f"GDELT 返回 {len(articles)} 条")
+        return CheckResult("新闻采集API可访问", len(articles) > 0, f"GDELT 返回 {len(articles)} 条")
     except Exception as exc:
         if "429" in str(exc):
             return CheckResult("新闻采集API可访问", True, "GDELT 当前限流，但接口可达")

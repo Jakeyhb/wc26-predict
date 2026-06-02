@@ -855,15 +855,19 @@ def _get_model_config(competition: str, stage: str = "") -> dict:
 async def _get_match_stage(home_team: str, away_team: str, competition: str) -> str:
     """Look up match stage from the database."""
     try:
-        import sqlite3, os
-        db = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "local_stage2.db")
-        conn = sqlite3.connect(db)
-        r = conn.execute(
-            "SELECT stage FROM matches WHERE competition=? AND home_team_id IN (SELECT id FROM teams WHERE name=?) AND away_team_id IN (SELECT id FROM teams WHERE name=?) ORDER BY match_date DESC LIMIT 1",
-            (competition, home_team, away_team),
-        ).fetchone()
-        conn.close()
-        return r[0] if r else ""
+        from sqlalchemy import text
+        async with AsyncSessionLocal() as stage_db:
+            result = await stage_db.execute(
+                text(
+                    "SELECT stage FROM matches WHERE competition=:comp "
+                    "AND home_team_id IN (SELECT id FROM teams WHERE name=:home) "
+                    "AND away_team_id IN (SELECT id FROM teams WHERE name=:away) "
+                    "ORDER BY match_date DESC LIMIT 1"
+                ),
+                {"comp": competition, "home": home_team, "away": away_team},
+            )
+            row = result.fetchone()
+            return row[0] if row else ""
     except Exception:
         return ""
 

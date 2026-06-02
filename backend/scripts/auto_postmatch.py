@@ -103,7 +103,6 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                 error_log = await engine.process_match_result(
                     snapshot, int(home_goals), int(away_goals), db
                 )
-                await db.commit()
                 total_brier += error_log.error_magnitude
                 processed += 1
                 print(f"  ✓ {row.match_date[:10]} {snapshot.home_team} "

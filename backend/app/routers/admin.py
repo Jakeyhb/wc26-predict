@@ -546,7 +546,7 @@ async def get_hermes_digest(request: Request, db: AsyncSession = Depends(get_db)
         attention_level = "watch"
 
     summary_parts = [
-        f"待审信号 {dashboard.pending_signals} 条",
+        f"待审信号 {pending_signals} 条",
         f"冲突组 {pending_conflict_groups} 组",
         f"待发布文章 {pending_articles} 篇",
         f"24 小时内比赛 {upcoming_matches_24h} 场",
@@ -559,7 +559,7 @@ async def get_hermes_digest(request: Request, db: AsyncSession = Depends(get_db)
         attention_level=attention_level,
         summary="，".join(summary_parts) + "。",
         counts={
-            "pending_signals": dashboard.pending_signals,
+            "pending_signals": pending_signals,
             "conflict_groups": pending_conflict_groups,
             "pending_articles": pending_articles,
             "upcoming_matches_24h": upcoming_matches_24h,

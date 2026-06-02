@@ -58,7 +58,7 @@ async def get_upcoming_matches(
             {}
         """.format(
             "AND m.competition = :comp" if competition else "",
-            "LIMIT :limit" if limit > 0 else "",
+            "LIMIT :limit" if int(limit) > 0 else "",
         ))
         params = {}
         if competition:

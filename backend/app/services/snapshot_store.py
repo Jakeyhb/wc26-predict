@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+import logging
+
 from app.database import AsyncSessionLocal
 from app.models.prediction_snapshot import PredictionSnapshot
 from app.models.prediction_run import PredictionRun
@@ -198,9 +200,13 @@ async def _sync_to_prediction_runs(
                 },
             )
             await db.commit()
-    except Exception:
+    except Exception as exc:
         # prediction_runs sync is best-effort; never break the main pipeline
-        pass
+        import logging
+        logging.getLogger(__name__).warning(
+            "_sync_to_prediction_runs failed for %s vs %s: %s",
+            m.get("home_team", "?"), m.get("away_team", "?"), exc
+        )
 
 
 def _normalize_uuid(raw: str) -> str | None:

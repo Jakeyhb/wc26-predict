@@ -142,6 +142,7 @@ class PredictionOrchestrator:
             elif len(training_df) < 500:
                 data_penalties.append(("sparse_training", 0.05))
             # 3. Market divergence >8pp = market knows something we don't
+            market_result = model_meta.get("market_result", {})
             if market_result.get("divergence_triggered"):
                 data_penalties.append(("market_divergence", 0.05))
             # 4. Odds data was stale or unavailable
@@ -300,6 +301,7 @@ class PredictionOrchestrator:
                     pass
 
             # Market calibrator (gracefully skipped if no API key)
+            market_result: dict[str, object] = {}
             try:
                 market_probs = await self.market_calibrator.fetch_market_probs(
                     match.home_team.name,
@@ -309,8 +311,9 @@ class PredictionOrchestrator:
                 if market_probs:
                     calibrated = self.market_calibrator.calibrate(
                         base_prediction, market_probs,
-                        sample_size=getattr(self, '_training_rows', 0),
+                        sample_size=len(training_df),
                     )
+                    market_result = dict(calibrated)
                     if calibrated.get("market_applied"):
                         base_prediction = {
                             "home_win_prob": calibrated["home_win_prob"],
@@ -353,6 +356,7 @@ class PredictionOrchestrator:
                         "enhancer_enabled": enhancer_meta["enabled"],
                     },
                     "enhancer": enhancer_meta["snapshot"],
+                    "market_result": market_result,
                 },
             )
         except asyncio.TimeoutError:

@@ -111,7 +111,7 @@ def simulate_group(dc_model: DixonColesModel, teams: list[str]) -> list[str]:
     for h_idx, a_idx in matchups:
         home, away = teams[h_idx], teams[a_idx]
         try:
-            pred = dc_model.predict(home, away, is_neutral=True)
+            pred = dc_model.predict_match(home, away, is_neutral_venue=True)
             lam, mu = pred["home_xg"], pred["away_xg"]
         except Exception:
             lam, mu = 1.2, 1.0
@@ -139,7 +139,7 @@ def simulate_group(dc_model: DixonColesModel, teams: list[str]) -> list[str]:
 def simulate_match(dc_model, home: str, away: str) -> str:
     """Simulate one knockout match. Draw → penalties (50/50)."""
     try:
-        pred = dc_model.predict(home, away, is_neutral=True)
+        pred = dc_model.predict_match(home, away, is_neutral_venue=True)
         lam, mu = pred["home_xg"], pred["away_xg"]
     except Exception:
         lam, mu = 1.1, 1.0
