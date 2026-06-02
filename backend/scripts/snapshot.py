@@ -88,6 +88,7 @@ async def run_snapshot(
 
     # ── Load training data ──
     # Detect national vs club competition
+    print(f"  加载训练数据: {home_team} vs {away_team} ({competition})", flush=True)
     is_national = any(kw in competition.lower() for kw in ["world cup", "euro", "copa", "nations", "international", "friendly", "asian cup", "gold cup", "african cup"])
     comp_type = "national" if is_national else "club"
     team_t = "national" if is_national else "club"
@@ -112,6 +113,7 @@ async def run_snapshot(
     match_date = df["match_date"].max().to_pydatetime()
 
     # ── Layer 1: Dixon-Coles ──
+    print(f"  拟合 Dixon-Coles 模型（{len(df)} 场比赛，{df.home_team.nunique()} 支球队）...", flush=True)
     mc = get_model_cache()
     dc_cached = mc.get_dc(competition, df)
     if dc_cached:

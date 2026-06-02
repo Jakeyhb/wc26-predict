@@ -286,6 +286,7 @@ class DixonColesModel:
             args=(df, team_counts),
             method="L-BFGS-B",
             bounds=bounds,
+            options={"maxiter": 500, "maxfun": 3000},
         )
         self.attack_params, self.defense_params, self.home_advantage, self.rho = self._unpack_params(result.x)
         self.trained_at = datetime.now(UTC)
