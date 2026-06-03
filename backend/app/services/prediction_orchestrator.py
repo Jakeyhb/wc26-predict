@@ -21,6 +21,7 @@ from app.models import Match, MatchResult, NewsSignal, PredictionRun
 from app.models.enums import CompetitionType, PredictionRunType, ReviewStatus
 from app.services.calibration import IsotonicCalibrator
 from app.services.dixon_coles import DixonColesModel, load_training_frame
+from app.services.model_cache_disk import load_dc_from_disk, save_dc_model_to_disk
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.football_data_service import ELITE_CLUB_POOL_CODES
 from app.services.football_data_service import EUROPEAN_ELITE_POOL_CODES
@@ -251,7 +252,25 @@ class PredictionOrchestrator:
     ):
         model = DixonColesModel()
         try:
-            fit_summary = await asyncio.wait_for(asyncio.to_thread(model.fit, training_df), timeout=30)
+            # Check disk cache first — avoids expensive re-fit when data unchanged
+            competition_type = str(match.competition_type or "national")
+            cached = load_dc_from_disk(competition_type, training_df)
+            if cached:
+                from app.services.model_cache import CachedDC
+                model.attack_params = cached.attack_params
+                model.defense_params = cached.defense_params
+                model.home_advantage = cached.home_advantage
+                model.rho = cached.rho
+                model._team_order = cached._team_order
+                model.trained_at = cached.trained_at
+                fit_summary = type("FitSummary", (), {
+                    "final_neg_log_likelihood": 0.0,
+                    "converged": True,
+                    "message": "loaded from disk cache",
+                })()
+            else:
+                fit_summary = await asyncio.wait_for(asyncio.to_thread(model.fit, training_df), timeout=30)
+                save_dc_model_to_disk(model, competition_type, training_df)
             base_prediction = model.predict_match(
                 match.home_team.name,
                 match.away_team.name,

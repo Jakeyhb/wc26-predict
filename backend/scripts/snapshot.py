@@ -44,6 +44,12 @@ from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_
 from app.services.snapshot_store import save_prediction_snapshot
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.model_cache import get_cache as get_model_cache
+from app.services.model_cache_disk import (
+    load_dc_from_disk,
+    load_enhancer_from_disk,
+    save_dc_model_to_disk,
+    save_enhancer_to_disk,
+)
 from app.services.wc_motivation import compute_wc_motivation
 from app.models.motivation_event import MotivationEvent, MOTIVATION_TAGS
 from app.models.manual_event import ManualEvent
@@ -120,12 +126,22 @@ async def run_snapshot(
         dc = DixonColesModel()
         dc.set_team_info(team_info)
         mc.restore_dc(dc_cached, dc)
-        dc_fit = type("FitSummary", (), {"final_neg_log_likelihood": 0.0, "attack_free": len(dc_cached.attack_params)})()
+        dc_fit = type("FitSummary", (), {"final_neg_log_likelihood": 0.0, "converged": True, "message": "cache hit"})()
     else:
-        dc = DixonColesModel()
-        dc.set_team_info(team_info)
-        dc_fit = dc.fit(df)
-        mc.set_dc(competition, df, dc)
+        # Try disk cache before fitting
+        dc_cached = load_dc_from_disk(competition, df)
+        if dc_cached:
+            dc = DixonColesModel()
+            dc.set_team_info(team_info)
+            mc.restore_dc(dc_cached, dc)
+            mc.set_dc(competition, df, dc)  # promote to memory
+            dc_fit = type("FitSummary", (), {"final_neg_log_likelihood": 0.0, "converged": True, "message": "cache hit"})()
+        else:
+            dc = DixonColesModel()
+            dc.set_team_info(team_info)
+            dc_fit = dc.fit(df)
+            mc.set_dc(competition, df, dc)
+            save_dc_model_to_disk(dc, competition, df)
     dc_pred = dc.predict_match(home_team, away_team, is_neutral_venue=is_neutral)
 
     # ── Layer 2: Tabular Enhancer ──
@@ -134,9 +150,18 @@ async def run_snapshot(
         enhancer = TabularMatchEnhancer()
         mc.restore_enhancer(enh_cached, enhancer)
     else:
-        enhancer = TabularMatchEnhancer()
-        enhancer.fit(df)
-        mc.set_enhancer(competition, df, enhancer)
+        enh_cached = load_enhancer_from_disk(competition, df)
+        if enh_cached:
+            enhancer = TabularMatchEnhancer()
+            mc.restore_enhancer(enh_cached, enhancer)
+            mc.set_enhancer(competition, df, enhancer)  # promote to memory
+        else:
+            enhancer = TabularMatchEnhancer()
+            enhancer.fit(df)
+            mc.set_enhancer(competition, df, enhancer)
+            save_enhancer_to_disk(
+                mc.get_enhancer(competition, df), competition, df
+            )
     enh_pred = enhancer.predict_match(
         home_team=home_team,
         away_team=away_team,
@@ -753,15 +778,31 @@ async def _lookup_match_id(db, home_team: str, away_team: str, competition: str 
     try:
         from app.models.match import Match
 
-        # Simple approach: find team IDs first, then match
-        home_id_result = await db.execute(
-            select(Team.id).where(Team.name.ilike(f"%{home_team}%")).limit(1)
-        )
-        away_id_result = await db.execute(
-            select(Team.id).where(Team.name.ilike(f"%{away_team}%")).limit(1)
-        )
-        home_id = home_id_result.scalar_one_or_none()
-        away_id = away_id_result.scalar_one_or_none()
+        # Exact match first, fall back to ilike (handles "Portugal"
+        # vs "Sporting Clube de Portugal" ambiguity)
+        for query in [
+            select(Team.id).where(Team.name == home_team),
+            select(Team.id).where(Team.name.ilike(f"%{home_team}%")),
+        ]:
+            r = await db.execute(query.limit(2))
+            rows = r.all()
+            if len(rows) == 1:
+                home_id = rows[0][0]
+                break
+        else:
+            home_id = None
+
+        for query in [
+            select(Team.id).where(Team.name == away_team),
+            select(Team.id).where(Team.name.ilike(f"%{away_team}%")),
+        ]:
+            r = await db.execute(query.limit(2))
+            rows = r.all()
+            if len(rows) == 1:
+                away_id = rows[0][0]
+                break
+        else:
+            away_id = None
 
         if not home_id or not away_id:
             return None
