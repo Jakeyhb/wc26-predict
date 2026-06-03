@@ -174,25 +174,42 @@ def main():
     except Exception as exc:
         print(f"  DB error: {exc}")
 
-    # 4. Cross-reference: identify mismatches
-    print("\n\n--- MISMATCH ANALYSIS ---")
+    # 4. Check if production entry points use get_weight_config()
+    print("\n\n--- Weight Unification Check ---")
+    PRODUCTION_FILES = [
+        "scripts/snapshot.py",
+        "scripts/fast_predict.py",
+        "app/services/prediction_orchestrator.py",
+        "app/services/learning_engine.py",
+    ]
     issues = []
+    expected_import = "from app.services.weights import get_weight_config"
 
-    # Check snapshot.py WC config vs orchestrator
-    # orchestrator: dc=0.68, elo=0.15
-    # snapshot WC: dc=0.55, elo=0.05
-    print("  prediction_orchestrator.py hardcodes: dc=0.68, elo=0.15")
-    print("  snapshot.py WORLD_CUP config:      dc=0.55, elo=0.05")
-    print("  snapshot.py _get_model_config uses: dc_weight, enh_weight, elo_weight, pi_weight")
-    print("  prediction_orchestrator.py uses:   base_weight=0.68, elo_weight=0.15")
-    print("  [WARN] DC weight differs by 0.13 (orchestrator .68 vs snapshot .55)")
-    print("  [WARN] Elo weight differs by 0.10 (orchestrator .15 vs snapshot .05)")
-    issues.append("DC weight: orchestrator=0.68 vs snapshot=0.55 (delta=0.13)")
-    issues.append("Elo weight: orchestrator=0.15 vs snapshot=0.05 (delta=0.10)")
+    for rel_path in PRODUCTION_FILES:
+        fpath = PROJECT_ROOT / rel_path
+        if not fpath.exists():
+            issues.append(f"MISSING: {rel_path}")
+            print(f"  [WARN] MISSING: {rel_path}")
+            continue
+        content = fpath.read_text(encoding="utf-8")
+        has_import = "get_weight_config" in content
+        uses_wc = bool(re.search(r'\bwc\.(dc|elo|enhancer|pi|weibull)\b', content))
+        uses_dot_dc = bool(re.search(r'get_weight_config\(', content))
 
-    print("\n  fast_predict.py hardcodes:         dc=0.68, elo=0.15")
-    print("  learning_engine.py hardcodes:      dc=0.68, enh=0.32, elo=0.15")
-    issues.append("fast_predict.py matches orchestrator but NOT snapshot.py")
+        if uses_dot_dc and uses_wc:
+            print(f"  [OK] {Path(rel_path).name}: uses get_weight_config() -> wc.dc/elo/enhancer")
+        elif uses_dot_dc:
+            print(f"  [WARN] {Path(rel_path).name}: imports get_weight_config but may not use wc.* properties")
+            issues.append(f"{Path(rel_path).name}: imports get_weight_config but may not use wc.*")
+        else:
+            print(f"  [WARN] {Path(rel_path).name}: does NOT use get_weight_config() — may have hardcoded weights")
+            issues.append(f"{Path(rel_path).name}: does NOT use get_weight_config()")
+
+    # Compare weights.py defaults with any hardcoded values found
+    print("\n\n--- weights.py Default Config ---")
+    from app.services.weights import get_weight_config, _WORLD_CUP, _LEAGUE_DEFAULT
+    print(f"  WORLD_CUP: dc={_WORLD_CUP.dc}, enhancer={_WORLD_CUP.enhancer}, elo={_WORLD_CUP.elo}, pi={_WORLD_CUP.pi}, weibull={_WORLD_CUP.weibull}")
+    print(f"  LEAGUE:    dc={_LEAGUE_DEFAULT.dc}, enhancer={_LEAGUE_DEFAULT.enhancer}, elo={_LEAGUE_DEFAULT.elo}, pi={_LEAGUE_DEFAULT.pi}, weibull={_LEAGUE_DEFAULT.weibull}")
 
     # 5. Summary
     print("\n" + "=" * 70)
