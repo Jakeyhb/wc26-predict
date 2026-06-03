@@ -34,7 +34,7 @@ RSS_FEEDS = {
 
 LLM_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_BASE = os.environ.get("LLM_BASE_URL", "https://api.deepseek.com/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
+LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-v4-pro")
 
 
 async def fetch_rss_headlines(home_team: str, away_team: str, hours_back: int = 72) -> list[dict]:

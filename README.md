@@ -80,7 +80,9 @@ Output Layer
 
 ## Current status
 
-Current public milestone: **V1.6.1 test version**
+Current public milestone: **V1.7 test version**
+
+> 最新状态以 [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) 为准。其他状态文档如与 CURRENT_STATUS 冲突，以 CURRENT_STATUS 为准。
 
 The current system is focused on P0 closure:
 
@@ -94,8 +96,9 @@ The current system is focused on P0 closure:
 
 See:
 
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
-- [`docs/COMPLETION_AUDIT.md`](docs/COMPLETION_AUDIT.md)
+- [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) — 当前最新状态
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) — 可能已过期
+- [`docs/COMPLETION_AUDIT.md`](docs/COMPLETION_AUDIT.md) — 可能已过期
 - [`docs/COMPLIANCE_AND_OUTPUT_POLICY.md`](docs/COMPLIANCE_AND_OUTPUT_POLICY.md)
 - [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md)
 

@@ -1,5 +1,7 @@
 # WC26 Predict — Completion Audit
 
+> **⚠ This document may be outdated (V1.6.1 / 78%).** See [`CURRENT_STATUS.md`](CURRENT_STATUS.md) for the authoritative current state.
+
 > Last updated: 2026-06-04  
 > Current milestone: V1.6.1 test version  
 > Scope: P0 technical closure + public documentation readiness

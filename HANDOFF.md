@@ -1,5 +1,7 @@
 # WC26 Predict — 交接文档
 
+> **⚠ 本文档可能已过期（2026-05-21）。** 最新权威状态以 [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) 为准。
+
 > 生成时间：2026-05-21
 > 目标读者：新会话的 WC26 Predict Agent
 

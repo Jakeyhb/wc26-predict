@@ -1,5 +1,7 @@
 # WC26 Predict — Phase 0 Baseline Report
 
+> **⚠ 本文档可能已过期（Phase 0 / 2026-06-03）。** 最新权威状态以 [`CURRENT_STATUS.md`](CURRENT_STATUS.md) 为准。
+
 > 生成日期: 2026-06-03  
 > 执行版本: Phase 0 (安全检查 + 审计 + 基线)  
 > 参考文档: `WC26_predict_FINAL_verified_action_plan.md`  

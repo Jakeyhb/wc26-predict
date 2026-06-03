@@ -25,7 +25,7 @@ DB_PATH = os.path.join(
 
 DEEPSEEK_BASE = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
 DEEPSEEK_KEY = os.getenv("LLM_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
+DEEPSEEK_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-pro")
 
 ANALYSIS_SYSTEM_PROMPT = """你是一位专业的足球分析师。你的任务是根据提供的比赛数据、模型预测和历史战绩，撰写深度赛前分析报告。
 

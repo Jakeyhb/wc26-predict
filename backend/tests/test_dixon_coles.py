@@ -57,13 +57,13 @@ def test_tau_adjusts_low_scores_only() -> None:
 
 def test_predict_score_matrix_shape() -> None:
     model = build_model()
-    matrix = model.predict_score_matrix("Argentina", "France", is_neutral_venue=True, max_goals=4)
+    matrix, warnings = model.predict_score_matrix("Argentina", "France", is_neutral_venue=True, max_goals=4)
     assert matrix.shape == (5, 5)
 
 
 def test_predict_score_matrix_sums_to_one() -> None:
     model = build_model()
-    matrix = model.predict_score_matrix("Argentina", "France", is_neutral_venue=True)
+    matrix, warnings = model.predict_score_matrix("Argentina", "France", is_neutral_venue=True)
     assert matrix.sum() == pytest.approx(1.0, rel=1e-6)
 
 
@@ -88,10 +88,12 @@ def test_home_advantage_changes_non_neutral_prediction() -> None:
     assert home["home_win_prob"] != pytest.approx(neutral["home_win_prob"])
 
 
-def test_predict_match_unknown_team_raises() -> None:
+def test_predict_match_unknown_team_handles_gracefully() -> None:
     model = build_model()
-    with pytest.raises(KeyError):
-        model.predict_match("Unknown", "France")
+    prediction = model.predict_match("Unknown", "France")
+    # Unknown teams use cold-start estimates instead of raising
+    assert "home_win_prob" in prediction
+    assert prediction.get("data_quality") == "estimated_prior"
 
 
 def test_save_and_load_round_trip(tmp_path: Path) -> None:

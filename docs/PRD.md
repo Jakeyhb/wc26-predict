@@ -1,5 +1,7 @@
 # WC26 Predict — 产品需求文档 (PRD)
 
+> **⚠ 本文档可能已过期（V1.0 / 2026-06-01）。** 最新权威状态以 [`CURRENT_STATUS.md`](CURRENT_STATUS.md) 为准。
+
 > V1.0 测试版 | 2026-06-01  
 > 仓库: github.com/AndyDu0921/wc26-predict
 

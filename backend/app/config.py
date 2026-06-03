@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     llm_provider: Literal["qwen", "deepseek", "zhipu"] = Field(default="deepseek", alias="LLM_PROVIDER")
     llm_base_url: str | None = Field(default=None, alias="LLM_BASE_URL")
     llm_api_key: str | None = Field(default=None, alias="LLM_API_KEY")
-    llm_model: str = Field(default="deepseek-chat", alias="LLM_MODEL")
+    llm_model: str = Field(default="deepseek-v4-pro", alias="LLM_MODEL")
     llm_timeout_seconds: int = 30
     llm_max_retries: int = 2
     odds_api_key: str | None = Field(default=None, alias="ODDS_API_KEY")

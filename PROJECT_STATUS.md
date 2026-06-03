@@ -1,5 +1,7 @@
 # WC26 Predict — 项目现状与问题诊断
 
+> **⚠ 本文档已严重过期（2026-05-12）。** 最新权威状态以 [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) 为准。
+
 > 2026-05-12 | 面向接手此项目的 AI / 开发者
 > 项目路径：`/mnt/e/2026世界杯分析`
 

@@ -34,3 +34,66 @@ jobs:
         run: |
           python scripts/audit_weights_consistency.py
           python scripts/audit_public_outputs_no_odds.py
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check app/ scripts/ --select E,F,W --ignore E501
+
+      - name: Dependency check
+        run: pip check
+
+      - name: Run env verification
+        run: python scripts/verify_env.py --ci
+
+      - name: Secret scanning
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          echo "=== Secret Scanning ==="
+          FAILED=0
+
+          # Hardcoded API keys (sk-, ghp_, x-apisports- with actual key content)
+          # Exclude .env.example and .env.production.example (known placeholders)
+          echo "--- Checking for hardcoded API keys ---"
+          for pattern in 'sk-[[:alnum:]]\{8,\}' 'ghp_[[:alnum:]]\{8,\}' 'x-apisports-[[:alnum:]]\{8,\}'; do
+            MATCHES=$(git grep -n "$pattern" -- ':!.env.example' ':!.env.production.example' 2>/dev/null || true)
+            if [ -n "$MATCHES" ]; then
+              echo "::error::Found potential API key matching '$pattern'"
+              echo "$MATCHES"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 0 ]; then
+            echo "No hardcoded API keys found."
+          fi
+
+          # 'change-me' as admin token in committed files (exclude example files)
+          echo ""
+          echo "--- Checking for 'change-me' admin tokens ---"
+          MATCHES=$(git grep -n 'ADMIN_TOKEN.*change.me' -- ':!.env.example' ':!.env.production.example' 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Found 'change-me' admin tokens:"
+            echo "$MATCHES"
+            FAILED=1
+          else
+            echo "No 'change-me' admin tokens found outside example files."
+          fi
+
+          # Inline passwords in config-like files (e.g. embedded in connection URLs)
+          echo ""
+          echo "--- Checking for passwords in committed files ---"
+          # Look for ://username:password@ patterns in non-example files
+          MATCHES=$(git grep -n '://[[:alnum:]]\{1,\}:[[:alnum:]]\{1,\}@' -- ':!.env.example' ':!.env.production.example' 2>/dev/null || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::warning::Found inline credentials in connection URLs (review manually):"
+            echo "$MATCHES"
+          else
+            echo "No inline credentials found."
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "FAIL: Secrets detected in committed files!"
+            exit 1
+          fi
+          echo "All secret checks passed."

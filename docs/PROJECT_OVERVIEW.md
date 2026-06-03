@@ -1,5 +1,7 @@
 # WC26 Predict — Project Overview
 
+> **⚠ This document may be outdated (V1.6.1).** See [`CURRENT_STATUS.md`](CURRENT_STATUS.md) for the authoritative current state.
+
 WC26 Predict is an AI football research engine and creator workspace for World Cup 2026 analysis.
 
 It combines football data, statistical models, AI-assisted signal extraction, model evaluation, post-match learning, and public-output safety controls into a single research workflow.
