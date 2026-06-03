@@ -36,6 +36,7 @@ backend/model_artifacts/
 backend/reports/
 backend/reports_batch/
 backend/data/*.bak
+*.db.bak
 backend/data/injuries.json
 backend/data/lineup_probes/
 *.bak

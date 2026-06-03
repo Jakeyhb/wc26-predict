@@ -69,7 +69,11 @@ async def fast_predict(
         training_df=df, rest_days={"home": 5, "away": 5},
     )
 
-    # Fuse DC + Enhancer (68:32)
+    # Weight config (unified source)
+    from app.services.weights import get_weight_config
+    wc = get_weight_config(competition)
+
+    # Fuse DC + Enhancer
     probs = {
         "home_win_prob": float(dc_pred["home_win_prob"]),
         "draw_prob": float(dc_pred["draw_prob"]),
@@ -79,13 +83,13 @@ async def fast_predict(
         "home_win_prob": float(enh_pred["home_win_prob"]),
         "draw_prob": float(enh_pred["draw_prob"]),
         "away_win_prob": float(enh_pred["away_win_prob"]),
-    }, base_weight=0.68))
+    }, base_weight=wc.dc))
 
     # Layer 3: Elo
     elo = EloRatingSystem()
     elo.fit(df)
     elo_pred = elo.predict(home_team, away_team, is_neutral=is_neutral, competition_weight=competition_weight)
-    probs.update(fuse_elo_probabilities(probs, elo_pred, elo_weight=0.15))
+    probs.update(fuse_elo_probabilities(probs, elo_pred, elo_weight=wc.elo))
 
     return {
         "home_team": home_team,

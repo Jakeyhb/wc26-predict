@@ -112,8 +112,10 @@ class LearningEngine:
                     "away": probs.get("away", 0.33),
                 }
 
-        # Weights from model_weight_config (default fallbacks)
-        weights = {"dc": 0.68, "enhancer": 0.32, "elo": 0.15}
+        # Weights from unified config source
+        from app.services.weights import get_weight_config
+        wc = get_weight_config("FIFA World Cup 2026")
+        weights = {"dc": wc.dc, "enhancer": wc.enhancer, "elo": wc.elo}
 
         # Leave-one-out marginal contributions
         dc_marginal = None

@@ -31,6 +31,7 @@ from app.services.market_calibrator import get_calibrator
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.tabular_match_model import TabularMatchEnhancer
 from app.services.tabular_match_model import fuse_outcome_probabilities
+from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
 from app.utils.datetime import utc_now
 
@@ -282,6 +283,10 @@ class PredictionOrchestrator:
                 f"{competition_type}_{competition_code}_{match.id}-{utc_now().strftime('%Y%m%d%H%M%S')}.json"
             )
             model.save(str(artifact_path))
+            # ── Weight config (unified source) ──
+            competition_name = getattr(match, "competition", "")
+            wc = get_weight_config(competition_name, getattr(match, "stage", ""))
+
             enhancer_meta = await self._build_enhancer_prediction(match, training_df, match_context)
             if enhancer_meta["enabled"]:
                 base_prediction = {
@@ -293,7 +298,7 @@ class PredictionOrchestrator:
                             "away_win_prob": float(base_prediction["away_win_prob"]),
                         },
                         enhancer_meta["probabilities"],
-                        base_weight=0.68,
+                        base_weight=wc.dc,
                     ),
                 }
 
@@ -314,7 +319,7 @@ class PredictionOrchestrator:
                     )
                     base_prediction = {
                         **base_prediction,
-                        **fuse_elo_probabilities(base_prediction, elo_pred, elo_weight=0.15),
+                        **fuse_elo_probabilities(base_prediction, elo_pred, elo_weight=wc.elo),
                     }
                 except Exception:
                     pass
@@ -370,8 +375,8 @@ class PredictionOrchestrator:
                     "artifact_path": str(artifact_path),
                     "training_scope": training_scope,
                     "ensemble": {
-                        "dixon_weight": 0.68 if enhancer_meta["enabled"] else 1.0,
-                        "enhancer_weight": 0.32 if enhancer_meta["enabled"] else 0.0,
+                        "dixon_weight": wc.dc if enhancer_meta["enabled"] else 1.0,
+                        "enhancer_weight": wc.enhancer if enhancer_meta["enabled"] else 0.0,
                         "enhancer_enabled": enhancer_meta["enabled"],
                     },
                     "enhancer": enhancer_meta["snapshot"],
