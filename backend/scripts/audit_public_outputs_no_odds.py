@@ -23,6 +23,10 @@ from __future__ import annotations
 import os
 import re
 import sys
+
+# Force UTF-8 stdout to avoid GBK encoding errors on Chinese Windows
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -122,9 +126,9 @@ def main():
         all_findings[label] = findings
         total = len(findings)
         if total == 0:
-            print(f"\n  [{label}]: ✓ Clean — no forbidden terms found")
+            print(f"\n  [{label}]: [OK] Clean — no forbidden terms found")
         else:
-            print(f"\n  [{label}]: ⚠ {total} forbidden term(s) found")
+            print(f"\n  [{label}]: [WARN] {total} forbidden term(s) found")
             for fd in findings[:10]:  # show first 10
                 print(f"    {fd['file']}:{fd['line']}  「{fd['term']}」")
                 print(f"      {fd['context'][:80]}")
@@ -135,12 +139,12 @@ def main():
     if os.path.exists(str(article_gen)):
         findings = scan_file(str(article_gen), ALL_FORBIDDEN)
         if findings:
-            print(f"  ⚠ {len(findings)} forbidden terms in article_generator.py:")
+            print(f"  [WARN] {len(findings)} forbidden terms in article_generator.py:")
             for fd in findings[:10]:
                 print(f"    L{fd['line']}: 「{fd['term']}」")
                 print(f"      {fd['context'][:80]}")
         else:
-            print("  ✓ Clean")
+            print("  [OK] Clean")
 
     # Scan feature_flags.yaml and config for forbidden terms in public-facing comments
     print("\n\n--- Configuration Files ---")
@@ -151,7 +155,7 @@ def main():
             if findings:
                 print(f"  {cfg_file}: {len(findings)} terms (expected - internal config)")
             else:
-                print(f"  {cfg_file}: ✓ Clean")
+                print(f"  {cfg_file}: [OK] Clean")
 
     # Summary
     total_findings = sum(len(v) for v in all_findings.values())
@@ -164,10 +168,10 @@ def main():
     print(f"        — this is expected for internal use. Focus of this audit is")
     print(f"        public-facing outputs only.")
     if total_findings > 0:
-        print(f"\n  ⚠ Action: Review all public-facing files and remove forbidden terms")
+        print(f"\n  [WARN] Action: Review all public-facing files and remove forbidden terms")
         print(f"    before enabling creator_safe or public_safe modes.")
     else:
-        print(f"\n  ✓ Public outputs are currently clean.")
+        print(f"\n  [OK] Public outputs are currently clean.")
 
     return min(total_findings, 1)
 

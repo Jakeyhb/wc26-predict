@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import os
 import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -100,11 +103,11 @@ def main():
         """)
         multi = c.fetchall()
         if multi:
-            print(f"\n  ⚠ {len(multi)} matches have predictions from multiple run_types")
+            print(f"\n  [WARN] {len(multi)} matches have predictions from multiple run_types")
             for r in multi[:5]:
                 print(f"    match_id={r[0]}: {r[1]} different run_types")
         else:
-            print("\n  ✓ No matches with mixed run_types")
+            print("\n  [OK] No matches with mixed run_types")
 
         # Check pipeline_params for model versions
         c.execute("""
@@ -126,7 +129,7 @@ def main():
     print("  prediction_orchestrator.py → has own weight logic → DIFFERENT from snapshot")
     print("  fast_predict.py → has own simple flow → different from both above")
     print("")
-    print("  ⚠ POTENTIAL ISSUE: Same match predicted via different entry points")
+    print("  [WARN] POTENTIAL ISSUE: Same match predicted via different entry points")
     print("    could yield different probabilities due to weight disagreement.")
 
     # 4. Try a live comparison for one match that has been predicted via pregenerate

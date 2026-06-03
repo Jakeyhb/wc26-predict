@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import os
 import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -206,17 +209,17 @@ def main():
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  ✓ OK: {len(ok)}")
+    print(f"  [OK] OK: {len(ok)}")
     for item in ok:
         print(f"    + {item}")
-    print(f"  ⚠ Issues: {len(issues)}")
+    print(f"  [WARN] Issues: {len(issues)}")
     for item in issues:
         print(f"    ! {item}")
 
     # Criticality
     critical = any("CRITICAL" in i for i in issues)
     if critical:
-        print(f"\n  🚨 CRITICAL ISSUES DETECTED — must fix before World Cup")
+        print(f"\n  [CRITICAL] CRITICAL ISSUES DETECTED — must fix before World Cup")
         print(f"     news_signals=0 is the highest priority gap.")
     else:
         print(f"\n  No critical data freshness issues.")

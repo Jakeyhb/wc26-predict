@@ -13,6 +13,9 @@ import importlib.util
 import os
 import re
 import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -182,10 +185,10 @@ def main():
     print("  snapshot.py WORLD_CUP config:      dc=0.55, elo=0.05")
     print("  snapshot.py _get_model_config uses: dc_weight, enh_weight, elo_weight, pi_weight")
     print("  prediction_orchestrator.py uses:   base_weight=0.68, elo_weight=0.15")
-    print("  ⚠ DC weight differs by 0.13 (orchestrator .68 vs snapshot .55)")
-    print("  ⚠ Elo weight differs by 0.10 (orchestrator .15 vs snapshot .05)")
-    issues.append("DC weight: orchestrator=0.68 vs snapshot=0.55 (Δ=0.13)")
-    issues.append("Elo weight: orchestrator=0.15 vs snapshot=0.05 (Δ=0.10)")
+    print("  [WARN] DC weight differs by 0.13 (orchestrator .68 vs snapshot .55)")
+    print("  [WARN] Elo weight differs by 0.10 (orchestrator .15 vs snapshot .05)")
+    issues.append("DC weight: orchestrator=0.68 vs snapshot=0.55 (delta=0.13)")
+    issues.append("Elo weight: orchestrator=0.15 vs snapshot=0.05 (delta=0.10)")
 
     print("\n  fast_predict.py hardcodes:         dc=0.68, elo=0.15")
     print("  learning_engine.py hardcodes:      dc=0.68, enh=0.32, elo=0.15")
