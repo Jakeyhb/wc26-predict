@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.services.market.provider_base import MarketProvider
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,16 @@ BLEND_SATURATION = 2000       # sample_size at which market weight reaches minim
 
 
 class MarketCalibrator:
-    """Fetch market consensus and detect model-market divergence."""
+    """Fetch market consensus and detect model-market divergence.
+
+    Supports multiple provider backends:
+    - The Odds API (ODDS_API_KEY) — sports odds aggregator
+    - apifootball.com (APIFOOTBALL_COM_KEY) — match-level odds
+    - API-Sports / api-football.com (API_FOOTBALL_KEY) — match-level odds
+
+    Provider selection: tries apifootball.com first (if key present and odds
+    available), then API-Sports, then falls back to The Odds API.
+    """
 
     def __init__(self, shadow_mode: bool = True) -> None:
         settings = get_settings()
@@ -40,6 +50,12 @@ class MarketCalibrator:
         self._client: httpx.AsyncClient | None = None
         self._available: bool | None = None
         self.shadow_mode: bool = shadow_mode  # Default: record only, don't blend
+
+        # Odds-specific providers (separate from The Odds API)
+        self._odds_provider: MarketProvider | None = None
+        self._odds_provider_resolved: bool = False
+        self._apifootball_key: str | None = settings.apifootball_com_key
+        self._api_sports_key: str | None = settings.api_football_key
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -71,6 +87,77 @@ class MarketCalibrator:
             logger.warning(f"Odds API unreachable: {e}")
             self._available = False
         return self._available
+
+    async def _resolve_odds_provider(self) -> MarketProvider | None:
+        """Resolve the best available odds provider from configured keys.
+
+        Priority: apifootball.com (if odds available) > API-Sports (if odds
+        available).  The Odds API is handled separately in fetch_market_probs().
+
+        Returns None if no provider is configured or no provider has odds available.
+        Logs the reason for transparency.
+        """
+        if self._odds_provider_resolved:
+            return self._odds_provider
+
+        # ── Try apifootball.com ──
+        if self._apifootball_key:
+            from app.services.market.apifootball_com_provider import \
+                ApifootballComProvider
+            provider = ApifootballComProvider()
+            try:
+                if await provider.is_available():
+                    if await provider.is_odds_available():
+                        self._odds_provider = provider
+                        self._odds_provider_resolved = True
+                        logger.info("market provider: apifootball.com (odds available)")
+                        return self._odds_provider
+                    else:
+                        logger.info(
+                            "market provider: apifootball.com base API OK but "
+                            "odds unavailable — provider_no_odds"
+                        )
+                        await provider.close()
+                else:
+                    logger.info(
+                        "market provider: apifootball.com unavailable — "
+                        "no_provider"
+                    )
+                    await provider.close()
+            except Exception as e:
+                logger.warning(f"market provider: apifootball.com error: {e}")
+                try:
+                    await provider.close()
+                except Exception:
+                    pass
+
+        # ── Try API-Sports ──
+        if self._api_sports_key:
+            from app.services.market.api_football_provider import \
+                ApiFootballProvider
+            provider = ApiFootballProvider()
+            try:
+                if await provider.is_available():
+                    self._odds_provider = provider
+                    self._odds_provider_resolved = True
+                    logger.info("market provider: API-Sports (available)")
+                    return self._odds_provider
+                else:
+                    logger.info(
+                        "market provider: API-Sports unavailable — no_provider"
+                    )
+                    await provider.close()
+            except Exception as e:
+                logger.warning(f"market provider: API-Sports error: {e}")
+                try:
+                    await provider.close()
+                except Exception:
+                    pass
+
+        self._odds_provider = None
+        self._odds_provider_resolved = True
+        logger.info("market provider: none available — no_provider")
+        return None
 
     async def fetch_market_probs(
         self,
@@ -130,11 +217,41 @@ class MarketCalibrator:
                             return result
 
             logger.info(f"No odds found for {home_team} vs {away_team} in {sport_keys}")
-            return None
 
         except Exception as e:
-            logger.warning(f"Market fetch error: {e}")
-            return None
+            logger.warning(f"Market fetch error (The Odds API): {e}")
+
+        # ── Fallback: try odds-specific providers ──
+        try:
+            odds_prov = await self._resolve_odds_provider()
+            if odds_prov is not None:
+                result = await odds_prov.fetch(home_team, away_team, competition)
+                if result is not None:
+                    from datetime import datetime as _dt, timezone as _tz
+                    logger.info(
+                        f"Market data from {odds_prov.name} for "
+                        f"{home_team} vs {away_team}: "
+                        f"home={result.implied_home:.3f}"
+                    )
+                    return {
+                        "home_prob": result.implied_home,
+                        "draw_prob": result.implied_draw,
+                        "away_prob": result.implied_away,
+                        "vig": result.overround,
+                        "sample_bookmakers": 1,
+                        "source": odds_prov.name,
+                        "bookmaker": result.bookmaker,
+                        "fetched_at": result.fetched_at,
+                    }
+                else:
+                    logger.info(
+                        f"market: {odds_prov.name} returned no odds for "
+                        f"{home_team} vs {away_team} — no_odds_for_match"
+                    )
+        except Exception as e:
+            logger.warning(f"market provider fallback error: {e}")
+
+        return None
 
     @staticmethod
     def _competition_sport_keys(competition: str | None) -> list[str]:
