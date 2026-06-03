@@ -504,6 +504,10 @@ async def run_snapshot(
             "enhancer_features": len(enhancer.feature_columns),
             "elo_matches": elo._match_count,
             "pi_matches": pi._match_count,
+            "config_label": (
+                f"{cfg['label']} (DC{cfg['dc_weight']:.0%}+Enh{cfg['enh_weight']:.0%}"
+                f"+Elo{cfg['elo_weight']:.0%}+Pi{cfg['pi_weight']:.0%})"
+            ),
         },
         # ── Provenance / data freshness ──────────────────────
         "odds_info": {
@@ -1054,6 +1058,70 @@ def render_markdown(result: dict[str, Any]) -> str:
     ]
     for s in p["top3_scores"]:
         lines.append(f"- {s['score']}（{s['prob']*100:.1f}%）")
+
+    # ── Component-level breakdown ──
+    cp = result.get("component_probs", {})
+    if cp:
+        lines += [
+            "",
+            "### 各层独立预测",
+            "",
+            "下表展示每层模型在融合前的独立判断，帮助理解最终概率的来源：",
+            "",
+            "| 层级 | 主胜 | 平局 | 客胜 |",
+            "|---|---:|---:|---:|",
+        ]
+        layer_names = {"dc": "Dixon-Coles (泊松)", "enhancer": "Tabular Enhancer", "elo": "Elo 评分", "pi": "Pi-Rating"}
+        for key, label in layer_names.items():
+            probs = cp.get(key)
+            if probs:
+                lines.append(f"| {label} | {probs['home']*100:.1f}% | {probs['draw']*100:.1f}% | {probs['away']*100:.1f}% |")
+            else:
+                lines.append(f"| {label} | — | — | — |")
+        # Explain the fusion
+        cfg_note = result.get("pipeline", {}).get("config_label", "")
+        if cfg_note:
+            lines.append("")
+            lines.append(f"> 融合配置：{cfg_note}")
+        lines.append("> 最终概率由各层按动态权重加权融合，非简单平均。Enhancer 对近期状态敏感，DC 偏重长期攻防参数，Elo 反映历史实力。")
+
+    # ── Over/Under from DC Poisson xG ──
+    hxg = p.get("home_xg", 0)
+    axg = p.get("away_xg", 0)
+    if hxg > 0 or axg > 0:
+        total_rate = hxg + axg
+        lines += [
+            "",
+            "### 总进球分布（Over/Under）",
+            "",
+            f"由 Dixon-Coles 泊松模型 xG（{m['home_team']} {hxg:.2f} + {m['away_team']} {axg:.2f}）直接推导：",
+            "",
+            "| 总进球 | 概率 |",
+            "|---|---:|",
+        ]
+        # Poisson PMF for total goals
+        import math as _math
+        for k in range(7):
+            p_k = _math.exp(k * _math.log(max(total_rate, 1e-8)) - max(total_rate, 1e-8) - _math.lgamma(k + 1))
+            label = f"{k} 球" if k < 6 else "6+ 球"
+            if k < 6:
+                lines.append(f"| {label} | {p_k*100:.1f}% |")
+            else:
+                p_6plus = 1.0 - sum(
+                    _math.exp(i * _math.log(max(total_rate, 1e-8)) - max(total_rate, 1e-8) - _math.lgamma(i + 1))
+                    for i in range(6)
+                )
+                lines.append(f"| {label} | {max(p_6plus, 0)*100:.1f}% |")
+        lines.append("")
+        under_2 = sum(
+            _math.exp(i * _math.log(max(total_rate, 1e-8)) - max(total_rate, 1e-8) - _math.lgamma(i + 1))
+            for i in range(2)
+        )
+        under_3 = sum(
+            _math.exp(i * _math.log(max(total_rate, 1e-8)) - max(total_rate, 1e-8) - _math.lgamma(i + 1))
+            for i in range(3)
+        )
+        lines.append(f"> 总进球 ≤ 1：**{under_2*100:.1f}%** | ≤ 2：**{under_3*100:.1f}%** | ≥ 3：**{(1-under_3)*100:.1f}%**")
 
     lines += [
         "",
