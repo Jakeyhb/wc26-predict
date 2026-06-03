@@ -50,6 +50,7 @@ from app.services.model_cache_disk import (
     save_dc_model_to_disk,
     save_enhancer_to_disk,
 )
+from app.services.weights import get_weight_config, WeightConfig
 from app.services.wc_motivation import compute_wc_motivation
 from app.models.motivation_event import MotivationEvent, MOTIVATION_TAGS
 from app.models.manual_event import ManualEvent
@@ -178,8 +179,8 @@ async def run_snapshot(
     wb_pred = wb.predict(home_team, away_team, is_neutral) if wb_fitted else None
 
     # ── Scene-based Model Config ─────────────────────────────
-    cfg = _get_model_config(competition, stage=(await _get_match_stage(home_team, away_team, competition)))
-    print(f"  场景配置: {cfg['label']} (DC{cfg['dc_weight']:.0%}+Enh{cfg['enh_weight']:.0%}+Elo{cfg['elo_weight']:.0%}+Pi{cfg['pi_weight']:.0%})")
+    wc = get_weight_config(competition, stage=(await _get_match_stage(home_team, away_team, competition)))
+    print(f"  场景配置: {wc.label} (DC{wc.dc:.0%}+Enh{wc.enhancer:.0%}+Elo{wc.elo:.0%}+Pi{wc.pi:.0%})")
 
     # Fuse DC + Enhancer (dynamic weight)
     dc_enh = {
@@ -194,11 +195,11 @@ async def run_snapshot(
             "draw_prob": float(enh_pred["draw_prob"]),
             "away_win_prob": float(enh_pred["away_win_prob"]),
         },
-        base_weight=cfg["dc_weight"],
+        base_weight=wc.dc,
     ))
 
-    # ── Fuse DC+Enhancer with Weibull (UCL scenes: 15% weight) ──
-    dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=cfg.get("weibull_weight", 0.15)))
+    # ── Fuse DC+Enhancer with Weibull ──
+    dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=wc.weibull))
 
     # ── Layer 3: Elo ──
     elo = EloRatingSystem()
@@ -212,9 +213,9 @@ async def run_snapshot(
 
     # Clean model (DC + Enhancer + Elo, no odds)
     clean = dict(dc_enh)
-    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=cfg["elo_weight"]))
+    clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=wc.elo))
 
-    # ── Layer 4: Pi-Rating（零中心的进球差评分，跨联赛比较更准确）──
+    # ── Layer 4: Pi-Rating ──
     pi = PiRatingWrapper()
     pi_pred = None
     pi_ratings_dict: dict[str, float] = {}
@@ -223,9 +224,9 @@ async def run_snapshot(
         pi_pred = pi.predict(home_team, away_team, is_neutral=is_neutral)
         pi_ratings_dict = pi.get_ratings_dict()
     except Exception:
-        pass  # Pi-Rating is optional — gracefully skip if penaltyblog unavailable
+        pass  # Pi-Rating is optional
     if pi_pred:
-        clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=cfg["pi_weight"]))
+        clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=wc.pi))
 
     # ── CalibrationMonitor（仅记录，不修改概率）──
     # 回测样本 < 20，校准器不启用为生产权重。
@@ -369,7 +370,7 @@ async def run_snapshot(
     except Exception:
         ctx_result = {}
 
-    # ── Market Calibrator (Phase 2: divergence + controlled blend) ──
+    # ── Market Calibrator (shadow mode — records consensus, does NOT blend) ──
     market_result = {
         "home_win_prob": clean["home_win_prob"],
         "draw_prob": clean["draw_prob"],
@@ -379,10 +380,11 @@ async def run_snapshot(
         "divergence": None,
         "risk_tags": [],
         "confidence_penalty": 0.0,
+        "shadow_mode": True,
     }
     try:
         from app.services.market_calibrator import get_calibrator
-        calibrator = get_calibrator()
+        calibrator = get_calibrator(shadow_mode=True)  # Phase 2: shadow mode — record only
         market_probs = await calibrator.fetch_market_probs(
             home_team, away_team, competition_weight, competition=competition
         )
@@ -393,11 +395,8 @@ async def run_snapshot(
             market_probs,
             sample_size=rows,
         )
-        if market_result.get("market_applied"):
-            # Consume blended probabilities
-            clean["home_win_prob"] = market_result["home_win_prob"]
-            clean["draw_prob"] = market_result["draw_prob"]
-            clean["away_win_prob"] = market_result["away_win_prob"]
+        # In shadow mode: market_applied is always False, but we record
+        # divergence + candidate for backtesting
         if market_result.get("risk_tags"):
             risk_tags.extend(market_result["risk_tags"])
         # ── Persist market odds to DB for audit trail ──
@@ -405,6 +404,11 @@ async def run_snapshot(
             await _save_market_odds(
                 home_team, away_team, competition,
                 market_probs, market_result.get("divergence")
+            )
+            # ── Save consensus candidate for backtesting ──
+            await _save_market_consensus(
+                home_team, away_team, competition,
+                market_probs, market_result, match_id
             )
     except Exception as e:
         # Market data is optional — never let it break the pipeline
@@ -434,7 +438,7 @@ async def run_snapshot(
     source_log = builder.build(f"{home_team} vs {away_team}")
 
     # ── Skellam draw correction (UCL knockout/final only) ──
-    skellam_enabled = cfg.get("label", "") in ("UCL_FINAL", "UCL_KNOCKOUT")
+    skellam_enabled = wc.label in ("UCL_FINAL", "UCL_KNOCKOUT")
     if skellam_enabled:
         from app.services.skellam import apply_skellam_correction
         skel_result = apply_skellam_correction(clean, dc_pred["home_xg"], dc_pred["away_xg"], enabled=True)
@@ -530,8 +534,8 @@ async def run_snapshot(
             "elo_matches": elo._match_count,
             "pi_matches": pi._match_count,
             "config_label": (
-                f"{cfg['label']} (DC{cfg['dc_weight']:.0%}+Enh{cfg['enh_weight']:.0%}"
-                f"+Elo{cfg['elo_weight']:.0%}+Pi{cfg['pi_weight']:.0%})"
+                f"{wc.label} (DC{wc.dc:.0%}+Enh{wc.enhancer:.0%}"
+                f"+Elo{wc.elo:.0%}+Pi{wc.pi:.0%})"
             ),
         },
         # ── Provenance / data freshness ──────────────────────
@@ -620,6 +624,45 @@ async def _save_market_odds(
             await mkt_db.commit()
     except Exception:
         pass  # market_odds persistence is best-effort
+
+
+async def _save_market_consensus(
+    home_team: str, away_team: str, competition: str,
+    market_probs: dict, market_result: dict, match_id: str | None,
+) -> None:
+    """Save market consensus candidate to market_consensus_snapshots (shadow mode).
+
+    Records the market-implied probabilities and divergence for later backtesting.
+    Does NOT affect prediction output.
+    """
+    import uuid
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        async with AsyncSessionLocal() as mkt_db:
+            await mkt_db.execute(
+                text(
+                    "INSERT INTO market_consensus_snapshots "
+                    "(id, match_id, captured_at, consensus_home, consensus_draw, "
+                    " consensus_away, bookmaker_count, provider_count, confidence, "
+                    " source_snapshot_ids) "
+                    "VALUES (:id, :mid, :ts, :ch, :cd, :ca, :bc, 1, :conf, :sids)"
+                ),
+                {
+                    "id": str(uuid.uuid4()).replace("-", ""),
+                    "mid": match_id or f"{home_team}_{away_team}",
+                    "ts": now,
+                    "ch": round(market_probs.get("home_prob", 0), 6),
+                    "cd": round(market_probs.get("draw_prob", 0), 6),
+                    "ca": round(market_probs.get("away_prob", 0), 6),
+                    "bc": market_probs.get("sample_bookmakers", 1),
+                    "conf": round(1.0 - (market_result.get("divergence") or 0), 4),
+                    "sids": now,  # simplified: timestamp as source reference
+                },
+            )
+            await mkt_db.commit()
+    except Exception:
+        pass  # consensus persistence is best-effort in shadow mode
 
 
 # ═══════════════════════════════════════════════════════════
@@ -860,42 +903,20 @@ async def _lookup_venue(db, home_team: str, away_team: str, competition: str | N
 #  Markdown report
 # ═══════════════════════════════════════════════════════════
 def _get_model_config(competition: str, stage: str = "") -> dict:
-    """Select model weights based on competition type and stage."""
-    c = competition.lower()
-    s = (stage or "").lower()
+    """Select model weights based on competition type and stage.
 
-    # UCL Final: less DC weight (less league data for this unique match),
-    # more Pi-Rating (cross-league comparison)
-    if ("champions" in c or "ucl" in c) and (s == "final"):
-        return {
-            "label": "UCL_FINAL",
-            "dc_weight": 0.42, "enh_weight": 0.30,
-            "elo_weight": 0.08, "pi_weight": 0.12,
-            "market_max": 0.08,
-        }
-    # UCL Knockout: moderate adjustment
-    if ("champions" in c or "ucl" in c) and any(k in s for k in ["quarter", "semi", "last_16", "playoff"]):
-        return {
-            "label": "UCL_KNOCKOUT",
-            "dc_weight": 0.45, "enh_weight": 0.28,
-            "elo_weight": 0.07, "pi_weight": 0.10,
-            "market_max": 0.10,
-        }
-    # World Cup: highest DC weight (more national team data)
-    if "world cup" in c:
-        return {
-            "label": "WORLD_CUP",
-            "dc_weight": 0.55, "enh_weight": 0.25,
-            "elo_weight": 0.05, "pi_weight": 0.05,
-            "market_max": 0.10,
-        }
-
-    # Default: Premier League / Ligue 1 / generic
+    Deprecated: Delegates to app.services.weights.get_weight_config().
+    Kept for backward compatibility. New code should use weights.py directly.
+    """
+    wc = get_weight_config(competition, stage)
     return {
-        "label": "LEAGUE",
-        "dc_weight": 0.50, "enh_weight": 0.30,
-        "elo_weight": 0.05, "pi_weight": 0.05,
-        "market_max": 0.10,
+        "label": wc.label,
+        "dc_weight": wc.dc,
+        "enh_weight": wc.enhancer,
+        "elo_weight": wc.elo,
+        "pi_weight": wc.pi,
+        "weibull_weight": wc.weibull,
+        "market_max": wc.market_max,
     }
 
 
@@ -1305,7 +1326,7 @@ def render_markdown(result: dict[str, Any]) -> str:
 # ═══════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════
-async def main(home_team: str, away_team: str, competition: str, is_neutral: bool = False, competitions: list[str] | None = None) -> None:
+async def main(home_team: str, away_team: str, competition: str, is_neutral: bool = False, competitions: list[str] | None = None, mode: str = "internal_research") -> None:
     result = await run_snapshot(
         home_team,
         away_team,
@@ -1315,12 +1336,26 @@ async def main(home_team: str, away_team: str, competition: str, is_neutral: boo
         competition_weight=1.5 if "World Cup" in competition else (0.5 if "Friendly" in competition else 0.9),
     )
 
+    # Attach mode to result for downstream filtering
+    result["meta"]["mode"] = mode
+
     markdown = render_markdown(result)
     safe_home = home_team.replace(" ", "_").replace("/", "-")
     safe_away = away_team.replace(" ", "_").replace("/", "-")
     filename = REPORTS_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M')}_{safe_home}_vs_{safe_away}.md"
-    filename.write_text(markdown, encoding="utf-8")
-    print(f"报告已生成：{filename}")
+
+    # ── Output safety filter (Phase 4) ──
+    if mode != "internal_research":
+        from app.services.output_policy import OutputPolicy
+        policy = OutputPolicy(mode=mode)
+        safe_markdown, blocked = policy.filter_markdown(markdown)
+        if blocked:
+            print(f"  [输出安全] 已过滤 {len(blocked)} 个禁止词: {blocked[:5]}...")
+        filename.write_text(safe_markdown, encoding="utf-8")
+        print(f"报告已生成（{mode} 模式）：{filename}")
+    else:
+        filename.write_text(markdown, encoding="utf-8")
+        print(f"报告已生成：{filename}")
 
     # Save standardized snapshot to DB
     try:
@@ -1328,14 +1363,14 @@ async def main(home_team: str, away_team: str, competition: str, is_neutral: boo
             result,
             run_type="manual",
             report_path=str(filename),
-            report_markdown=markdown,
+            report_markdown=safe_markdown if mode != "internal_research" else markdown,
         )
         print("快照已存入数据库")
     except Exception as exc:
         print(f"快照保存失败（非致命）: {exc}")
 
     print()
-    print(markdown)
+    print(safe_markdown if mode != "internal_research" else markdown)
 
 
 if __name__ == "__main__":
@@ -1345,6 +1380,9 @@ if __name__ == "__main__":
     parser.add_argument("--neutral", action="store_true")
     parser.add_argument("--competition", default="Premier League")
     parser.add_argument("--competitions", nargs="+", help="多联赛训练数据（如 --competitions 'Ligue 1' 'Premier League'）")
+    parser.add_argument("--mode", default="internal_research",
+                        choices=["internal_research", "creator_safe", "public_safe"],
+                        help="输出模式: internal_research(完整), creator_safe(创作者安全), public_safe(公开合规)")
     args = parser.parse_args()
-    asyncio.run(main(args.home, args.away, args.competition, args.neutral, args.competitions))
+    asyncio.run(main(args.home, args.away, args.competition, args.neutral, args.competitions, args.mode))
 

@@ -33,12 +33,13 @@ BLEND_SATURATION = 2000       # sample_size at which market weight reaches minim
 class MarketCalibrator:
     """Fetch market consensus and detect model-market divergence."""
 
-    def __init__(self) -> None:
+    def __init__(self, shadow_mode: bool = True) -> None:
         settings = get_settings()
         self.api_key: str | None = settings.odds_api_key
         self.base_url = "https://api.the-odds-api.com/v4"
         self._client: httpx.AsyncClient | None = None
         self._available: bool | None = None
+        self.shadow_mode: bool = shadow_mode  # Default: record only, don't blend
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -324,7 +325,7 @@ class MarketCalibrator:
                 "market_home_prob": None,
             }
 
-        # Divergence detection
+        # Divergence detection (always computed, even in shadow mode)
         model_home = model_probs.get("home_win_prob", 0.5)
         market_home = market_probs["home_prob"]
         divergence = abs(model_home - market_home)
@@ -338,12 +339,32 @@ class MarketCalibrator:
             )
             confidence_penalty = min(divergence * 0.5, 0.15)
 
-        # Blend: more samples → more trust in model
-        # market_weight = max(MIN, min(MAX, 0.25 - sample_size/2000))
+        # Compute blend weight (for audit tracking, even in shadow mode)
         market_weight = max(
             MIN_MARKET_BLEND,
             min(MAX_MARKET_BLEND, 0.25 - sample_size / BLEND_SATURATION),
         )
+
+        # ── Shadow mode: return model probs unchanged ──
+        if self.shadow_mode:
+            return {
+                "home_win_prob": model_probs["home_win_prob"],
+                "draw_prob": model_probs.get("draw_prob", 0.0),
+                "away_win_prob": model_probs["away_win_prob"],
+                "market_applied": False,  # NOT applied — shadow mode
+                "market_weight_used": market_weight,  # candidate weight (recorded)
+                "divergence": divergence,
+                "divergence_triggered": divergence > DIVERGENCE_THRESHOLD,
+                "risk_tags": risk_tags,
+                "confidence_penalty": confidence_penalty,
+                "market_home_prob": market_probs["home_prob"],
+                "market_draw_prob": market_probs["draw_prob"],
+                "market_away_prob": market_probs["away_prob"],
+                "market_vig": market_probs.get("vig", 0),
+                "shadow_mode": True,
+            }
+
+        # ── Active mode: blend market into model ──
         model_weight = 1.0 - market_weight
 
         blended_home = (
@@ -379,6 +400,7 @@ class MarketCalibrator:
             "market_draw_prob": market_probs["draw_prob"],
             "market_away_prob": market_probs["away_prob"],
             "market_vig": market_probs.get("vig", 0),
+            "shadow_mode": False,
         }
 
     async def close(self) -> None:
@@ -391,8 +413,15 @@ class MarketCalibrator:
 _calibrator: MarketCalibrator | None = None
 
 
-def get_calibrator() -> MarketCalibrator:
+def get_calibrator(shadow_mode: bool = True) -> MarketCalibrator:
+    """Get or create the MarketCalibrator singleton.
+
+    Args:
+        shadow_mode: If True (default), market data is recorded but NOT
+            blended into predictions. Set to False only after backtest
+            proves improvement over BaseOnly.
+    """
     global _calibrator
-    if _calibrator is None:
-        _calibrator = MarketCalibrator()
+    if _calibrator is None or _calibrator.shadow_mode != shadow_mode:
+        _calibrator = MarketCalibrator(shadow_mode=shadow_mode)
     return _calibrator

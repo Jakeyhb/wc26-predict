@@ -32,6 +32,9 @@ except ImportError:
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -39,7 +42,7 @@ from app.database import AsyncSessionLocal
 from app.exceptions import AppError
 from app.logging import configure_logging, get_logger
 from app.rate_limit import RATE_LIMIT_MESSAGE, limiter
-from app.routers import admin, analysis, feedback, health, matches, predictions, signals, stats
+from app.routers import admin, analysis, dashboard, feedback, health, matches, predictions, signals, stats
 
 configure_logging()
 settings = get_settings()
@@ -129,3 +132,15 @@ app.include_router(feedback.router, prefix=settings.api_prefix)
 app.include_router(stats.router, prefix=settings.api_prefix)
 app.include_router(admin.router, prefix=settings.api_prefix)
 app.include_router(analysis.router, prefix=settings.api_prefix)
+app.include_router(dashboard.router)
+
+# Dashboard static files
+_static_dir = Path(__file__).resolve().parent.parent / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+
+@app.get("/dashboard")
+async def serve_dashboard():
+    dashboard_html = _static_dir / "dashboard.html"
+    return FileResponse(str(dashboard_html))

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC26 Predict — Operations Dashboard</title>
+<style>
+:root{--bg:#0d1117;--fg:#c9d1d9;--accent:#58a6ff;--warn:#d29922;--crit:#f85149;--ok:#3fb950;--border:#30363d;--card:#161b22;--dim:#8b949e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace;line-height:1.5;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+header h1{font-size:14px;color:var(--accent)}header h1 span{color:var(--dim)}
+nav{display:flex;gap:4px}
+nav button{background:transparent;border:1px solid var(--border);color:var(--dim);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:12px;border-radius:4px}
+nav button.active,nav button:hover{color:var(--fg);border-color:var(--accent);background:rgba(88,166,255,0.1)}
+.mode-switch{display:flex;gap:8px;align-items:center;font-size:11px}
+.mode-switch select{background:var(--card);color:var(--fg);border:1px solid var(--border);padding:4px 8px;font-family:inherit;font-size:11px;border-radius:4px}
+main{max-width:1400px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px}
+.card h2{font-size:13px;color:var(--accent);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.card h2 .badge{font-size:10px;padding:2px 6px;border-radius:3px;margin-left:8px;font-weight:normal}
+.badge-ok{background:rgba(63,185,80,0.15);color:var(--ok)}
+.badge-warn{background:rgba(210,153,34,0.15);color:var(--warn)}
+.badge-crit{background:rgba(248,81,73,0.15);color:var(--crit)}
+.metric{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+.metric .label{color:var(--dim)}.metric .value{font-weight:bold}
+.alert{padding:8px 12px;margin:4px 0;border-radius:4px;font-size:11px}
+.alert-critical{border-left:3px solid var(--crit);background:rgba(248,81,73,0.08)}
+.alert-warning{border-left:3px solid var(--warn);background:rgba(210,153,34,0.08)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--dim);font-weight:normal;position:sticky;top:0;background:var(--card)}
+tr:hover{background:rgba(88,166,255,0.04)}
+.pred-bar{display:inline-block;height:4px;border-radius:2px;margin-right:2px}
+.pred-home{background:var(--ok)}.pred-draw{background:var(--dim)}.pred-away{background:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+.loading{color:var(--dim);font-style:italic;padding:20px;text-align:center}
+.footer{text-align:center;padding:20px;color:var(--dim);font-size:10px}
+.fresh{color:var(--ok)}.stale{color:var(--warn)}.danger{color:var(--crit)}
+#alerts-container{margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>WC26 Predict <span>// Operations Dashboard</span></h1>
+  <nav>
+    <button onclick="switchTab('overview')" class="active" id="nav-overview">概览</button>
+    <button onclick="switchTab('matches')" id="nav-matches">比赛</button>
+    <button onclick="switchTab('audit')" id="nav-audit">审计</button>
+  </nav>
+  <div class="mode-switch">
+    模式: <select id="mode-select" onchange="switchMode(this.value)">
+      <option value="internal_research">Research</option>
+      <option value="creator_safe">Creator</option>
+      <option value="public_safe">Public</option>
+    </select>
+  </div>
+</header>
+
+<main>
+<div id="alerts-container"></div>
+
+<!-- Tab: Overview -->
+<div id="tab-overview" class="tab-content active">
+<div class="grid">
+  <div class="card" id="card-overview"><h2>系统概览</h2><div class="loading">Loading...</div></div>
+  <div class="card" id="card-signals"><h2>情报信号</h2><div class="loading">Loading...</div></div>
+  <div class="card" id="card-learning"><h2>学习回路</h2><div class="loading">Loading...</div></div>
+  <div class="card" id="card-freshness"><h2>数据新鲜度</h2><div class="loading">Loading...</div></div>
+</div>
+</div>
+
+<!-- Tab: Matches -->
+<div id="tab-matches" class="tab-content"><div class="card"><h2>WC26 小组赛</h2><div id="matches-table"><div class="loading">Loading...</div></div></div></div>
+
+<!-- Tab: Audit -->
+<div id="tab-audit" class="tab-content">
+<div class="grid">
+  <div class="card" id="card-audit"><h2>输出安全审计</h2><div class="loading">Loading...</div></div>
+  <div class="card" id="card-market"><h2>市场共识 (内部)</h2><div class="loading">Loading...</div></div>
+</div>
+</div>
+
+</main>
+<div class="footer">WC26 Predict V1.5 · Dashboard v1.0 · <span id="clock"></span></div>
+
+<script>
+let currentMode = 'internal_research';
+const API = '/api/dashboard';
+
+function switchMode(mode){currentMode=mode;loadAll();}
+function switchTab(tab){
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(e=>e.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='matches')loadMatches();if(tab==='audit'){loadAudit();loadMarket();}
+}
+
+async function fetchJSON(url){const r=await fetch(url);return r.ok?r.json():null;}
+
+async function loadAll(){loadOverview();loadMatches();loadAudit();loadMarket();}
+
+async function loadOverview(){
+  const data=await fetchJSON(API+'/overview?mode='+currentMode);
+  if(!data)return;
+  // Alerts
+  const ac=document.getElementById('alerts-container');
+  ac.innerHTML=data.alerts.map(a=>`<div class="alert alert-${a.level}">${a.msg}</div>`).join('');
+
+  // Overview card
+  document.getElementById('card-overview').innerHTML=`
+    <h2>系统概览<span class="badge badge-ok">运行中</span></h2>
+    <div class="metric"><span class="label">WC26 比赛</span><span class="value">${data.match.wc_total} 场 (7天内 ${data.match.upcoming_7d})</span></div>
+    <div class="metric"><span class="label">预测快照</span><span class="value">${data.predictions.total} 条 / ${data.predictions.unique_matches} 场</span></div>
+    <div class="metric"><span class="label">最新快照</span><span class="value">${data.predictions.latest||'none'}</span></div>
+    <div class="metric"><span class="label">最新赛果</span><span class="value">${data.data.latest_result||'unknown'}</span></div>
+    ${data.market.odds_count!==undefined?`<div class="metric"><span class="label">市场赔率</span><span class="value">${data.market.odds_count} 条</span></div>`:''}`;
+
+  // Signals card
+  document.getElementById('card-signals').innerHTML=`
+    <h2>情报信号<span class="badge ${data.signals.news_signals>0?'badge-ok':'badge-crit'}">${data.signals.news_signals} 信号</span></h2>
+    <div class="metric"><span class="label">news_signals</span><span class="value ${data.signals.news_signals>0?'fresh':'danger'}">${data.signals.news_signals}</span></div>
+    <div class="metric"><span class="label">未处理文章</span><span class="value">${data.signals.unprocessed_articles}</span></div>
+    <div class="metric"><span class="label">手动事件</span><span class="value ${data.manual_events>=20?'fresh':'stale'}">${data.manual_events}</span></div>`;
+
+  // Learning card
+  document.getElementById('card-learning').innerHTML=`
+    <h2>学习回路<span class="badge ${data.learning.evaluations>=50?'badge-ok':'badge-warn'}">${data.learning.evaluations} 场</span></h2>
+    <div class="metric"><span class="label">赛后评估</span><span class="value">${data.learning.evaluations}</span></div>
+    <div class="metric"><span class="label">平均 Brier</span><span class="value">${data.learning.avg_brier}</span></div>`;
+
+  // Freshness
+  const freshness=await fetchJSON(API+'/freshness?mode='+currentMode);
+  if(freshness){
+    document.getElementById('card-freshness').innerHTML=`
+      <h2>数据新鲜度</h2>
+      ${freshness.daily_predictions.slice(0,7).map(d=>`<div class="metric"><span class="label">${d.date}</span><span class="value">${d.count} 条快照</span></div>`).join('')||'<div class="loading">无数据</div>'}
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        ${freshness.recent_ingest.map(i=>`<div class="metric"><span class="label">${i.source}</span><span class="value ${i.status==='success'?'fresh':'stale'}">${i.status} (${i.at})</span></div>`).join('')||'<div class="loading">无摄入记录</div>'}
+      </div>`;
+  }
+}
+
+async function loadMatches(){
+  const data=await fetchJSON(API+'/matches?mode='+currentMode);
+  if(!data)return;
+  let html=`<table><thead><tr><th>日期</th><th>主队</th><th>客队</th><th>阶段</th><th>预测</th>`;
+  if(currentMode==='internal_research')html+=`<th>主/平/客</th>`;
+  html+=`</tr></thead><tbody>`;
+  for(const m of data.matches){
+    html+=`<tr><td>${m.date}</td><td>${m.home}</td><td>${m.away}</td><td>${m.stage}</td><td class="${m.has_prediction?'fresh':'stale'}">${m.has_prediction?'已预测':'未预测'}</td>`;
+    if(currentMode==='internal_research'&&m.prediction){
+      const p=m.prediction;
+      html+=`<td>${(p.home*100).toFixed(1)}% / ${(p.draw*100).toFixed(1)}% / ${(p.away*100).toFixed(1)}%</td>`;
+    }
+    html+=`</tr>`;
+  }
+  html+=`</tbody></table>`;
+  document.getElementById('matches-table').innerHTML=html;
+}
+
+async function loadAudit(){
+  const data=await fetchJSON(API+'/audit?mode='+currentMode);
+  if(!data){
+    document.getElementById('card-audit').innerHTML=`<h2>输出安全审计</h2><div class="loading">无数据</div>`;
+    return;
+  }
+  let html=`<h2>输出安全审计<span class="badge ${data.passed_count===data.total?'badge-ok':'badge-warn'}">${data.passed_count}/${data.total} 通过</span></h2>`;
+  if(data.logs.length===0){html+=`<div class="loading">暂无审计记录</div>`;}
+  else{
+    html+=`<table><thead><tr><th>类型</th><th>路径</th><th>模式</th><th>状态</th><th>时间</th></tr></thead><tbody>`;
+    for(const l of data.logs){
+      html+=`<tr><td>${l.type}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${l.path}</td><td>${l.mode}</td><td class="${l.passed?'fresh':'danger'}">${l.passed?'PASS':'FAIL'}</td><td>${l.at}</td></tr>`;
+    }
+    html+=`</tbody></table>`;
+  }
+  document.getElementById('card-audit').innerHTML=html;
+}
+
+async function loadMarket(){
+  if(currentMode!=='internal_research'){
+    document.getElementById('card-market').innerHTML=`<h2>市场共识</h2><div class="loading">⚠ 当前模式不可见 (需 internal_research)</div>`;
+    return;
+  }
+  const data=await fetchJSON(API+'/market?mode='+currentMode);
+  if(!data){
+    document.getElementById('card-market').innerHTML=`<h2>市场共识 (内部)</h2><div class="loading">无数据</div>`;
+    return;
+  }
+  let html=`<h2>市场共识 (内部)<span class="badge badge-warn">内部专用</span></h2>`;
+  html+=`<div class="metric"><span class="label">Provider 分布</span><span class="value">${data.providers.map(p=>p.provider+':'+p.count).join(', ')||'无'}</span></div>`;
+  if(data.snapshots.length===0){html+=`<div class="loading">暂无市场共识快照</div>`;}
+  else{
+    html+=`<table><thead><tr><th>比赛</th><th>主</th><th>平</th><th>客</th><th>时间</th></tr></thead><tbody>`;
+    for(const s of data.snapshots){
+      html+=`<tr><td>${s.match_id.substring(0,12)}...</td><td>${(s.home*100).toFixed(1)}%</td><td>${(s.draw*100).toFixed(1)}%</td><td>${(s.away*100).toFixed(1)}%</td><td>${s.captured}</td></tr>`;
+    }
+    html+=`</tbody></table>`;
+  }
+  document.getElementById('card-market').innerHTML=html;
+}
+
+// Clock
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString('zh-CN');},1000);
+
+// Initial load
+loadAll();
+</script>
+</body>
+</html>

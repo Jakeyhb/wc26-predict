@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: int = 30
     llm_max_retries: int = 2
     odds_api_key: str | None = Field(default=None, alias="ODDS_API_KEY")
+    api_football_key: str | None = Field(default=None, alias="API_FOOTBALL_KEY")
     sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
 
     object_storage_bucket: str | None = Field(default=None, alias="OBJECT_STORAGE_BUCKET")
