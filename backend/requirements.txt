@@ -29,3 +29,7 @@ pytest-asyncio>=1.0.0
 
 # football models
 penaltyblog>=1.0.0
+
+# dashboard
+streamlit>=1.40
+plotly>=5.20
