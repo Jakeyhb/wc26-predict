@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-06-04T19:00:00Z",
+  "tournament": "FIFA World Cup 2026",
+  "source": "FIFA Official — inside.fifa.com + fifa.com",
+  "teams": {
+    "Spain": {
+      "team_name": "Spain",
+      "tournament": "FIFA World Cup 2026",
+      "status": "qualified",
+      "qualified_date": "2025-11-18",
+      "qualification_path": "UEFA Group E Winner — FIFA World Cup 2026 Qualifiers",
+      "group_name": "Group A",
+      "next_official_match": "2026-06-13 vs TBD (World Cup Group A)",
+      "source_name": "FIFA",
+      "source_url": "https://inside.fifa.com/tournaments/mens/worldcup/canadamexicousa2026",
+      "source_checked_at": "2026-06-04T19:00:00Z",
+      "confidence": "high"
+    },
+    "Iraq": {
+      "team_name": "Iraq",
+      "tournament": "FIFA World Cup 2026",
+      "status": "qualified",
+      "qualified_date": "2026-03-31",
+      "qualification_path": "FIFA World Cup 2026 Play-Off Tournament — Iraq 2-1 Bolivia",
+      "group_name": "Group I",
+      "next_official_match": "2026-06-15 vs TBD (World Cup Group I)",
+      "source_name": "FIFA",
+      "source_url": "https://inside.fifa.com/news/world-cup-2026-line-up-complete-iraq-bolivia-play-off-fixtures",
+      "source_checked_at": "2026-06-04T19:00:00Z",
+      "confidence": "high"
+    }
+  },
+  "FORBIDDEN_PHRASES_IF_QUALIFIED": [
+    "仍处于世界杯预选赛周期",
+    "正处于世界杯预选赛周期",
+    "正处于世界杯预选赛阶段",
+    "还在争取世界杯资格",
+    "仍在预选赛阶段",
+    "仍处于预选赛阶段",
+    "还处于世界杯预选赛",
+    "还处于预选赛阶段",
+    "世界杯预选赛仍在进行",
+    "仍需要争取世界杯名额",
+    "正处于预选赛周期",
+    "qualification hopes",
+    "still qualifying",
+    "still in qualifying",
+    "World Cup qualifying campaign is ongoing",
+    "yet to qualify for the World Cup",
+    "has not yet qualified",
+    "has not qualified for the World Cup"
+  ],
+  "FORBIDDEN_PHRASES_IF_ELIMINATED": [
+    "已晋级世界杯决赛圈",
+    "已获得世界杯门票",
+    "已锁定世界杯席位"
+  ]
+}

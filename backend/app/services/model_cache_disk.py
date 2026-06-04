@@ -74,7 +74,7 @@ def load_dc_from_disk(competition_type: str, df: pd.DataFrame) -> CachedDC | Non
             "Disk cache DC hit: key=%s… age=%.1fh teams=%d",
             key[:12], age_hours, len(cached._team_order),
         )
-        print(f"  💾 磁盘缓存命中 (DC, {age_hours:.1f}h 前生成, {len(cached._team_order)} 队)")
+        print(f"  [CACHE] DC disk cache hit ({age_hours:.1f}h old, {len(cached._team_order)} teams)")
         return cached
     except Exception as exc:
         logger.warning("Disk cache DC load failed: %s", exc)
@@ -95,7 +95,7 @@ def save_dc_to_disk(
             "Disk cache DC saved: key=%s… teams=%d",
             key[:12], len(cached._team_order),
         )
-        print(f"  💾 磁盘缓存已保存 (DC, {len(cached._team_order)} 队)")
+        print(f"  [CACHE] DC disk cache saved ({len(cached._team_order)} teams)")
     except Exception as exc:
         logger.error("Disk cache DC save failed: %s", exc)
 
@@ -133,7 +133,7 @@ def load_enhancer_from_disk(
             cached: CachedEnhancer = pickle.load(f)
         age_hours = (time.time() - os.path.getmtime(path)) / 3600
         logger.info("Disk cache Enhancer hit: key=%s… age=%.1fh", key[:12], age_hours)
-        print(f"  💾 磁盘缓存命中 (Enhancer, {age_hours:.1f}h 前)")
+        print(f"  [CACHE] Enhancer disk cache hit ({age_hours:.1f}h old)")
         return cached
     except Exception as exc:
         logger.warning("Disk cache Enhancer load failed: %s", exc)
@@ -151,7 +151,7 @@ def save_enhancer_to_disk(
         with open(path, "wb") as f:
             pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info("Disk cache Enhancer saved: key=%s…", key[:12])
-        print(f"  💾 磁盘缓存已保存 (Enhancer)")
+        print(f"  [CACHE] Enhancer disk cache saved")
     except Exception as exc:
         logger.error("Disk cache Enhancer save failed: %s", exc)
 
@@ -179,5 +179,5 @@ def clear_old_disk_cache(keep_latest: int = 3) -> int:
                 pass
 
     if deleted:
-        print(f"  🗑️  清理了 {deleted} 个旧磁盘缓存文件")
+        print(f"  [CACHE] Cleaned {deleted} old disk cache files")
     return deleted

@@ -70,7 +70,7 @@ class SourceLog:
         """Summarize data quality at a glance."""
         active = self.active_entries()
         if not active:
-            return "❌ 无可用数据"
+            return "[ERR] No available data"
         tiers = [e.tier for e in active]
         rels = [e.reliability for e in active]
         avg_tier = sum(tiers) / len(tiers)
@@ -204,8 +204,8 @@ def render_source_table(log: SourceLog) -> str:
     for e in log.entries:
         status_icon = {
             "active": "✓",
-            "stale": "⚠ 陈旧",
-            "unavailable": "⚠ 不可用",
+            "stale": "[WARN] Stale",
+            "unavailable": "[WARN] Unavailable",
         }.get(e.status, "?")
         note = e.notes or ""
         if has_notes:

@@ -148,6 +148,78 @@ class OutputPolicy:
             "blocked_terms": blocked_terms,
         }
 
+    def fact_check_report(
+        self, text: str, team_statuses: dict[str, dict] | None = None
+    ) -> tuple[bool, list[dict[str, str]]]:
+        """Check report text for factual errors against known team statuses.
+
+        Loads team_tournament_status.json if no team_statuses provided.
+
+        Returns (passed: bool, violations: list[dict]).
+        Each violation: {"team": str, "status": str, "matched": str, "context": str}
+        """
+        if team_statuses is None:
+            team_statuses = _load_team_statuses()
+
+        if not team_statuses:
+            return True, []
+
+        violations: list[dict[str, str]] = []
+        teams = team_statuses.get("teams", {})
+        forbidden_if_qualified = team_statuses.get(
+            "FORBIDDEN_PHRASES_IF_QUALIFIED", []
+        )
+        forbidden_if_eliminated = team_statuses.get(
+            "FORBIDDEN_PHRASES_IF_ELIMINATED", []
+        )
+
+        for team_name, info in teams.items():
+            status = info.get("status", "unknown")
+
+            if status == "qualified":
+                for phrase in forbidden_if_qualified:
+                    if phrase.lower() in text.lower():
+                        # Extract context: +/- 50 chars around match
+                        idx = text.lower().find(phrase.lower())
+                        start = max(0, idx - 30)
+                        end = min(len(text), idx + len(phrase) + 30)
+                        context = text[start:end].replace("\n", " ")
+                        violations.append({
+                            "team": team_name,
+                            "status": "qualified",
+                            "matched": phrase,
+                            "context": f"...{context}...",
+                        })
+
+            elif status == "eliminated":
+                for phrase in forbidden_if_eliminated:
+                    if phrase.lower() in text.lower():
+                        idx = text.lower().find(phrase.lower())
+                        start = max(0, idx - 30)
+                        end = min(len(text), idx + len(phrase) + 30)
+                        context = text[start:end].replace("\n", " ")
+                        violations.append({
+                            "team": team_name,
+                            "status": "eliminated",
+                            "matched": phrase,
+                            "context": f"...{context}...",
+                        })
+
+        passed = len(violations) == 0
+        if not passed:
+            team_names = {v["team"] for v in violations}
+            print(
+                f"[FACT_CHECK_FAILED] Teams {team_names}: "
+                f"{len(violations)} factual error(s) detected"
+            )
+            for v in violations:
+                print(
+                    f"  -> Team '{v['team']}' is '{v['status']}' "
+                    f"but report says: '{v['matched']}'"
+                )
+
+        return passed, violations
+
     # ── Helpers ─────────────────────────────────────────────
 
     def _get_forbidden_terms(self) -> list[str]:
@@ -181,3 +253,23 @@ class OutputPolicy:
             "比分预测": "比赛分析",
             "预计比分": "比赛展望",
         }
+
+
+def _load_team_statuses() -> dict[str, Any] | None:
+    """Load team tournament status from JSON fact file."""
+    import json
+    from pathlib import Path
+
+    # Search for the JSON file in likely locations
+    candidates = [
+        Path(__file__).resolve().parents[4] / "data" / "team_tournament_status.json",
+        Path(__file__).resolve().parents[1] / ".." / ".." / "data" / "team_tournament_status.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    return None

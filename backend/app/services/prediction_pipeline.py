@@ -443,6 +443,23 @@ class PredictionPipeline:
 
         return result
 
+    async def predict(
+        self,
+        home_team: str,
+        away_team: str,
+        competition: str,
+        **kwargs: Any,
+    ) -> PredictionResult:
+        """Convenience alias for predict_match().
+
+        Deprecated: Prefer ``predict_match()`` directly.
+        """
+        logger.info(
+            "predict() is a convenience alias for predict_match(). "
+            "Prefer predict_match() directly."
+        )
+        return await self.predict_match(home_team, away_team, competition, **kwargs)
+
     # ── Model loading (3-tier cache) ────────────────────────
 
     async def _load_dc(
