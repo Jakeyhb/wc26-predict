@@ -27,6 +27,7 @@ nginx/html/*
 *.sqlite3
 *.db
 *.log
+*.tsbuildinfo
 .env
 .env.local
 backend/.env
@@ -34,6 +35,8 @@ backend/.env.local
 apps/web/.env
 backend/model_artifacts/
 backend/artifacts/dataframes/
+backend/artifacts/models/
+backend/artifacts/ratings/
 backend/reports/
 backend/reports_batch/
 backend/data/*.bak

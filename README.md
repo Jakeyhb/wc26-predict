@@ -1,119 +1,165 @@
 # WC26 Predict
 
-> AI football research engine and creator workspace for World Cup 2026 analysis.
+> AI 足球分析引擎 · 本地可视化工作台 · 世界杯 2026 研究系统
 
-WC26 Predict is an AI-assisted football research system built for World Cup 2026. It combines historical match data, statistical models, model evaluation, post-match learning, data provenance, and safe public-output controls into one reproducible research workflow.
-
-It is designed for football analysts, creators, and builders who want to study matches with structured data instead of relying on isolated opinions.
-
-> **Positioning:** football research, data analysis, content preparation, and model evaluation.  
-> **Not positioning:** betting advice, gambling products, odds promotion, or guaranteed score prediction.
-
----
-
-## What it does
-
-WC26 Predict can generate match research reports from structured football data and model outputs.
-
-Core capabilities:
-
-- **Unified prediction pipeline** for match analysis and snapshot generation
-- **Multi-model ensemble** including Dixon-Coles, tabular features, Elo, Pi-Rating, and optional extensions
-- **Model registry and weight configuration** for reproducible model versions
-- **Post-match evaluation loop** using scoring metrics such as Brier score and RPS
-- **Internal-only market consensus shadow mode** for calibration research without public odds exposure
-- **News and signal ingestion pipeline** for source-based context signals
-- **Output safety policy** to separate internal research outputs from creator-safe and public-safe reports
-- **Local dashboard workspace** for operations, review, and content preparation
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v2.4-blue" alt="version">
+  <img src="https://img.shields.io/badge/tests-91%20passed-green" alt="tests">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="license">
+  <img src="https://img.shields.io/badge/python-3.11+-blue" alt="python">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="platform">
+</p>
 
 ---
 
-## Why this project exists
+## 项目定位
 
-The project started as a personal AI-coding experiment: one football fan using AI development tools to build a complete World Cup analysis system from scratch.
+WC26 Predict 是一个**完整的 AI 足球研究系统**，面向 2026 年 FIFA 世界杯。它将历史比赛数据、多模型融合概率引擎、赛事模拟器、事实校验层和输出安全策略整合为统一的本地工作台。
 
-It has evolved into a structured football research engine with:
+**适用场景：**
+- 足球内容创作者：快速生成数据驱动的赛前分析素材
+- 数据分析师：研究模型融合、权重优化、概率校准
+- AI 开发者：参考完整的多模型 pipeline 架构设计
+- 足球爱好者：用数据理解比赛，而非凭感觉下判断
 
-- historical match storage
-- model-based match analysis
-- automated snapshots
-- post-match feedback
-- calibration research
-- data provenance
-- public-output safety boundaries
-- creator workflow support
-
-The long-term goal is to turn WC26 Predict into a transparent, reproducible, and commercially usable football analytics workspace.
+**不是赌博产品。** 本项目不提供投注建议、不展示赔率、不承诺胜率、不包含任何博彩推广内容。
 
 ---
 
-## System overview
+## 核心能力
 
-```text
-Data Sources
-  ├─ football-data.org / football-data.co.uk
-  ├─ openfootball
-  ├─ StatsBomb Open Data
-  ├─ Open-Meteo
-  ├─ RSS / public news sources
-  └─ Manual verified signals
+### 预测引擎
+- **4 模型顺序融合**：Dixon-Coles 双变量泊松 (49.6%) → XGBoost 增强器 (39.6%) → Elo 评级 (5.3%) → Pi 评级 (5.6%)
+- **有效权重自动计算**：分步混合参数 → 展开为 4 个模型的实际有效权重，永保证总和为 100%
+- **模型分歧度量**：实时计算任意两个模型之间的最大主胜概率差，识别高分歧比赛
+- **Artifact 推理架构**：离线训练 → 保存模型文件 → 在线加载 → 纯本地数学计算（**0 LLM token**）
 
-Research Engine
-  ├─ PredictionPipeline
-  ├─ ModelRegistry
-  ├─ Dixon-Coles model
-  ├─ Tabular match enhancer
-  ├─ Elo / Pi-Rating layers
-  ├─ Signal and context adjustment
-  ├─ Market consensus shadow calibration
-  └─ Post-match learning and evaluation
+### 预测模式
 
-Output Layer
-  ├─ Internal research report
-  ├─ Creator-safe report
-  ├─ Public-safe report
-  ├─ Markdown / JSON snapshots
-  └─ Local dashboard
+| 模式 | 组件 | 速度 | 适用场景 |
+|---|---|---|---|
+| `baseline` | DC only | <1s | 快速对比基线 |
+| `standard` | DC + Enhancer + Elo | ~2s | 常规分析 |
+| `full` | DC + Enhancer + Elo + Pi | ~2.5s | 完整分析（推荐） |
+| `research-full` | full + Weibull (可选) | ~3s | 深度研究 |
+
+### 概率输出
+- 胜/平/负概率（精确到小数点后 4 位）
+- 预期进球 (xG)
+- 比分概率矩阵 (Top 5)
+- FusionGraph 完整诊断（每步的输入/输出/公式）
+- 模型分歧度 + 置信度
+
+### 本地 Dashboard 工作台 (v2.4)
+
+```
+┌──────────────────────────────────────────────┐
+│         WC26 Predict 本地工作台               │
+│                                              │
+│  [系统总览] [单场预测] [比赛上下文]            │
+│  [WC26赛程] [球队事实] [数据库]               │
+│  [赛事模拟] [创作者模式]                       │
+│                                              │
+│  Streamlit · 全中文 · 本地运行 · 录屏就绪      │
+└──────────────────────────────────────────────┘
+```
+
+一键启动：
+```powershell
+powershell -File scripts/start_dashboard.ps1
+# 浏览器打开 http://localhost:8501
+```
+
+### 合规与安全
+- **三层输出策略**：`internal_research` / `creator_safe` / `public_safe`
+- **事实校验层**：48 支球队硬事实 + 18 条中文禁用短语 + 6 条英文禁用短语
+- **只读数据库**：Dashboard 三层防护（URI `mode=ro` + `PRAGMA query_only` + 正则拦截）
+- **无 LLM 依赖**：核心概率计算不使用任何 LLM API，完全本地可复现
+
+### WC26 专属能力
+- 104 场比赛完整赛程（72 场小组赛 + 32 场淘汰赛）
+- 12 个小组、48 支已晋级球队的硬事实数据
+- Monte Carlo 世界杯模拟器 (1,000~50,000 次)
+- 小组出线 / 16 强 / 8 强 / 4 强 / 决赛 / 冠军概率分布
+- 赛后复盘 + Brier Score / Log Loss / RPS / 校准 ECE 回测
+
+---
+
+## 系统架构
+
+```
+                        ┌──────────────────────┐
+                        │   数据源层             │
+                        │  football-data.org    │
+                        │  openfootball         │
+                        │  StatsBomb Open Data  │
+                        │  RSS / 公开新闻       │
+                        │  手动验证信号          │
+                        └──────────┬───────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+    ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+    │  train_models.py │  │  news_signal_   │  │  market data    │
+    │  离线训练        │  │  extractor.py   │  │  shadow mode    │
+    │  (一次性, ~45s)  │  │  情报提取       │  │  市场校准       │
+    └────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+             │                    │                    │
+    ┌────────▼────────────────────▼────────────────────▼────────┐
+    │                  Artifacts & Database                      │
+    │  dc.pkl · enhancer.joblib · elo.json · pi.json           │
+    │  model_registry.json · local_stage2.db                   │
+    └────────────────────────┬──────────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+    │ CLI 预测     │  │ Dashboard   │  │ 模拟器       │
+    │ predict_    │  │ Streamlit   │  │ simulate_   │
+    │ match.py   │  │ localhost   │  │ wc26.py     │
+    └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
+           │                │                │
+           └────────────────┼────────────────┘
+                            ▼
+              ┌─────────────────────────┐
+              │   prediction_core.py     │
+              │   统一预测入口（共享）     │
+              │   run_artifact_pipeline  │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │   FusionGraph            │
+              │   顺序融合 + 有效权重     │
+              │   + 模型分歧 + 步骤记录   │
+              └────────────┬────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+    ┌─────────────┐ ┌──────────┐ ┌──────────────┐
+    │ RunQuality   │ │ Output   │ │ Team Facts   │
+    │ 管线状态      │ │ Policy   │ │ 硬事实校验    │
+    └─────────────┘ └──────────┘ └──────────────┘
 ```
 
 ---
 
-## Current status
+## 快速开始
 
-Current public milestone: **V1.7 test version**
+### 环境要求
 
-> 最新状态以 [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) 为准。其他状态文档如与 CURRENT_STATUS 冲突，以 CURRENT_STATUS 为准。
+- Python 3.11+
+- Windows / macOS / Linux
+- Git
 
-The current system is focused on P0 closure:
-
-- unified prediction entry point
-- centralized model registry
-- market-data research pipeline in shadow mode
-- source-based news/signal pipeline
-- output-safety filtering
-- local dashboard workflow
-- automation scripts for recurring operations
-
-See:
-
-- [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) — 当前最新状态
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) — 可能已过期
-- [`docs/COMPLETION_AUDIT.md`](docs/COMPLETION_AUDIT.md) — 可能已过期
-- [`docs/COMPLIANCE_AND_OUTPUT_POLICY.md`](docs/COMPLIANCE_AND_OUTPUT_POLICY.md)
-- [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md)
-
----
-
-## Quick start
-
-### 1. Clone the repository
+### 1. 克隆仓库
 
 ```bash
 git clone https://github.com/AndyDu0921/wc26-predict.git
 cd wc26-predict
 ```
 
-### 2. Install backend dependencies
+### 2. 安装依赖
 
 ```bash
 cd backend
@@ -128,81 +174,109 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 3. 配置 API 密钥（可选）
 
-Copy the example env file and fill in your own keys.
-
-```bash
-cp ../.env.example ../.env
-```
-
-Required or optional variables depend on which modules you run. For LLM features, use DeepSeek official API settings:
-
-```env
-LLM_PROVIDER=deepseek
-LLM_MODEL=deepseek-v4-pro
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_API_KEY=your_key_here
-```
-
-### 4. Run the API service
+预测核心不需要任何 API 密钥。仅在启用新闻情报提取时需要 DeepSeek API：
 
 ```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+cp .env.example .env
+# 编辑 .env 填入你的 DeepSeek API Key
 ```
 
-### 5. Generate a match snapshot
+### 4. 训练模型（首次使用，一次性）
 
 ```bash
-python scripts/snapshot.py --home "Brazil" --away "Argentina" --competition "FIFA World Cup 2026" --neutral
+python scripts/train_models.py --team-type national
+# 输出: ~45s, 保存 4 个模型文件到 backend/artifacts/
 ```
 
-### 6. Run the local dashboard
+### 5. 运行预测
 
 ```bash
-cd ../apps/web
-npm install
-npm run dev
+# 完整模式（4 模型融合）
+python scripts/predict_match.py \
+  --home France --away "Ivory Coast" \
+  --competition "International Friendly" \
+  --neutral --mode full
+
+# JSON 输出
+python scripts/predict_match.py \
+  --home Brazil --away Argentina \
+  --competition "FIFA World Cup 2026" \
+  --neutral --mode full --output json
 ```
 
-Then open:
+### 6. 启动 Dashboard
 
-```text
-http://127.0.0.1:5173
+```powershell
+powershell -File scripts/start_dashboard.ps1
 ```
+
+浏览器打开 `http://localhost:8501`，开始使用可视化工作台。
 
 ---
 
-## Repository structure
+## 项目结构
 
-```text
+```
 wc26-predict/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py
-│   │   ├── routers/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   └── services/
-│   │       ├── prediction_pipeline.py
-│   │       ├── model_registry.py
-│   │       ├── weights.py
-│   │       ├── output_policy.py
-│   │       ├── dixon_coles.py
-│   │       ├── tabular_match_model.py
-│   │       ├── elo_ratings.py
-│   │       ├── pi_ratings.py
-│   │       └── market / news / evaluation services
-│   ├── scripts/
+│   │   ├── main.py                          # FastAPI 入口
+│   │   ├── config.py                        # 配置管理
+│   │   ├── database.py                      # PostgreSQL 异步引擎
+│   │   ├── routers/                         # API 路由 (9 个模块)
+│   │   ├── models/                          # SQLAlchemy ORM (28 张表)
+│   │   ├── schemas/                         # Pydantic 数据模型
+│   │   └── services/                        # 核心服务层
+│   │       ├── prediction_core.py           # ★ 统一预测入口 (CLI/Dashboard 共享)
+│   │       ├── prediction_pipeline.py       # 完整管线 (FastAPI 异步版)
+│   │       ├── dixon_coles.py              # Dixon-Coles 双变量泊松模型
+│   │       ├── tabular_match_model.py       # XGBoost 增强器
+│   │       ├── elo_ratings.py              # K-Elo 评级系统
+│   │       ├── pi_ratings.py               # Pi 评级 (泊松强度)
+│   │       ├── weibull_model.py            # Weibull Copula (可选)
+│   │       ├── fusion_graph.py             # 顺序融合图 + 有效权重
+│   │       ├── weights.py                  # 融合权重配置
+│   │       ├── artifact_registry.py        # 模型文件注册表
+│   │       ├── run_quality.py              # 管线运行质量
+│   │       ├── prediction_timer.py         # 性能计时器
+│   │       ├── output_policy.py            # 输出安全策略
+│   │       ├── tournament_simulator.py     # Monte Carlo 赛事模拟
+│   │       ├── market/                     # 市场数据校准 (shadow mode)
+│   │       └── llm/                        # DeepSeek 情报提取
+│   ├── dashboard/                          # ★ Streamlit 本地工作台 (v2.4)
+│   │   ├── app.py                          # 入口 + 首页
+│   │   ├── dashboard_config.py             # 配置
+│   │   ├── db.py                           # 只读 SQLite 连接器
+│   │   ├── pages/                          # 8 个页面
+│   │   │   ├── 01_Overview.py              #   系统总览
+│   │   │   ├── 02_Match_Prediction.py      #   单场预测
+│   │   │   ├── 03_Match_Context.py         #   比赛上下文
+│   │   │   ├── 04_WC26_Schedule.py         #   WC26 赛程
+│   │   │   ├── 05_Teams_Facts.py           #   球队事实库
+│   │   │   ├── 06_Database_Explorer.py     #   数据库浏览器
+│   │   │   ├── 07_Tournament_Simulator.py  #   赛事模拟器
+│   │   │   └── 08_Creator_Mode.py          #   创作者模式
+│   │   └── components/                     # 6 个可复用组件
+│   ├── scripts/                            # CLI 脚本
+│   │   ├── predict_match.py               # 单场预测 CLI
+│   │   ├── train_models.py                # 离线模型训练
+│   │   ├── simulate_wc26.py               # 世界杯模拟 CLI
+│   │   ├── backtest_models.py             # Walk-forward 回测
+│   │   ├── optimize_fusion_weights.py      # 权重网格搜索
+│   │   └── audit_team_facts.py            # 事实校验审计
+│   ├── tests/                              # 91 个测试
 │   └── data/
-├── apps/web/
-│   └── local dashboard frontend
-├── docs/
-│   ├── PROJECT_OVERVIEW.md
-│   ├── COMMERCIAL_READINESS.md
-│   ├── COMPLIANCE_AND_OUTPUT_POLICY.md
-│   └── COMPLETION_AUDIT.md
-├── reports/
+├── apps/web/                               # React 前端 (Vite + TypeScript)
+├── data/
+│   └── team_tournament_status.json         # 48 队硬事实
+├── docs/                                   # 项目文档
+├── scripts/
+│   └── start_dashboard.ps1                 # Dashboard 一键启动
+├── docker-compose.yml                      # 本地开发环境
+├── docker-compose.prod.yml                 # 生产部署配置
+├── .github/workflows/ci.yml               # CI/CD (lint + 测试 + 安全扫描)
 ├── README.md
 ├── SECURITY.md
 ├── CONTRIBUTING.md
@@ -211,112 +285,104 @@ wc26-predict/
 
 ---
 
-## Output modes
+## 技术栈
 
-WC26 Predict separates internal research from public-facing content.
-
-| Mode | Intended user | Can include | Must not include |
-|---|---|---|---|
-| `internal_research` | maintainer / analyst | model probabilities, calibration diagnostics, error metrics, internal market-consensus research | public marketing claims or betting advice |
-| `creator_safe` | content creator | team context, form, data provenance, uncertainty notes, safe summaries | odds, bookmakers, betting language, gambling prompts |
-| `public_safe` | public audience | educational analysis, historical context, rankings, explainable trends | odds, betting, bookmakers, guaranteed predictions, hit-rate marketing |
-
----
-
-## Compliance boundary
-
-WC26 Predict is not a gambling product.
-
-The project does **not** provide:
-
-- betting advice
-- bookmaker promotion
-- gambling recommendations
-- odds display in public reports
-- guaranteed score predictions
-- paid betting signals
-- "hit rate" marketing claims
-
-Internal market-consensus calibration, if used, is strictly a research and evaluation layer. It must remain separated from public outputs.
-
-See [`docs/COMPLIANCE_AND_OUTPUT_POLICY.md`](docs/COMPLIANCE_AND_OUTPUT_POLICY.md).
+| 层 | 技术 | 说明 |
+|---|---|---|
+| 概率模型 | scikit-learn, numpy, scipy, penaltyblog | Dixon-Coles, XGBoost, Elo, Pi |
+| 可视化 | Streamlit 1.58, Plotly 6.8 | 本地 Dashboard 工作台 |
+| Web API | FastAPI, uvicorn, SQLAlchemy 2.0 | REST API 服务 |
+| 数据库 | SQLite (本地), PostgreSQL (生产) | 16,689 场比赛, 441 支球队 |
+| 前端 | React 18 + TypeScript + Vite + Tailwind | 公开演示页面 |
+| LLM | DeepSeek V4 Pro | 新闻情报提取（可选） |
+| 任务调度 | Celery + Redis | 定时数据同步 |
+| 部署 | Docker + Nginx | 容器化部署 |
+| CI/CD | GitHub Actions | lint + pytest + 安全扫描 |
 
 ---
 
-## Commercialization direction
-
-WC26 Predict can support commercial use cases such as:
-
-- football content creator workflow
-- pre-match research assistant
-- model evaluation and post-match review dashboard
-- data provenance and report generation
-- team / tournament monitoring workspace
-- AI-assisted sports analysis education
-
-It should not be commercialized as a betting product.
-
-See [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md).
-
----
-
-## Development notes
-
-Run backend tests:
+## 测试
 
 ```bash
 cd backend
-pytest
+pytest tests/ -v
 ```
 
-Run selected audit scripts:
-
-```bash
-python scripts/audit_weights_consistency.py
-python scripts/audit_prediction_pipeline_consistency.py
-python scripts/audit_public_outputs_no_odds.py
-python scripts/audit_data_freshness.py
 ```
-
-Run frontend:
-
-```bash
-cd apps/web
-npm install
-npm run dev
+91 passed in 5.79s
+├── 12  Dixon-Coles
+├── 24  FusionGraph
+├── 18  WC26 Closure
+├──  3  Fact Check
+├── 24  Dashboard DB (含 SQL 注入检测)
+└── 10  Dashboard Prediction (含确定性验证)
 ```
 
 ---
 
-## Roadmap
+## 输出策略
 
-Near-term priorities:
+WC26 Predict 严格区分内部研究和公开内容：
 
-- keep all prediction entry points routed through `PredictionPipeline`
-- maintain public-output safety filters
-- keep completion audit up to date
-- improve dashboard usability for creator workflows
-- add reproducible demo datasets and screenshots
-- prepare a public landing page and demo video
+| 模式 | 目标用户 | 允许包含 | 必须排除 |
+|---|---|---|---|
+| `internal_research` | 维护者 / 分析师 | 模型概率、校准诊断、市场研究 | 公开投注建议 |
+| `creator_safe` | 内容创作者 | 球队背景、数据来源、不确定性声明 | 赔率、博彩术语 |
+| `public_safe` | 公众 | 教育性分析、历史对比、可解释趋势 | 概率、赔率、预测承诺 |
 
-Mid-term priorities:
-
-- API packaging
-- hosted demo environment
-- report template marketplace
-- creator-facing workflow automation
-- multilingual public-safe reports
+详见 [`docs/COMPLIANCE_AND_OUTPUT_POLICY.md`](docs/COMPLIANCE_AND_OUTPUT_POLICY.md)
 
 ---
 
-## Disclaimer
+## 项目路线图
 
-WC26 Predict is an AI-assisted football research and analytics project. Outputs are based on available data, model assumptions, and system configuration. They are uncertain by nature and should not be treated as factual forecasts, financial advice, betting advice, or guaranteed outcomes.
+### 已完成
 
-Football is complex. Models can be wrong. Use the system for research, learning, and content preparation.
+- [x] V1.8: WC26 数据结构 + 信号审核 + CI 扩展 (33 tests)
+- [x] V1.91: 硬事实层 + 编码修复 + 管线接口 (42 tests)
+- [x] V2.0: Artifact 推理架构 — 训练/推理分离, 2.2s 全量预测 (42 tests)
+- [x] V2.2: FusionGraph + 回测优化 + 48 队 + 赛事模拟器 (84 tests)
+- [x] **V2.4: Streamlit Dashboard + prediction_core + 全中文化 (91 tests)**
+
+### 进行中
+
+- [ ] V2.5: 动态上下文层（首发/伤病/天气/市场共识集成）
+- [ ] V2.6: 创作者工作室（图文素材自动生成 + 短视频脚本 + 赛后复盘报告）
+- [ ] V3.0: 公开展示版（FastAPI + React/Next.js 部署）
 
 ---
 
-## License
+## 安全
 
-MIT License. See [`LICENSE`](LICENSE).
+- 无 API 密钥提交至 Git（`.env` 全部由 `.gitignore` 排除）
+- CI 自动扫描密钥模式（`sk-`, `ghp_`, `x-apisports-` 等）
+- Dashboard 数据库三层只读防护
+- 所有默认配置使用占位符，无真实凭证硬编码
+
+详见 [`SECURITY.md`](SECURITY.md)
+
+---
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+
+---
+
+## 免责声明
+
+WC26 Predict 是一个 AI 辅助足球研究和分析项目。所有输出基于可用数据、模型假设和系统配置，具有内在不确定性。不应将其视为事实预测、金融建议、投注建议或保证结果。
+
+足球是复杂的。模型可能出错。请将本系统用于研究、学习和内容创作。
+
+---
+
+## 许可证
+
+MIT License. 详见 [`LICENSE`](LICENSE).
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by a football fan · Powered by Python + Streamlit + Claude Code</sub>
+</p>
