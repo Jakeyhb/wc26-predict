@@ -14,7 +14,7 @@ backend/.coverage
 backend/htmlcov/
 backend/.ruff_cache/
 backend/.mypy_cache/
-frontend/dist/
+frontend/
 frontend/.vite/
 apps/web/dist/
 apps/web/.vite/
