@@ -15,7 +15,51 @@ from dashboard.db import db
 from dashboard.dashboard_config import CONTEXT_EVENT_TYPES
 
 st.title("比赛上下文")
-st.caption("查看和添加动态比赛上下文事件（伤病、首发、天气等）")
+st.caption("动态比赛上下文：实时数据 + 手动事件")
+
+# ── 实时数据区块 (来自最近一次增强预测) ──────────────────────────────────────
+last_enhanced = st.session_state.get("last_enhanced")
+if last_enhanced is not None:
+    st.markdown("### 实时数据")
+    rt_col1, rt_col2 = st.columns(2)
+
+    with rt_col1:
+        st.markdown("#### 市场赔率")
+        mp = last_enhanced.market_probs
+        if mp:
+            st.metric("数据来源", mp.get("provider", "unknown"))
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric(f"{last_enhanced.home_team} 胜", f"{mp['home_prob']*100:.1f}%")
+            with m2:
+                st.metric("平局", f"{mp['draw_prob']*100:.1f}%")
+            with m3:
+                st.metric(f"{last_enhanced.away_team} 胜", f"{mp['away_prob']*100:.1f}%")
+            if last_enhanced.market_divergence_triggered:
+                st.warning(f"模型与市场分歧: {last_enhanced.market_divergence*100:.1f}pp")
+            else:
+                st.success("模型与市场方向一致")
+        else:
+            st.info("暂无市场数据。在单场预测页面启用增强模式获取实时赔率。")
+
+    with rt_col2:
+        st.markdown("#### 天气")
+        w = last_enhanced.weather
+        if w and w.get("forecast_available"):
+            st.metric("天气", w.get("weather_description", "?"))
+            w1, w2 = st.columns(2)
+            with w1:
+                st.metric("温度", f"{w.get('temperature_c', '?')}°C")
+                st.metric("风速", f"{w.get('wind_speed_kmh', '?')} km/h")
+            with w2:
+                st.metric("湿度", f"{w.get('humidity_percent', '?')}%")
+                st.metric("降水", f"{w.get('precipitation_mm', 0)} mm")
+            if last_enhanced.weather_impact_tags:
+                st.info(f"影响: {' | '.join(last_enhanced.weather_impact_tags)}")
+        else:
+            st.info("暂无天气数据。")
+
+    st.divider()
 
 # ── 筛选控件 ──────────────────────────────────────────────────────────────────
 col1, col2 = st.columns(2)

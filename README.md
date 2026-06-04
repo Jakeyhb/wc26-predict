@@ -3,8 +3,8 @@
 > AI 足球分析引擎 · 本地可视化工作台 · 世界杯 2026 研究系统
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.5--local--demo-blue" alt="version">
-  <img src="https://img.shields.io/badge/tests-91%20passed-green" alt="tests">
+  <img src="https://img.shields.io/badge/version-v2.6--enhanced-blue" alt="version">
+  <img src="https://img.shields.io/badge/tests-118%20passed-green" alt="tests">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue" alt="python">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="platform">

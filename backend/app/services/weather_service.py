@@ -151,3 +151,82 @@ class WeatherService:
             return float(value)
         except (TypeError, ValueError):
             return value if value is not None else default
+
+    # ── Sync wrappers for Dashboard ──────────────────────────────────────────
+
+    def get_weather_for_match_sync(
+        self,
+        venue: str | None = None,
+        home_team: str | None = None,
+        away_team: str | None = None,
+    ) -> dict[str, Any]:
+        """Synchronous wrapper for Dashboard — fetch weather without async.
+
+        If venue is unknown, tries to guess from team names (for neutral friendlies,
+        defaults to a reasonable location).
+
+        Returns a dict with weather_description, temperature_c, etc.
+        Always returns a dict — forecast_available=False if lookup failed.
+        """
+        import asyncio
+
+        default = {
+            "temperature_c": None,
+            "precipitation_mm": 0.0,
+            "wind_speed_kmh": None,
+            "humidity_percent": None,
+            "weather_code": None,
+            "weather_description": "未知",
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "forecast_available": False,
+        }
+
+        # Resolve venue
+        resolved_venue = venue or self._guess_venue(home_team, away_team)
+        if resolved_venue is None:
+            return default
+
+        # Use match time = now + 24h (best-effort for upcoming matches)
+        match_dt = datetime.now(timezone.utc) + timedelta(hours=24)
+
+        try:
+            return asyncio.run(self.fetch_match_weather(resolved_venue, match_dt))
+        except Exception as exc:
+            logger.warning("Weather sync fetch failed: %s", exc)
+            return default
+
+    def _guess_venue(
+        self, home_team: str | None, away_team: str | None
+    ) -> str | None:
+        """Guess a venue from team names for neutral-site or friendly matches.
+
+        For WC26 teams, maps to their likely home or neutral venue.
+        Falls back to a generic neutral venue for unknown teams.
+        """
+        # Team → likely venue mapping for common hosts / neutral sites
+        TEAM_VENUE_HINTS: dict[str, str] = {
+            "united states": "metlife stadium",
+            "usa": "metlife stadium",
+            "mexico": "estadio azteca",
+            "canada": "bmo field",
+            "spain": "metlife stadium",       # neutral friendlies often in US
+            "england": "metlife stadium",
+            "germany": "metlife stadium",
+            "france": "metlife stadium",
+            "brazil": "metlife stadium",
+            "argentina": "metlife stadium",
+            "iraq": "metlife stadium",        # neutral venue for Asian teams
+            "japan": "metlife stadium",
+            "south korea": "metlife stadium",
+            "australia": "metlife stadium",
+        }
+
+        for team in (home_team, away_team):
+            if team is None:
+                continue
+            hint = TEAM_VENUE_HINTS.get(team.lower().strip())
+            if hint:
+                return hint
+
+        # Default: MetLife Stadium (most common US neutral venue for friendlies)
+        return "metlife stadium"
