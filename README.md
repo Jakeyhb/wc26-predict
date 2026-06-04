@@ -3,7 +3,7 @@
 > AI 足球分析引擎 · 本地可视化工作台 · 世界杯 2026 研究系统
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.4-blue" alt="version">
+  <img src="https://img.shields.io/badge/version-v2.5--local--demo-blue" alt="version">
   <img src="https://img.shields.io/badge/tests-91%20passed-green" alt="tests">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue" alt="python">
@@ -50,7 +50,7 @@ WC26 Predict 是一个**完整的 AI 足球研究系统**，面向 2026 年 FIFA
 - FusionGraph 完整诊断（每步的输入/输出/公式）
 - 模型分歧度 + 置信度
 
-### 本地 Dashboard 工作台 (v2.4)
+### 本地 Dashboard 工作台 (v2.5-local-demo)
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -342,13 +342,12 @@ WC26 Predict 严格区分内部研究和公开内容：
 - [x] V1.91: 硬事实层 + 编码修复 + 管线接口 (42 tests)
 - [x] V2.0: Artifact 推理架构 — 训练/推理分离, 2.2s 全量预测 (42 tests)
 - [x] V2.2: FusionGraph + 回测优化 + 48 队 + 赛事模拟器 (84 tests)
-- [x] **V2.4: Streamlit Dashboard + prediction_core + 全中文化 (91 tests)**
+- [x] V2.4: Streamlit Dashboard + prediction_core + 全中文化 (91 tests)
+- [x] **V2.5: Local Demo Release — 最终收口冻结版**
 
 ### 进行中
 
-- [ ] V2.5: 动态上下文层（首发/伤病/天气/市场共识集成）
-- [ ] V2.6: 创作者工作室（图文素材自动生成 + 短视频脚本 + 赛后复盘报告）
-- [ ] V3.0: 公开展示版（FastAPI + React/Next.js 部署）
+- [ ] V3.0: 公开演示版（在收集真实反馈后重新规划）
 
 ---
 

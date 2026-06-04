@@ -1,122 +1,63 @@
 # WC26 Predict — 当前项目状态
 
 > 这是项目唯一权威状态文件。所有其他文档如与本文档冲突，以本文档为准。
-> 最后更新：2026-06-04 | 当前版本：V1.7 测试版
+> 最后更新：2026-06-04 | 当前发布：V2.5 Local Demo Release
 
 ---
 
-## 版本信息
+## 发布信息
 
-| 项 | 值 |
+| 字段 | 值 |
 |---|---|
-| 当前版本 | **V1.7 测试版** |
-| 最新 commit | `067c940` — Phase D: news signal extraction pipeline (5-article pilot) |
-| 仓库 | github.com/AndyDu0921/wc26-predict |
-| 分支 | master |
+| Version | 2.5.0-local-demo |
+| Tag | v2.5-local-demo |
+| Build Name | V2.5 Local Demo Release |
+| 定位 | 本地可展示 MVP — 个人使用 + 录屏 + 内容验证 |
+| 测试 | 91 passed |
 
----
+## 包含范围
 
-## 数据库统计（2026-06-04 实测）
+- Streamlit Local Dashboard（8 页面全中文）
+- 4 模型融合预测引擎（DC + Enhancer + Elo + Pi）
+- Artifact 推理架构（离线训练 → 本地加载 → 0 token 预测）
+- FusionGraph（顺序融合 + 有效权重 + 模型分歧）
+- 48 队硬事实校验 + 104 场 WC26 赛程
+- Monte Carlo 赛事模拟器
+- Creator Mode（录屏 + 社交媒体文案）
+- 只读 Database Explorer（三层防护）
+- PowerShell 一键启动脚本
+- Smoke test 自动验证
 
-| 表 | 数量 |
-|---|---|
-| matches | 16,861 |
-| teams | 441 |
-| players | 1,355 |
-| prediction_snapshots | 234 |
-| news_articles | 70 |
-| news_signals | 6 (全部 PENDING, enters_model=0) |
-| market_odds | 136 |
-| postmatch_eval | 48 |
-| manual_events | 17 |
-| 赛事覆盖 | 96 competitions |
-| 数据库表 | 33 |
-| 数据库大小 | ~13.3 MB |
+## 排除范围（V2.5 不做）
 
----
+- 实时伤病/首发/天气/赔率动态调整
+- 公开 SaaS 部署
+- 登录系统 / 多人权限
+- 新预测模型
+- React / Next.js 前端重构
+- LLM 直接调整概率
+- 投注建议 / 赔率展示
 
-## 测试状态
+## 架构护栏
 
-```
-pytest: 33 passed, 0 failed (33 total)
-```
+详见 [`docs/ARCHITECTURE_GUARDRAILS.md`](ARCHITECTURE_GUARDRAILS.md)
 
-所有测试通过：Dixon-Coles(11/11)、权重配置(8/8)、输出策略(4/4)、市场提供商选择(5/5)、情报信号验证(4/4)。
+## 72 小时冻结规则
 
----
+V2.5 发布后 72 小时内只允许：
+- 修启动失败
+- 修页面崩溃
+- 修明显文案/合规错误
 
-## P0 能力状态
+禁止新增功能、新模型、新页面、架构重构。
 
-| 能力 | 状态 | 备注 |
+## 版本历史
+
+| 版本 | 核心突破 | 测试数 |
 |---|---|---|
-| 统一预测管线 | ✅ | PredictionPipeline + 6 入口 |
-| 权重配置唯一来源 | ✅ | weights.py，4/4 生产入口统一 |
-| 市场数据暗影模式 | ✅ | 内部校准，公开隔离 |
-| 输出安全过滤 | ✅ | 三模式 + 合规上下文识别 |
-| 情报信号管线 | ⚠️ | 6 条 PENDING，审核工作流已建（review_signals.py + enter_manual_signal.py） |
-| apifootball.com provider | ⚠️ | 基础 API 可用，odds 需 $15 addon |
-| CI | ✅ | GitHub Actions (compileall + pytest + audits + ruff + secret scan + verify_env) |
-| Dashboard | ✅ | FastAPI + React MVP |
-| WC26 赛程数据 | ✅ | 5 表 244 条（48组+104赛程+32淘汰路径+48积分+12第三名） |
-| 商业化文档 | ✅ | README + COMPLIANCE + COMMERCIAL + SECURITY + DATA_SOURCE_POLICY |
-
----
-
-## 已知问题（按优先级）
-
-| 优先级 | 问题 | 状态 |
-|---|---|---|
-| 🔴 P0 | news_signals 仅 6 条 PENDING，需人工录入充实 | 工具已就绪，待录入 |
-| 🔴 P0 | apifootball.com odds 不可用（需 $15 addon） | 待决定 |
-| 🟡 P1 | ADMIN_TOKEN=change-me + 无生产部署 | 待加固 |
-| 🟢 P2 | 前端 build 验证未纳入 CI | 待扩展 |
-| 🟡 P1 | CI 缺少 lint/typecheck/安全扫描 | 待扩展 |
-| 🟢 P2 | ADMIN_TOKEN=change-me 默认值 | 待加固 |
-| 🟢 P2 | 无秘密扫描 (gitleaks/detect-secrets) | 待添加 |
-
----
-
-## 环境配置
-
-| 项 | 值 |
-|---|---|
-| LLM Provider | deepseek (唯一) |
-| LLM Model | deepseek-v4-pro |
-| LLM Base URL | https://api.deepseek.com/v1 |
-| Python | 3.11.9 |
-| 数据库 | SQLite (本地) / PostgreSQL (生产配置) |
-| 前端 | React + Vite + TypeScript |
-| CI | GitHub Actions (ubuntu-latest) |
-
----
-
-## 世界杯时间线
-
-```
-6/4   ← 今天 (V1.7)
-6/11  世界杯开幕（倒计时 7 天）
-7/19  世界杯决赛
-```
-
-**开幕前必须完成：**
-1. news_signals 从 6 → 50+ 条真实信号
-2. 手动情报录入流程建立
-3. WC26 赛程数据结构（groups/bracket/schedule）
-4. 3 个失败测试修复
-5. penaltyblog 依赖补全
-6. 文档状态统一
-
----
-
-## 与过期文档的关系
-
-以下文档可能已过期，以本文档为准：
-
-- `docs/ARCHITECTURE.md` (V1.0, 2026-06-01)
-- `docs/PRD.md` (V1.0, 2026-06-01)
-- `docs/PROJECT_OVERVIEW.md` (V1.6.1)
-- `docs/COMPLETION_AUDIT.md` (V1.6.1, 78%)
-- `docs/BASELINE_REPORT.md` (Phase 0, 2026-06-03)
-- `docs/V1_6_P0_RECHECK.md` (V1.6, 2026-06-04)
-- `PROJECT_STATUS.md` (2026-05-12)
-- `HANDOFF.md` (2026-05-21)
+| V1.8 | WC26 数据结构 + CI 扩展 | 33 |
+| V1.91 | 硬事实层 + 管线接口 | 42 |
+| V2.0 | Artifact 推理 (937x 提速) | 42 |
+| V2.2 | FusionGraph + 回测 + 模拟器 | 84 |
+| V2.4 | Streamlit Dashboard + prediction_core | 91 |
+| V2.5 | Local Demo Release — 收口冻结 | 91 |

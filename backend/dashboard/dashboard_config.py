@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 # ── 路径 ──────────────────────────────────────────────────────────────────────
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 DASHBOARD_DIR = BACKEND_DIR / "dashboard"
 DB_PATH = BACKEND_DIR / "data" / "local_stage2.db"
 ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
 TEAM_FACTS_PATH = BACKEND_DIR.parent / "data" / "team_tournament_status.json"
 
 # ── 应用元数据 ────────────────────────────────────────────────────────────────
-VERSION = "2.4"
+from app.version import VERSION, BUILD_NAME  # noqa: E402
+
 APP_TITLE = "WC26 Predict"
 SUB_TITLE = "本地工作台"
 

@@ -64,7 +64,6 @@ class DashboardDB:
             raise FileNotFoundError(f"Database not found: {self.db_path}")
         conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA query_only=ON")
         return conn
 

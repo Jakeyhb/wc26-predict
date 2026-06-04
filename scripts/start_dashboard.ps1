@@ -8,17 +8,25 @@ param(
 )
 
 $ProjectRoot = "D:\hermes agent\2026世界杯分析\backend"
-$VenvPath = Join-Path $ProjectRoot ".venv"
 
-# Check venv
-if (-not (Test-Path $VenvPath)) {
-    Write-Error "Virtual environment not found at $VenvPath."
-    Write-Error "Run: python -m venv .venv && .\.venv\Scripts\Activate.ps1 && pip install -r requirements.txt"
+# Check project root exists
+if (-not (Test-Path $ProjectRoot)) {
+    Write-Error "Backend path not found: $ProjectRoot"
+    Write-Error "Please update `$ProjectRoot` in this script to match your local path."
     exit 1
 }
 
-# Activate venv
-& "$VenvPath\Scripts\Activate.ps1"
+Set-Location $ProjectRoot
+
+# Activate venv if present
+$VenvActivate = Join-Path $ProjectRoot ".venv\Scripts\Activate.ps1"
+if (Test-Path $VenvActivate) {
+    & $VenvActivate
+} else {
+    Write-Error "Virtual environment not found at $VenvActivate."
+    Write-Error "Run: python -m venv .venv && .\.venv\Scripts\Activate.ps1 && pip install -r requirements.txt"
+    exit 1
+}
 
 # Set encoding (critical for Chinese Windows / GBK)
 $env:PYTHONUTF8 = "1"
@@ -28,7 +36,7 @@ $env:PYTHONIOENCODING = "utf-8"
 Set-Location $ProjectRoot
 
 Write-Host "============================================="
-Write-Host "  WC26 Predict Local Studio v2.4"
+Write-Host "  WC26 Predict Local Studio v2.5"
 Write-Host "============================================="
 Write-Host "  Port:     $Port"
 Write-Host "  URL:      http://${Address}:${Port}"

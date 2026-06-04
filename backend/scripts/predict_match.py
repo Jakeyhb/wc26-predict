@@ -32,6 +32,7 @@ from app.services.tabular_match_model import (
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
+from app.version import VERSION
 from app.services.prediction_core import (
     run_artifact_pipeline,
     MODE_REQUIRED_COMPONENTS,
@@ -43,8 +44,6 @@ from app.services.prediction_core import (
     _load_training_df,
     _try_load_weibull,
 )
-
-VERSION = "2.4"
 
 
 # ── Report formatter ───────────────────────────────────────────────────────
