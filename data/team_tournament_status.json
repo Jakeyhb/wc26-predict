@@ -29,6 +29,32 @@
       "source_url": "https://inside.fifa.com/news/world-cup-2026-line-up-complete-iraq-bolivia-play-off-fixtures",
       "source_checked_at": "2026-06-04T19:00:00Z",
       "confidence": "high"
+    },
+    "France": {
+      "team_name": "France",
+      "tournament": "FIFA World Cup 2026",
+      "status": "qualified",
+      "qualified_date": "2025-11-16",
+      "qualification_path": "UEFA Group D Winner — FIFA World Cup 2026 Qualifiers",
+      "group_name": "Group D",
+      "next_official_match": "2026-06-13 vs TBD (World Cup Group D)",
+      "source_name": "FIFA",
+      "source_url": "https://inside.fifa.com/tournaments/mens/worldcup/canadamexicousa2026",
+      "source_checked_at": "2026-06-04T19:00:00Z",
+      "confidence": "high"
+    },
+    "Ivory Coast": {
+      "team_name": "Ivory Coast",
+      "tournament": "FIFA World Cup 2026",
+      "status": "qualified",
+      "qualified_date": "2025-10-14",
+      "qualification_path": "CAF Group F Winner — FIFA World Cup 2026 Qualifiers",
+      "group_name": "Group K",
+      "next_official_match": "2026-06-16 vs TBD (World Cup Group K)",
+      "source_name": "FIFA",
+      "source_url": "https://inside.fifa.com/tournaments/mens/worldcup/canadamexicousa2026",
+      "source_checked_at": "2026-06-04T19:00:00Z",
+      "confidence": "high"
     }
   },
   "FORBIDDEN_PHRASES_IF_QUALIFIED": [

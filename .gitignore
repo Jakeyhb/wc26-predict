@@ -33,6 +33,7 @@ backend/.env
 backend/.env.local
 apps/web/.env
 backend/model_artifacts/
+backend/artifacts/dataframes/
 backend/reports/
 backend/reports_batch/
 backend/data/*.bak
