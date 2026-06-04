@@ -190,22 +190,50 @@ class DashboardDB:
             conn.close()
 
     def get_manual_events(
-        self, team: str | None = None
+        self,
+        team: str | None = None,
+        active_only: bool = True,
     ) -> list[dict[str, Any]]:
-        """Return manual context events, optionally filtered by team."""
+        """Return manual context events, optionally filtered by team.
+
+        Args:
+            team: Optional team name filter.
+            active_only: If True (default), only return events where
+                status='active' AND (expires_at IS NULL OR expires_at > now).
+                Expired/pending events are hidden.
+        """
         conn = self.connect()
         try:
             if team:
-                rows = conn.execute(
-                    "SELECT * FROM manual_events WHERE team_name = ? "
-                    "ORDER BY created_at DESC",
-                    (team,),
-                ).fetchall()
+                if active_only:
+                    rows = conn.execute(
+                        "SELECT * FROM manual_events "
+                        "WHERE team_name = ? "
+                        "  AND status = 'active' "
+                        "  AND (expires_at IS NULL OR expires_at > datetime('now')) "
+                        "ORDER BY created_at DESC",
+                        (team,),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT * FROM manual_events WHERE team_name = ? "
+                        "ORDER BY created_at DESC",
+                        (team,),
+                    ).fetchall()
             else:
-                rows = conn.execute(
-                    "SELECT * FROM manual_events ORDER BY created_at DESC "
-                    "LIMIT 200"
-                ).fetchall()
+                if active_only:
+                    rows = conn.execute(
+                        "SELECT * FROM manual_events "
+                        "WHERE status = 'active' "
+                        "  AND (expires_at IS NULL OR expires_at > datetime('now')) "
+                        "ORDER BY created_at DESC "
+                        "LIMIT 200"
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT * FROM manual_events ORDER BY created_at DESC "
+                        "LIMIT 200"
+                    ).fetchall()
             return [dict(r) for r in rows]
         finally:
             conn.close()

@@ -62,17 +62,20 @@ if last_enhanced is not None:
     st.divider()
 
 # ── 筛选控件 ──────────────────────────────────────────────────────────────────
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns([2, 2, 1])
 with col1:
     all_teams = ["（全部）"] + db.get_teams()
     filter_team = st.selectbox("按球队筛选", all_teams, key="ctx_team")
 with col2:
     all_types = ["（全部）"] + CONTEXT_EVENT_TYPES
     filter_type = st.selectbox("按事件类型筛选", all_types, key="ctx_type")
+with col3:
+    show_expired = st.checkbox("显示已过期", value=False, key="ctx_show_expired",
+                               help="默认只显示生效中的事件。勾选后显示全部（含已过期和待审核）。")
 
 # ── 加载事件 ──────────────────────────────────────────────────────────────────
 team_param = None if filter_team == "（全部）" else filter_team
-events = db.get_manual_events(team=team_param)
+events = db.get_manual_events(team=team_param, active_only=not show_expired)
 
 if filter_type != "（全部）" and events:
     events = [e for e in events if e.get("event_type", "").lower() == filter_type.lower()]

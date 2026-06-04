@@ -18,7 +18,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -155,7 +155,7 @@ def store_signals(signals: list[dict], home_team: str, away_team: str) -> int:
                     sig.get("url", ""),
                     sig.get("description", "")[:500],
                     datetime.now(timezone.utc).isoformat(),
-                    (datetime.now(timezone.utc).isoformat()),
+                    (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                 ),
             )
             stored += 1
