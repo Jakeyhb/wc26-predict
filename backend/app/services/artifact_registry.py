@@ -33,7 +33,7 @@ REQUIRED_FOR_MODE: dict[str, list[str]] = {
     "baseline": ["dixon_coles"],
     "standard": ["dixon_coles", "tabular_enhancer", "elo"],
     "full": ["dixon_coles", "tabular_enhancer", "elo", "pi_rating"],
-    "research-full": ["dixon_coles", "tabular_enhancer", "elo", "pi_rating", "weibull"],
+    "research-full": ["dixon_coles", "tabular_enhancer", "elo", "pi_rating"],
 }
 
 

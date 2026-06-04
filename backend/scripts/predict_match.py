@@ -35,8 +35,9 @@ from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.weights import get_weight_config
+from app.services.fusion_graph import FusionGraph, probs_dict_to_list
 
-VERSION = "1.92"
+VERSION = "2.0"
 
 # ── Artifact paths (relative to backend/) ──────────────────────────────────
 ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
@@ -258,9 +259,21 @@ def run_artifact_pipeline(
 
     # ── 2. Weight config ──
     wc = get_weight_config(competition)
+    fg = FusionGraph(blend_params={
+        "dc_weight": wc.dc,
+        "elo_weight": wc.elo,
+        "pi_weight": wc.pi,
+    })
+    fg.compute_effective_weights()
+    eff = fg.effective_weights
     print(
         f"  [weights] {wc.label}  DC={wc.dc:.2f}  Enh={wc.enhancer:.2f}  "
         f"Elo={wc.elo:.2f}  Pi={wc.pi:.2f}  Wb={wc.weibull:.2f}",
+        flush=True,
+    )
+    print(
+        f"  [effective]  dc={eff['dc_effective']:.3f}  enh={eff['enhancer_effective']:.3f}  "
+        f"elo={eff['elo_effective']:.3f}  pi={eff['pi_effective']:.3f}",
         flush=True,
     )
 
@@ -314,7 +327,12 @@ def run_artifact_pipeline(
 
         # Fuse DC + Enhancer
         timer.start("fusion")
+        before_step1 = {
+            "dixon_coles": probs_dict_to_list(component_probs["dixon_coles"]),
+            "enhancer": probs_dict_to_list(component_probs["enhancer"]),
+        }
         fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+        fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
         timer.stop()
         print(
             f"  [DC+Enh] H={fused['home_win_prob']:.3f}  "
@@ -347,7 +365,12 @@ def run_artifact_pipeline(
         }
 
         timer.start("fusion")
+        before_step2 = {
+            "dc+enhancer": probs_dict_to_list(fused),
+            "elo": [elo_pred.home_win_prob, elo_pred.draw_prob, elo_pred.away_win_prob],
+        }
         fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=wc.elo)
+        fg.add_step("+elo", f"elo_weight={wc.elo}", before_step2, probs_dict_to_list(fused))
         timer.stop()
         print(
             f"  [+Elo] H={fused['home_win_prob']:.3f}  "
@@ -375,7 +398,12 @@ def run_artifact_pipeline(
             }
 
             timer.start("fusion")
+            before_step3 = {
+                "dc+enhancer+elo": probs_dict_to_list(fused),
+                "pi_rating": probs_dict_to_list(component_probs["pi_rating"]),
+            }
             fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=wc.pi)
+            fg.add_step("+pi", f"pi_weight={wc.pi}", before_step3, probs_dict_to_list(fused))
             timer.stop()
             print(
                 f"  [+Pi] H={fused['home_win_prob']:.3f}  "
@@ -398,8 +426,16 @@ def run_artifact_pipeline(
                 wb_pred = wb.predict(home_team, away_team, is_neutral)
                 timer.stop()
                 if wb_pred is not None:
+                    component_probs["weibull"] = {
+                        "home": wb_pred.get("home_win_prob", wb_pred.get("home", 0)),
+                        "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
+                        "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
+                    }
                     timer.start("fusion")
+                    before_wb = {k: probs_dict_to_list(fused) for k in ["dc+enhancer+elo+pi"]}
+                    before_wb["weibull"] = probs_dict_to_list(component_probs["weibull"])
                     fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
+                    fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_wb, probs_dict_to_list(fused))
                     timer.stop()
                     print(
                         f"  [+Weibull] H={fused['home_win_prob']:.3f}  "
@@ -416,14 +452,17 @@ def run_artifact_pipeline(
             quality.model_components["weibull"] = "unavailable"
             print("  [Weibull] artifact not found — optional, continuing", flush=True)
 
-    # ── 9. Renormalize ──
+    # ── 9. Fusion diagnostics ──
+    fg.compute_disagreement(component_probs)
+
+    # ── 10. Renormalize ──
     total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
     if abs(total - 1.0) > 0.001:
         fused["home_win_prob"] /= total
         fused["draw_prob"] /= total
         fused["away_win_prob"] /= total
 
-    # ── 10. Pipeline status ──
+    # ── 11. Pipeline status ──
     # Determine which components were actually used
     used_components = [
         c for c, s in quality.model_components.items()
@@ -449,7 +488,7 @@ def run_artifact_pipeline(
     else:
         quality.pipeline_status = "failed"
 
-    # ── 11. Assemble result ──
+    # ── 12. Assemble result ──
     result = {
         "home_team": home_team,
         "away_team": away_team,
@@ -467,6 +506,7 @@ def run_artifact_pipeline(
         "confidence_penalty": dc_pred.get("confidence_penalty", 0.0),
         "mode": mode,
         "artifacts_used": used_components,
+        "fusion_graph": fg.to_dict(),
     }
 
     return result, quality, timer
@@ -518,6 +558,31 @@ def format_report(
 
     if quality.pipeline_status == "degraded":
         lines.append("  NOTE: Not all components loaded — partial inference.")
+
+    # Fusion diagnostics
+    fg_data = result.get("fusion_graph", {})
+    if fg_data:
+        lines.extend([
+            "",
+            sep,
+            "FUSION DIAGNOSTICS",
+            sep,
+        ])
+        bp = fg_data.get("blend_params", {})
+        lines.append(f"  blend_params:  dc={bp.get('dc_weight', 0):.3f}  "
+                      f"elo={bp.get('elo_weight', 0):.3f}  pi={bp.get('pi_weight', 0):.3f}")
+        ew = fg_data.get("effective_weights", {})
+        lines.append(f"  effective:     dc={ew.get('dc_effective', 0):.3f}  "
+                      f"enh={ew.get('enhancer_effective', 0):.3f}  "
+                      f"elo={ew.get('elo_effective', 0):.3f}  pi={ew.get('pi_effective', 0):.3f}")
+        md = fg_data.get("model_disagreement", {})
+        lines.append(f"  disagreement:  max_home_diff={md.get('max_home_diff', 0):.4f}")
+        for step in fg_data.get("steps", []):
+            after = step.get("after", [])
+            lines.append(
+                f"  step {step['name']:20s}  [{after[0]:.4f} {after[1]:.4f} {after[2]:.4f}]  "
+                f"({step['formula']})"
+            )
 
     # Timings
     lines.extend([
@@ -700,9 +765,21 @@ def _run_retrain_pipeline(
     training_df = _load_training_df(timer)
     match_date = training_df["match_date"].max().to_pydatetime()
     wc = get_weight_config(args.competition)
+    fg = FusionGraph(blend_params={
+        "dc_weight": wc.dc,
+        "elo_weight": wc.elo,
+        "pi_weight": wc.pi,
+    })
+    fg.compute_effective_weights()
+    eff = fg.effective_weights
     print(
         f"  [weights] {wc.label} DC={wc.dc:.2f} Enh={wc.enhancer:.2f} "
         f"Elo={wc.elo:.2f} Pi={wc.pi:.2f} Wb={wc.weibull:.2f}",
+        flush=True,
+    )
+    print(
+        f"  [effective]  dc={eff['dc_effective']:.3f}  enh={eff['enhancer_effective']:.3f}  "
+        f"elo={eff['elo_effective']:.3f}  pi={eff['pi_effective']:.3f}",
         flush=True,
     )
 
@@ -747,7 +824,12 @@ def _run_retrain_pipeline(
         }
 
         timer.start("fusion")
+        before_r1 = {
+            "dixon_coles": probs_dict_to_list(component_probs["dixon_coles"]),
+            "enhancer": probs_dict_to_list(component_probs["enhancer"]),
+        }
         fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+        fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_r1, probs_dict_to_list(fused))
         timer.stop()
         print(f"  [DC+Enh] H={fused['home_win_prob']:.3f} D={fused['draw_prob']:.3f} A={fused['away_win_prob']:.3f}", flush=True)
 
@@ -770,7 +852,12 @@ def _run_retrain_pipeline(
         }
 
         timer.start("fusion")
+        before_r2 = {
+            "dc+enhancer": probs_dict_to_list(fused),
+            "elo": [elo_pred.home_win_prob, elo_pred.draw_prob, elo_pred.away_win_prob],
+        }
         fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=wc.elo)
+        fg.add_step("+elo", f"elo_weight={wc.elo}", before_r2, probs_dict_to_list(fused))
         timer.stop()
         print(f"  [+Elo] H={fused['home_win_prob']:.3f} D={fused['draw_prob']:.3f} A={fused['away_win_prob']:.3f}", flush=True)
 
@@ -793,7 +880,12 @@ def _run_retrain_pipeline(
                 "away": pi_pred["away_win_prob"],
             }
             timer.start("fusion")
+            before_r3 = {
+                "dc+enhancer+elo": probs_dict_to_list(fused),
+                "pi_rating": probs_dict_to_list(component_probs["pi_rating"]),
+            }
             fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=wc.pi)
+            fg.add_step("+pi", f"pi_weight={wc.pi}", before_r3, probs_dict_to_list(fused))
             timer.stop()
             print(f"  [+Pi] H={fused['home_win_prob']:.3f} D={fused['draw_prob']:.3f} A={fused['away_win_prob']:.3f}", flush=True)
         except Exception as exc:
@@ -814,14 +906,25 @@ def _run_retrain_pipeline(
             wb_pred = wb.predict(args.home, args.away, args.neutral)
             timer.stop()
             if wb_pred:
+                component_probs["weibull"] = {
+                    "home": wb_pred.get("home_win_prob", wb_pred.get("home", 0)),
+                    "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
+                    "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
+                }
                 timer.start("fusion")
+                before_rw = {k: probs_dict_to_list(fused) for k in ["dc+enhancer+elo+pi"]}
+                before_rw["weibull"] = probs_dict_to_list(component_probs["weibull"])
                 fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
+                fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_rw, probs_dict_to_list(fused))
                 timer.stop()
                 print(f"  [+Weibull] H={fused['home_win_prob']:.3f} D={fused['draw_prob']:.3f} A={fused['away_win_prob']:.3f}", flush=True)
         else:
             quality.model_components["weibull"] = "failed"
             quality.mark_degraded("Weibull fit failed")
             print("  [Weibull] FAILED — continuing", flush=True)
+
+    # Fusion diagnostics
+    fg.compute_disagreement(component_probs)
 
     # Renormalize
     total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
@@ -867,6 +970,7 @@ def _run_retrain_pipeline(
         "confidence_penalty": dc_pred.get("confidence_penalty", 0.0),
         "mode": args.mode,
         "artifacts_used": used_names,
+        "fusion_graph": fg.to_dict(),
     }
     return result, quality, timer
 

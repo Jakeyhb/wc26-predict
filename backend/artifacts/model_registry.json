@@ -9,37 +9,43 @@
       "status": "ready",
       "fit_seconds": 27.9,
       "required_for": [
-        "full_pipeline",
-        "baseline_pipeline"
+        "baseline",
+        "standard",
+        "full",
+        "research-full"
       ]
     },
     "tabular_enhancer": {
       "status": "ready",
       "fit_seconds": 4.2,
       "required_for": [
-        "full_pipeline"
+        "standard",
+        "full",
+        "research-full"
       ]
     },
     "elo": {
       "status": "ready",
       "fit_seconds": 0.9,
       "required_for": [
-        "full_pipeline"
+        "standard",
+        "full",
+        "research-full"
       ]
     },
     "pi_rating": {
       "status": "ready",
       "fit_seconds": 2.5,
       "required_for": [
-        "full_pipeline"
+        "full",
+        "research-full"
       ]
     },
     "weibull": {
       "status": "disabled_timeout",
       "fit_seconds": 120.0,
-      "required_for": [
-        "full_pipeline"
-      ]
+      "required_for": [],
+      "optional_for": ["research-full"]
     }
   }
 }
