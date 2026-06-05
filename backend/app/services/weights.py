@@ -113,20 +113,24 @@ _LEAGUE_DEFAULT = WeightConfig(
     label="LEAGUE",
 )
 
-# V2.6: Post-match review discovered Enhancer significantly outperforms
-# DC/Elo/Pi in friendly matches where heavy rotation and low intensity
-# make statistical power ratings less reliable.
-#   Spain 1-1 Iraq:  Enhancer 67.3% Iraq  — correct
-#   France 1-2 Ivory Coast: Enhancer 62.5% Ivory Coast — correct
+# V2.7: Self-evolution from 3-match friendly post-review dataset:
+#   Match 1 (Spain 1-1 Iraq):     Enhancer 2/2 ✅, DC 0/2 ❌, Elo 0/2 ❌, Pi 0/2 ❌
+#   Match 2 (France 1-2 Ivory):   Enhancer 2/2 ✅, DC 0/2 ❌, Elo 0/2 ❌, Pi 0/2 ❌
+#   Match 3 (Singapore 1-2 CN):   Pi ✅ (only correct model), Enhancer ❌, DC ❌, Elo ❌
+#
+#   Summary: DC 0/3, Elo 0/3, Enhancer 2/3, Pi 1/3
+#   → DC/Elo nearly useless in friendlies → weight ↓
+#   → Pi captured pattern DC+Enhancer missed → weight ↑
+#   → Enhancer still best overall but not infallible → moderate weight
 _FRIENDLY = WeightConfig(
-    version="2.6",
-    dc=0.38,        # ↓ from 0.55: less reliance on Dixon-Coles power ratings
-    enhancer=0.40,   # ↑ from 0.25: more weight on feature-based Enhancer
-    elo=0.04,        # ↓ from 0.05: Elo less reliable in friendlies
-    pi=0.04,         # ↓ from 0.05: Pi less reliable in friendlies
-    weibull=0.14,    # ↑ from 0.10: Weibull useful for score distribution
+    version="2.7",
+    dc=0.28,          # ↓ from 0.38 (DC 0/3 in friendlies — near total failure)
+    enhancer=0.42,    # ~ (still best at 2/3, but SG-CN proves it's not infallible)
+    elo=0.02,         # ↓ from 0.04 (Elo 0/3 in friendlies — irrelevant)
+    pi=0.16,          # ↑ from 0.04 (sole correct model on SG-CN, 4x weight increase)
+    weibull=0.12,     # slight adjustment
     market_max=0.10,
-    label="FRIENDLY_ADJUSTED",
+    label="FRIENDLY_ADJUSTED_V2",
 )
 
 
