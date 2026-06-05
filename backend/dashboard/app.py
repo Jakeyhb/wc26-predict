@@ -67,6 +67,7 @@ with st.sidebar:
     st.page_link("pages/06_Database_Explorer.py", label="6. 数据库浏览器")
     st.page_link("pages/07_Tournament_Simulator.py", label="7. 赛事模拟器")
     st.page_link("pages/08_Creator_Mode.py", label="8. 创作者模式")
+    st.page_link("pages/09_Postmatch_Review.py", label="9. 赛后复盘")
 
     st.divider()
     st.caption("本地研究工具")
