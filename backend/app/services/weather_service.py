@@ -17,6 +17,7 @@ class WeatherService:
 
     OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
     VENUE_COORDS = {
+        # WC26 venues
         "metlife stadium": (40.8135, -74.0745),
         "sofi stadium": (33.9535, -118.3392),
         "at&t stadium": (32.7478, -97.0931),
@@ -30,6 +31,27 @@ class WeatherService:
         "estadio azteca": (19.3029, -99.1505),
         "estadio bbva": (25.6694, -100.3114),
         "estadio akron": (20.6729, -103.4692),
+        # European national stadiums (for friendlies/qualifiers)
+        "king baudouin stadium": (50.8958, 4.3339),       # Brussels, Belgium
+        "wembley stadium": (51.5560, -0.2795),             # London, England
+        "stade de france": (48.9245, 2.3601),              # Paris, France
+        "santiago bernabeu": (40.4531, -3.6884),           # Madrid, Spain
+        "olympiastadion berlin": (52.5147, 13.2395),       # Berlin, Germany
+        "allianz stadium": (48.2188, 11.6247),             # Munich, Germany
+        "san siro": (45.4781, 9.1240),                     # Milan, Italy
+        "johan cruijff arena": (52.3142, 4.9419),          # Amsterdam, Netherlands
+        "estadio da luz": (38.7528, -9.1847),              # Lisbon, Portugal
+    }
+    # Team -> likely home venue mapping
+    TEAM_VENUE_MAP: dict[str, str] = {
+        "belgium": "king baudouin stadium",
+        "england": "wembley stadium",
+        "france": "stade de france",
+        "spain": "santiago bernabeu",
+        "germany": "olympiastadion berlin",
+        "italy": "san siro",
+        "netherlands": "johan cruijff arena",
+        "portugal": "estadio da luz",
     }
     WEATHER_CODE_MAP = {
         0: "晴",
@@ -198,35 +220,27 @@ class WeatherService:
     def _guess_venue(
         self, home_team: str | None, away_team: str | None
     ) -> str | None:
-        """Guess a venue from team names for neutral-site or friendly matches.
+        """Guess venue from home team's national stadium.
 
-        For WC26 teams, maps to their likely home or neutral venue.
-        Falls back to a generic neutral venue for unknown teams.
+        1. Check TEAM_VENUE_MAP for home team (most friendlies are home games)
+        2. Fall back to WC26 venue hints
+        3. Default to MetLife as last resort
         """
-        # Team → likely venue mapping for common hosts / neutral sites
-        TEAM_VENUE_HINTS: dict[str, str] = {
-            "united states": "metlife stadium",
-            "usa": "metlife stadium",
-            "mexico": "estadio azteca",
-            "canada": "bmo field",
-            "spain": "metlife stadium",       # neutral friendlies often in US
-            "england": "metlife stadium",
-            "germany": "metlife stadium",
-            "france": "metlife stadium",
-            "brazil": "metlife stadium",
-            "argentina": "metlife stadium",
-            "iraq": "metlife stadium",        # neutral venue for Asian teams
-            "japan": "metlife stadium",
-            "south korea": "metlife stadium",
-            "australia": "metlife stadium",
-        }
+        if home_team:
+            key = home_team.lower().strip()
+            if key in self.TEAM_VENUE_MAP:
+                return self.TEAM_VENUE_MAP[key]
+        if away_team:
+            key = away_team.lower().strip()
+            if key in self.TEAM_VENUE_MAP:
+                return self.TEAM_VENUE_MAP[key]
 
+        hints = {"united states": "metlife stadium", "usa": "metlife stadium",
+                 "mexico": "estadio azteca", "canada": "bmo field"}
         for team in (home_team, away_team):
             if team is None:
                 continue
-            hint = TEAM_VENUE_HINTS.get(team.lower().strip())
-            if hint:
-                return hint
-
-        # Default: MetLife Stadium (most common US neutral venue for friendlies)
+            h = hints.get(team.lower().strip())
+            if h:
+                return h
         return "metlife stadium"
