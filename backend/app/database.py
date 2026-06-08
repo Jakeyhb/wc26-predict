@@ -22,7 +22,12 @@ def _ensure_postgres_extensions(dbapi_connection, connection_record):  # pragma:
         cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     except Exception:
         # Local sqlite / misconfigured postgres should not break import-time engine setup.
-        pass
+        import logging
+        logging.getLogger(__name__).warning(
+            "Failed to create PostgreSQL extensions (pgvector may be missing) — "
+            "vector similarity search will be unavailable",
+            exc_info=True,
+        )
     finally:
         if cursor is not None:
             cursor.close()

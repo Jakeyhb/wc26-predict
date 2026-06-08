@@ -33,7 +33,7 @@ def _brier(probs: dict[str, float], actual_index: int) -> float:
     actual = [0.0, 0.0, 0.0]
     actual[actual_index] = 1.0
     preds = [probs["home"], probs["draw"], probs["away"]]
-    return sum((p - a) ** 2 for p, a in zip(preds, actual)) / 3
+    return sum((p - a) ** 2 for p, a in zip(preds, actual))
 
 
 def _result_index(home_goals: int, away_goals: int) -> int:
@@ -268,7 +268,7 @@ class LearningEngine:
                         {"st": signal_type},
                     )
             except Exception:
-                pass
+                logger.warning("Signal track record update failed for event %s", evt_id, exc_info=True)
 
         # Recalculate weights after updates
         await self._recalculate_signal_weights(db)

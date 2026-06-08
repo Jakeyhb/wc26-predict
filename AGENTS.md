@@ -1,8 +1,38 @@
-# WC26 Predict — 2026世界杯分析与预测平台
+# AGENTS.md — WC26 Predict (所有 Agent 通用项目规则)
 
-你是 WC26 Predict 项目的专属 AI 助手。你的职责是协助开发、运维、数据分析，以及回答关于 2026 世界杯的一切问题。
+## 1. Project Invariant
 
-## 技术栈
+本项目是 **足球比赛预测系统**，核心闭环不变：
+
+```
+pre-match data → prediction → post-match facts → review → replay-based learning
+```
+
+1. **赛前多源数据融合** — 历史比赛、球队/球员状态、新闻信号、天气、赔率
+2. **概率预测引擎** — Dixon-Coles + Enhancer + κ-Elo + Pi-Rating
+3. **赛后富数据复盘** — 技术统计、比赛事实、预测偏差、信号归因
+4. **Replay-based learning** — 权重调整必须通过 replay/backtest gate
+
+## 2. Universal Rules for All Agents
+
+所有 agent（Claude Code、Hermes、及未来新增 agent）必须遵守：
+
+- **不提交 secrets** — `.env`、API key、token、credentials 不得出现在任何 commit 中
+- **不硬编码 API key** — 所有密钥通过环境变量或 `.env` 读取
+- **不删除未知文件** — 任何文件删除前必须先确认其用途
+- **不一次性重构多个 phase** — 每次只完成一个 ticket 的范围
+- **不伪造测试结果** — 不把 "看起来正常" 当作验证通过
+- **不编造仓库中不存在的文件或模块** — 引用前必须先搜索确认
+- **如果不确定，必须先搜索仓库再回答** — 不在不确定的状态下给建议
+
+## 3. Engineering Rules
+
+- **一个 PR 对应一个 ticket** — 不混入其他改动
+- **每个 ticket 必须有验证命令** — 验收标准在 ticket 中写清楚，执行后用命令输出证明
+- **业务逻辑变更必须有测试或 smoke check** — 纯文档/配置变更除外
+- **数据缺失必须显式记录** — 不允许静默降级（silent fallback），缺失原因写入 `degraded_reasons` 或 `missing_data` 字段
+
+## 4. Technical Stack
 
 | 层 | 技术 |
 |---|---|
@@ -10,117 +40,74 @@
 | 前端 | React 18, Vite, TypeScript, Tailwind |
 | 数据库 | PostgreSQL + pgvector（向量检索），SQLite（本地开发） |
 | 缓存/队列 | Redis |
-| 预测引擎 | Dixon-Coles + tabular enhancer + IsotonicCalibrator |
-| 情报层 | Event Registry + GDELT + RSS → LLM 抽取 |
-| 文章生成 | embedding → article_evidence → RAG |
-| 调度 | Celery Beat（7 个定时任务） |
-| LLM | Qwen / DeepSeek / Zhipu（OpenAI 兼容接口） |
+| 预测引擎 | Dixon-Coles + Tabular Enhancer + κ-Elo + Pi-Rating |
+| 情报层 | GDELT + RSS → LLM 抽取 |
+| LLM | DeepSeek / Qwen（OpenAI 兼容接口） |
 
-## 目录结构
+## 5. Directory Structure
 
 ```
-backend/          FastAPI 后端、SQLAlchemy 模型、Celery worker、数据管线、脚本
-  scripts/        工具脚本（健康检查、数据初始化、预测测试）
-  data/           SQLite 数据库、模型文件
-apps/web/         React + Vite 前端（唯一正式前端）
-packages/shared/  共享 Zod schema 和类型
-nginx/            生产 Nginx 配置和静态资源
-apps/api/         已停用的 Cloudflare 原型（仅作参考）
+backend/              FastAPI 后端、SQLAlchemy 模型、服务层、脚本
+  app/
+    services/         预测引擎、赛后复盘、学习引擎
+    models/           ORM 模型
+    routers/          API 路由
+  scripts/            工具脚本（预测、快照、数据同步、健康检查）
+  data/               SQLite 数据库、模型文件
+  tests/              测试
+apps/web/             React + Vite 前端
+docs/                 项目文档
+scripts/              Repo-root 级脚本（检查、启动）
 ```
 
-## 常用命令
+## 6. Common Commands
 
-### 开发环境启动（SQLite 模式，推荐）
+### 开发环境
 
 ```bash
-# 后端（端口 8000）
+# 后端
 cd backend && uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-# 前端（端口 5173）
+# 前端
 cd apps/web && npm run dev -- --host 127.0.0.1
 
-# Celery worker + beat（需要时）
-cd backend && celery -A app.workers.celery_app worker -B --loglevel=info
+# 全量测试
+cd backend && python -m pytest -q
 
-# 访问
-# 前台: http://127.0.0.1:5173
-# 健康检查: http://127.0.0.1:8000/api/health
-# 管理后台: http://127.0.0.1:5173/admin/dashboard
+# 健康检查
+cd backend && python scripts/health_check.py
 ```
 
-### 完整环境（PostgreSQL + Redis）
-
-```bash
-docker-compose up -d postgres redis
-cd backend && alembic upgrade head
-cd backend && python scripts/seed_2026_schedule.py
-cd backend && python scripts/init_data.py
-cd backend && uvicorn app.main:app --reload
-cd backend && celery -A app.workers.celery_app worker -B --loglevel=info
-cd apps/web && npm run dev
-```
-
-### 工具脚本
+### 常用脚本
 
 ```bash
 cd backend
-python scripts/health_check.py              # 17 项健康检查
-python scripts/fast_predict.py --home "Argentina" --away "Brazil" --competition "FIFA World Cup 2026"  # 快速预测(JSON)
-python scripts/render_report.py --input result.json --output report.md    # 渲染Markdown报告
-python scripts/llm_intel_extract.py          # LLM情报抽取(仅在新文章时)
-python scripts/snapshot.py --home "A" --away "B"   # 单场完整快照(预测+报告+入库)
-python scripts/batch_snapshot.py --limit 10  # 批量预测
-python scripts/init_data.py                 # 导入历史数据
-python scripts/seed_2026_schedule.py        # 写入 2026 赛程
-python scripts/pregenerate_predictions.py   # 批量预生成预测
-python scripts/test_prediction.py           # 单场预测测试
-python scripts/sync_league_upcoming.py      # 同步联赛赛程
+python scripts/fast_predict.py --home "Argentina" --away "Brazil" --competition "FIFA World Cup 2026"
+python scripts/snapshot.py --home "A" --away "B"
+python scripts/batch_snapshot.py --limit 10
+python scripts/init_data.py
+python scripts/seed_2026_schedule.py
 ```
 
-### 生产部署
-
-```bash
-./deploy.sh  # 自动 git pull → 构建 → 启动全栈
-```
-
-## 三次预测更新流程
-
-1. **T-24h** — 赛前 24 小时，拉取最新数据，运行 Dixon-Coles
-2. **T-3h** — 赛前 3 小时，重新运行，拉取最新情报/天气/发布会信息，可能阵容调整
-3. **首发确认后** — 管理员手动触发第三次更新
-
-## 数据源与免费回退
+## 7. Data Sources
 
 - 历史比赛/xG：StatsBomb Open Data
 - 历史/赛程兜底：openfootball
-- 结构化赛程/比分：football-data.org（需要 API key 但免费注册）
+- 结构化赛程/比分：football-data.org（需 API key）
 - 天气：Open-Meteo
 - 新闻发现：GDELT + RSS
-- 没有 LLM API key 时，新闻抽取跳过，文章退回模板生成
-- 没有 FOOTBALL_DATA_API_KEY 时，仍可用免费回退链路
+- 赔率：API-Football / The Odds API
 
-## 环境变量
+## 8. Boundaries
 
-- `.env.example` — 模板
-- `.env` — 主配置
-- `.env.local` — 本地覆盖（优先级最高），当前默认使用 SQLite
-- `.env.production.example` — 生产模板
+不同 agent 指令文件有明确边界，不得混用：
 
-## 常见问题处理
+| 文件 | 受众 | 内容 |
+|------|------|------|
+| `CLAUDE.md` | Claude Code | Claude Code 的 ticket 执行规则、验证规则、停止条件 |
+| `AGENTS.md` | 所有 Agent | 通用项目规则、工程约定、技术栈、常用命令 |
+| Hermes 监督流程 | Hermes Agent | PR 审查流程、监督协议 — 应放在 Hermes skill 或 `docs/agent_workflow/hermes_agent_supervision_playbook_wc26.md` |
 
-| 问题 | 修复 |
-|---|---|
-| 前端无数据 | 检查 `apps/web/.env.development` 的 `VITE_API_BASE_URL` |
-| `not enough rows` | 先跑 `init_data.py` → `seed_2026_schedule.py` |
-| 文章一直 `generating` | 检查 Celery 是否启动，`generate_article_task` |
-| 没有证据来源 | 检查 `embed_articles_task`，或手动跑 EmbeddingService |
-
-## 工作约定
-
-- 所有命令在 `/mnt/e/2026世界杯分析` 项目根目录或相应子目录下执行
-- 修改代码后优先检查是否破坏健康检查（`python scripts/health_check.py`）
-- 数据库变更前先备份 `backend/data/local_stage2.db`
-- 优先使用 SQLite 开发模式，除非明确需要 PostgreSQL 功能
-- 回答用户问题时用中文，简洁直接
-- **WSL 注意**：`.env.local` 中的路径必须是 `/mnt/e/...` 格式，不能是 `E:/...`
-- **联赛赛程**：五大联赛 2025-26 赛季于 2026 年 5 月结束，2026-27 赛程预计 6-7 月发布，届时运行 `sync_league_upcoming.py` + `pregenerate_predictions.py --competition-type club` 即可批量生成预测
+- **AGENTS.md 不放** Hermes 的具体 PR 审查 check-list
+- **AGENTS.md 不放** GitHub PR 审查模板
+- **CLAUDE.md 不放** Hermes 的监督职责

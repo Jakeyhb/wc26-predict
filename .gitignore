@@ -46,3 +46,7 @@ backend/data/lineup_probes/
 *.bak
 backend/tmp/
 backend/package.json
+
+# cheat-on-content local cache
+.cheat-cache/
+.cheat-secrets.json

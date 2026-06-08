@@ -14,7 +14,10 @@ Update after match with result r ∈ {1, 0.5, 0} (win/draw/loss from home pov):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from typing import Any
 
 import numpy as np
@@ -91,7 +94,8 @@ def get_kappa_for_competition(competition: str | None = None) -> float:
         if row:
             return float(row[0])
     except Exception:
-        pass
+        logger.warning("Could not read kappa from DB for competition=%s — using default 0.24",
+                       competition, exc_info=True)
 
     return 0.24
 

@@ -44,7 +44,27 @@ def fetch_market_consensus_sync(
             "away_odds": 4.00,
         }
         or None if all providers failed.
+        Returns degraded flag if called from within an existing event loop.
     """
+    # Check for existing event loop before calling asyncio.run()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        logger.warning(
+            "Market consensus fetch skipped — asyncio.run() cannot be called "
+            "from existing event loop (match: %s vs %s). Returning degraded result.",
+            home_team,
+            away_team,
+        )
+        return {
+            "degraded": True,
+            "source": "market_consensus",
+            "reason": "event_loop_conflict",
+        }
+
     return asyncio.run(
         _fetch_consensus_async(home_team, away_team, competition, timeout)
     )

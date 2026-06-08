@@ -383,9 +383,30 @@ def _generate_llm_analysis(
     Generates three content types: analysis article, video script, social copy.
 
     Returns dict with 'analysis', 'video_script', 'social_copy' keys,
-    or None if all generations failed.
+    or None if all generations failed.  Returns degraded flag if called
+    from within an existing event loop (e.g., FastAPI async route).
     """
     import asyncio
+    import logging
+
+    _log = logging.getLogger(__name__)
+
+    # Check for existing event loop before calling asyncio.run()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        _log.warning(
+            "LLM analysis skipped — asyncio.run() cannot be called from "
+            "existing event loop. Returning degraded result."
+        )
+        return {
+            "degraded": True,
+            "source": "llm_analysis",
+            "reason": "event_loop_conflict",
+        }
 
     return asyncio.run(_generate_llm_analysis_async(result))
 

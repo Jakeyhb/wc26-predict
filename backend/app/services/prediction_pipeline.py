@@ -26,7 +26,7 @@ from app.services.model_cache_disk import (
     save_enhancer_to_disk,
 )
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
-from app.services.prediction_result import PredictionResult
+from app.services.prediction_result import DegradedReason, PredictionResult
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_probabilities
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
@@ -119,6 +119,9 @@ class PredictionPipeline:
         team_t = "national" if is_national else "club"
 
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # ── Degraded reasons accumulator (Ticket 1.2 contract) ──
+        degraded_reasons: list[DegradedReason] = []
 
         # ── Validate callbacks ──
         if db_session_factory is None or load_training_frame is None:
@@ -213,8 +216,14 @@ class PredictionPipeline:
             self._pi.fit(df)
             pi_pred = self._pi.predict(home_team, away_team, is_neutral=is_neutral)
             pi_ratings_dict = self._pi.get_ratings_dict()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Pi-Rating fitting/prediction failed — continuing without Pi", exc_info=True)
+            degraded_reasons.append(DegradedReason(
+                source="pi_rating",
+                reason="fitting_failed",
+                severity="warning",
+                detail=str(exc),
+            ))
         if pi_pred:
             clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=wc.pi))
 
@@ -319,8 +328,14 @@ class PredictionPipeline:
                 clean["draw_prob"] = ctx_result["draw_prob"]
                 clean["away_win_prob"] = ctx_result["away_win_prob"]
                 ctx_adjustments = ctx_result.get("context_adjustments", [])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Context adjustment failed — continuing without", exc_info=True)
+            degraded_reasons.append(DegradedReason(
+                source="context_adjuster",
+                reason="adjustment_failed",
+                severity="warning",
+                detail=str(exc),
+            ))
 
         # ── 13. Market calibration ──
         market_applied = False
@@ -348,8 +363,14 @@ class PredictionPipeline:
                 divergence = float(market_result.get("divergence", 0))
             if market_result.get("risk_tags"):
                 risk_tags.extend(market_result["risk_tags"])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Market calibration failed — continuing without", exc_info=True)
+            degraded_reasons.append(DegradedReason(
+                source="market_calibration",
+                reason="calibration_failed",
+                severity="warning",
+                detail=str(exc),
+            ))
 
         # ── 14. Build result ──
         components_used = ["dc", "enhancer", "elo"]
@@ -411,7 +432,11 @@ class PredictionPipeline:
             risk_tags=risk_tags,
             confidence_penalty=float(dc_pred.get("confidence_penalty", 0.0)),
             components_used=components_used,
-            missing_inputs=[],
+            missing_inputs=[
+                dr.source for dr in degraded_reasons
+                if dr.severity == "error"
+            ],
+            degraded_reasons=degraded_reasons,
             pipeline_params={
                 "dc_converged": dc_fit.converged,
                 "dc_nll": dc_fit.final_neg_log_likelihood,

@@ -113,24 +113,32 @@ _LEAGUE_DEFAULT = WeightConfig(
     label="LEAGUE",
 )
 
-# V2.7: Self-evolution from 3-match friendly post-review dataset:
-#   Match 1 (Spain 1-1 Iraq):     Enhancer 2/2 ✅, DC 0/2 ❌, Elo 0/2 ❌, Pi 0/2 ❌
-#   Match 2 (France 1-2 Ivory):   Enhancer 2/2 ✅, DC 0/2 ❌, Elo 0/2 ❌, Pi 0/2 ❌
-#   Match 3 (Singapore 1-2 CN):   Pi ✅ (only correct model), Enhancer ❌, DC ❌, Elo ❌
+# V2.9: Conservative friendly weights — corrected for statistical overfitting.
+#   V2.7 (3 matches): over-weighted Enhancer (0.42) which was 2/3 correct.
+#   V2.8 (4 matches): over-corrected based on BEL-TUN 5-0 alone — Elo ×12, Enhancer -57%.
+#   Both versions were fit on N ≤ 4 matches, far below statistical significance.
 #
-#   Summary: DC 0/3, Elo 0/3, Enhancer 2/3, Pi 1/3
-#   → DC/Elo nearly useless in friendlies → weight ↓
-#   → Pi captured pattern DC+Enhancer missed → weight ↑
-#   → Enhancer still best overall but not infallible → moderate weight
+#   V2.9 principles for friendlies:
+#   1. Enhancer ↓ moderately (ML features less reliable when teams rotate squads)
+#   2. Elo/Pi ↑ moderately (rating models more stable across contexts)
+#   3. DC remains the anchor (statistical foundation)
+#   4. ALL weights within ±50% of league defaults — no single match drives extreme shifts
+#   5. Auto-optimization requires N ≥ 30 friendly post-match evaluations (guard in learning_engine)
+#
+#   V2.9 values:
+#     dc=0.35 (↓ from league 0.50, between V2.7 0.28 and V2.8 0.18)
+#     enhancer=0.25 (↓ from league 0.30, between V2.7 0.42 and V2.8 0.18)
+#     elo=0.15 (↑ from league 0.05, between V2.7 0.02 and V2.8 0.24)
+#     pi=0.15 (↑ from league 0.05, between V2.7 0.16 and V2.8 0.28)
 _FRIENDLY = WeightConfig(
-    version="2.7",
-    dc=0.28,          # ↓ from 0.38 (DC 0/3 in friendlies — near total failure)
-    enhancer=0.42,    # ~ (still best at 2/3, but SG-CN proves it's not infallible)
-    elo=0.02,         # ↓ from 0.04 (Elo 0/3 in friendlies — irrelevant)
-    pi=0.16,          # ↑ from 0.04 (sole correct model on SG-CN, 4x weight increase)
-    weibull=0.12,     # slight adjustment
+    version="2.9",
+    dc=0.35,          # Conservative: below league 0.50, above extremes
+    enhancer=0.25,    # Moderate reduction (ML less reliable in friendlies)
+    elo=0.15,         # Moderate increase (ratings more stable across contexts)
+    pi=0.15,          # Moderate increase (ratings more stable across contexts)
+    weibull=0.10,
     market_max=0.10,
-    label="FRIENDLY_ADJUSTED_V2",
+    label="FRIENDLY_ADJUSTED_V4",
 )
 
 

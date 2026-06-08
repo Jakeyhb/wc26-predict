@@ -145,7 +145,7 @@ def evaluate_prediction(
         actual[1] = 1.0
     else:
         actual[2] = 1.0
-    review.brier_score = float(((probs - actual) ** 2).sum() / 3)
+    review.brier_score = float(((probs - actual) ** 2).sum())
 
     # ── Log Loss ──
     outcome_idx = int(np.argmax(actual))
@@ -191,14 +191,17 @@ def evaluate_prediction(
 def _assign_grade(review: MatchReview) -> tuple[str, str]:
     """Assign a qualitative grade based on prediction quality.
 
+    Brier score range: [0, 2] for 3-outcome predictions (no per-class division).
+    Uniform prediction (0.333, 0.333, 0.333) → Brier ≈ 0.667 (baseline).
+
     Grades:
         A+: Exact score hit with strong probability
         A:  Direction correct + score in top-3
         B+: Direction correct
         B:  Direction wrong but top-3 score hit
-        C:  Direction wrong but probabilities were close (Brier < 0.25)
-        D:  Clear miss (Brier >= 0.25)
-        F:  Complete miss with high confidence on wrong outcome
+        C:  Direction wrong but better than uniform (Brier < 0.67)
+        D:  Clear miss (0.67 ≤ Brier < 1.05)
+        F:  Complete miss with high confidence on wrong outcome (Brier ≥ 1.05)
     """
     if review.exact_score_hit:
         return ("A+", "精确命中比分，模型表现优异")
@@ -208,9 +211,9 @@ def _assign_grade(review: MatchReview) -> tuple[str, str]:
         return ("B+", "方向正确但比分未命中，模型方向判断准确")
     if review.top3_score_hit:
         return ("B", "方向判断错误但比分进入Top-3，概率校准仍有参考价值")
-    if review.brier_score < 0.25:
-        return ("C", f"方向错误，但概率分布较为保守 (Brier={review.brier_score:.3f})")
-    if review.brier_score < 0.35:
+    if review.brier_score < 0.67:
+        return ("C", f"方向错误，但优于随机猜测 (Brier={review.brier_score:.3f})")
+    if review.brier_score < 1.05:
         return ("D", f"明显偏差 (Brier={review.brier_score:.3f})，模型对实际结果置信度不足")
     return ("F", f"严重偏差 (Brier={review.brier_score:.3f})，模型以较高置信度预测了错误结果")
 

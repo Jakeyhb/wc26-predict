@@ -57,6 +57,16 @@ if last_pred is None:
 if last_pred is None:
     st.stop()
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Guard: st.stop() may not raise outside of `streamlit run`.  Everything below
+# this point depends on last_pred being a valid dict.  If last_pred is None
+# (e.g. when imported in bare Python), bail out cleanly to avoid the
+# "'NoneType' object is not subscriptable" crash at module level.
+# ═══════════════════════════════════════════════════════════════════════════════
+if last_pred is None:
+    import sys as _sys
+    _sys.exit(0)
+
 # ── Extract result data ─────────────────────────────────────────────────────
 result = last_pred["result"]
 

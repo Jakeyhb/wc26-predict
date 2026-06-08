@@ -16,7 +16,14 @@ ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
 TEAM_FACTS_PATH = BACKEND_DIR.parent / "data" / "team_tournament_status.json"
 
 # ── 应用元数据 ────────────────────────────────────────────────────────────────
-from app.version import VERSION, BUILD_NAME  # noqa: E402
+# Read version directly to avoid circular import (dashboard/app.py shadows the
+# app package; importing app.version would resolve to dashboard.app instead).
+_version_ns: dict[str, str] = {}
+_version_path = BACKEND_DIR / "app" / "version.py"
+with open(_version_path, encoding="utf-8") as _vf:
+    exec(_vf.read(), _version_ns)
+VERSION = _version_ns.get("VERSION", "?.?.?")
+BUILD_NAME = _version_ns.get("BUILD_NAME", "unknown")
 
 APP_TITLE = "WC26 Predict"
 SUB_TITLE = "本地工作台"

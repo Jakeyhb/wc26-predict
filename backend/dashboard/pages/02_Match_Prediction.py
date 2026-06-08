@@ -69,17 +69,6 @@ can_predict = home_team != away_team
 if not can_predict:
     st.warning("请选择不同的主队和客队")
 
-# ── 运行预测 ──────────────────────────────────────────────────────────────────
-if st.button("开始预测", type="primary", disabled=not can_predict):
-    if enhanced_mode:
-        _run_enhanced(home_team, away_team, competition, is_neutral, mode)
-    else:
-        _run_artifact_only(home_team, away_team, competition, is_neutral, mode)
-
-    st.divider()
-    st.caption("免责声明: 本内容仅用于足球研究和内容创作，不构成投注建议，也不保证比赛结果。")
-
-
 # ── Enhanced mode ─────────────────────────────────────────────────────────────
 
 def _run_enhanced(home_team, away_team, competition, is_neutral, mode):
@@ -377,3 +366,14 @@ def _run_artifact_only(home_team, away_team, competition, is_neutral, mode):
 
         st.subheader("已启用组件")
         st.json(result.get("components_used", []))
+
+
+# ── 运行预测 (placed after function definitions to avoid NameError) ──────────
+if st.button("开始预测", type="primary", disabled=not can_predict):
+    if enhanced_mode:
+        _run_enhanced(home_team, away_team, competition, is_neutral, mode)
+    else:
+        _run_artifact_only(home_team, away_team, competition, is_neutral, mode)
+
+    st.divider()
+    st.caption("免责声明: 本内容仅用于足球研究和内容创作，不构成投注建议，也不保证比赛结果。")

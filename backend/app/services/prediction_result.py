@@ -7,9 +7,48 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
+
+from app.version import VERSION
 
 from app.services.weights import WeightConfig
+
+
+DegradedSeverity = Literal["warning", "error"]
+
+
+@dataclass
+class DegradedReason:
+    """Structured record of a data source that degraded during prediction.
+
+    Contract (Ticket 1.2):
+        - source: The data source that failed (e.g. "pi_rating", "market_calibration")
+        - reason: Why it failed (e.g. "fitting_failed", "api_unavailable")
+        - severity: "warning" (prediction continues) or "error" (data completely missing)
+        - detail: Optional human-readable detail (e.g. exception message)
+    """
+
+    source: str
+    reason: str
+    severity: DegradedSeverity = "warning"
+    detail: str = ""
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "source": self.source,
+            "reason": self.reason,
+            "severity": self.severity,
+            "detail": self.detail,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, str]) -> "DegradedReason":
+        return cls(
+            source=data.get("source", ""),
+            reason=data.get("reason", ""),
+            severity=data.get("severity", "warning"),  # type: ignore[arg-type]
+            detail=data.get("detail", ""),
+        )
 
 
 @dataclass
@@ -58,7 +97,7 @@ class PredictionResult:
     over_under: dict[str, float] = field(default_factory=dict)
 
     # ── Metadata ──
-    model_version: str = "1.5"
+    model_version: str = VERSION
     weight_config: WeightConfig | None = None
     mode: str = "internal_research"
     as_of: str = ""  # ISO format
@@ -90,6 +129,11 @@ class PredictionResult:
 
     # ── Sources ──
     sources: dict[str, str] = field(default_factory=dict)
+
+    # ── Degraded reasons (Ticket 1.2 contract) ──
+    # Always present — empty list when all data sources succeeded.
+    # Each entry is a DegradedReason with source/reason/severity/detail.
+    degraded_reasons: list[DegradedReason] = field(default_factory=list)
 
     # ── Derived ──
     @property
@@ -162,6 +206,7 @@ class PredictionResult:
             "active_event_ids": [e.get("id", "") for e in self.active_events],
             "context_adjustments": self.context_adjustments,
             "sources": self.sources,
+            "degraded_reasons": [dr.to_dict() for dr in self.degraded_reasons],
         }
 
     @classmethod
@@ -214,7 +259,11 @@ class PredictionResult:
             elo_detail=dict(elo.get("detail", {})),
             calibration_monitor=dict(data.get("calibration_monitor", {})),
             sources=dict(data.get("sources", {})),
-            model_version=str(meta.get("model_version", "1.5")),
+            degraded_reasons=[
+                DegradedReason.from_dict(dr) if isinstance(dr, dict) else dr
+                for dr in data.get("degraded_reasons", [])
+            ],
+            model_version=str(meta.get("model_version", VERSION)),
             mode=str(meta.get("mode", "internal_research")),
             as_of=str(meta.get("as_of", "")),
             generated_at=str(meta.get("generated_at", "")),

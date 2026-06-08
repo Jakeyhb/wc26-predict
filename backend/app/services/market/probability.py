@@ -4,6 +4,8 @@ All functions are pure (no side effects, no network I/O).
 """
 from __future__ import annotations
 
+import math
+
 
 def normalize_1x2_odds(
     home_odds: float,
@@ -100,8 +102,19 @@ def normalize_1x2_shin(
 
 
 def _shin_implied(odds: float, z: float) -> float:
-    """Shin's implied probability for a single outcome."""
-    return (1.0 - z) / odds
+    """Shin's implied probability for a single outcome.
+
+    Shin (1993) closed-form solution:
+      p_i = (sqrt(z^2 + 4*(1-z)*(1/odds_i)) - z) / (2*(1-z))
+
+    When z = 0 (no informed bettors), this reduces to the proportional
+    method: p_i = 1/odds_i.  The previous linear approximation (1-z)/odds
+    was incorrect for all z > 0.
+    """
+    if z < 1e-12:
+        return 1.0 / odds
+    inv = 1.0 / odds
+    return (math.sqrt(z * z + 4.0 * (1.0 - z) * inv) - z) / (2.0 * (1.0 - z))
 
 
 def normalize_1x2_power(

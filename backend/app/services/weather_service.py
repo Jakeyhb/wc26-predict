@@ -211,6 +211,24 @@ class WeatherService:
         # Use match time = now + 24h (best-effort for upcoming matches)
         match_dt = datetime.now(timezone.utc) + timedelta(hours=24)
 
+        # Check for existing event loop before calling asyncio.run()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            logger.warning(
+                "Weather fetch skipped — asyncio.run() cannot be called from "
+                "existing event loop (venue=%s). Returning degraded result.",
+                resolved_venue,
+            )
+            degraded = dict(default)
+            degraded["degraded"] = True
+            degraded["source"] = "weather"
+            degraded["reason"] = "event_loop_conflict"
+            return degraded
+
         try:
             return asyncio.run(self.fetch_match_weather(resolved_venue, match_dt))
         except Exception as exc:

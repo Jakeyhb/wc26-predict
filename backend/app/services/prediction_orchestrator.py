@@ -308,7 +308,7 @@ class PredictionOrchestrator:
                     self.elo.fit(training_df)
                     self._elo_fitted = True
                 except Exception:
-                    pass
+                    logger.warning("Elo fitting failed — predictions will skip Elo", exc_info=True)
             if self._elo_fitted:
                 try:
                     elo_pred = self.elo.predict(
@@ -322,7 +322,8 @@ class PredictionOrchestrator:
                         **fuse_elo_probabilities(base_prediction, elo_pred, elo_weight=wc.elo),
                     }
                 except Exception:
-                    pass
+                    logger.warning("Elo prediction failed for %s vs %s — skipping Elo blend",
+                                   match.home_team.name, match.away_team.name, exc_info=True)
 
             # Market calibrator (gracefully skipped if no API key)
             market_result: dict[str, object] = {}
@@ -345,7 +346,8 @@ class PredictionOrchestrator:
                             "away_win_prob": calibrated["away_win_prob"],
                         }
             except Exception:
-                pass
+                logger.warning("Market calibration failed for %s vs %s — continuing without",
+                               match.home_team.name, match.away_team.name, exc_info=True)
 
             # Injury signal blending
             injury_signals = self.injury_service.generate_signals_for_match(

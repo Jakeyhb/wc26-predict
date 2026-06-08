@@ -564,7 +564,7 @@ class DixonColesModel:
             actual_index = 0 if row.home_goals > row.away_goals else 1 if row.home_goals == row.away_goals else 2
             actual = np.zeros(3)
             actual[actual_index] = 1.0
-            brier_scores.append(float(((probs - actual) ** 2).sum() / 3))
+            brier_scores.append(float(((probs - actual) ** 2).sum()))
             log_losses.append(float(-math.log(max(probs[actual_index], 1e-12))))
 
             predicted_top = prediction["top3_scores"][0]["score"]

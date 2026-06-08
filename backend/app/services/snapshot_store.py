@@ -18,6 +18,7 @@ import logging
 from app.database import AsyncSessionLocal
 from app.models.prediction_snapshot import PredictionSnapshot
 from app.models.prediction_run import PredictionRun
+from app.version import VERSION
 from app.models.enums import PredictionRunType
 
 
@@ -55,7 +56,7 @@ async def save_prediction_snapshot(
     snapshot = PredictionSnapshot(
         match_id=m.get("match_id", ""),
         run_type=run_type,
-        model_version="2.0.0",
+        model_version=VERSION,
         home_team=m["home_team"],
         away_team=m["away_team"],
         competition=m["competition"],
@@ -183,7 +184,7 @@ async def _sync_to_prediction_runs(
                     "id": pred_run_id,
                     "match_id": match_uuid if match_uuid else pred_run_id,
                     "run_type": prt_value,
-                    "model_version": "2.0.0",
+                    "model_version": VERSION,
                     "as_of_time": now_ts,
                     "home_win_prob": round(float(p["home_win_prob"]), 6),
                     "draw_prob": round(float(p["draw_prob"]), 6),

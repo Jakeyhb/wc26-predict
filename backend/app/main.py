@@ -43,6 +43,7 @@ from app.exceptions import AppError
 from app.logging import configure_logging, get_logger
 from app.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.routers import admin, analysis, dashboard, feedback, health, matches, predictions, signals, stats
+from app.version import VERSION
 
 configure_logging()
 settings = get_settings()
@@ -92,7 +93,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version=VERSION, lifespan=lifespan)
 app.state.limiter = limiter
 if _slowapi_available and SlowAPIMiddleware is not None:
     app.add_middleware(SlowAPIMiddleware)
