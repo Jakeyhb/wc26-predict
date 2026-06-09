@@ -82,6 +82,12 @@ def save_pre_match_snapshot(
     code_version: str = "",
     model_version: str = "",
     data_fingerprint: str = "",
+    git_commit: str = "",
+    # ── Source traceability ──
+    source_timestamps: dict[str, str] | None = None,
+    odds_snapshot_id: str = "",
+    weather_snapshot_id: str = "",
+    injury_snapshot_id: str = "",
     # ── Reports ──
     report_markdown: str | None = None,
     llm_analysis: str | None = None,
@@ -96,7 +102,27 @@ def save_pre_match_snapshot(
     import uuid
     from datetime import datetime, timezone
 
+    import hashlib
+
     snapshot_id = str(uuid.uuid4())
+    freeze_dt = datetime.now(timezone.utc).isoformat()
+
+    # ── Compute input_hash for tamper-evidence / dedup ──
+    input_payload = json.dumps({
+        "home_team": home_team,
+        "away_team": away_team,
+        "competition": competition,
+        "is_neutral": is_neutral,
+        "weather": weather_snapshot,
+        "odds": odds_snapshot,
+        "lineup": lineup_snapshot,
+        "injuries": injury_records,
+        "news_signal_ids": news_signal_ids or [],
+        "code_version": code_version,
+        "weight_config_label": weight_config_label,
+        "mode": prediction_mode,
+    }, sort_keys=True, default=str, ensure_ascii=False)
+    input_hash = hashlib.sha256(input_payload.encode("utf-8")).hexdigest()
 
     try:
         if not DB_PATH.exists():
@@ -110,6 +136,8 @@ def save_pre_match_snapshot(
 
         # Ensure table exists (idempotent)
         _ensure_table(conn)
+        # Ensure new columns exist (safe to call repeatedly)
+        run_migration()
 
         conn.execute(
             """INSERT INTO pre_match_snapshots (
@@ -127,14 +155,16 @@ def save_pre_match_snapshot(
                 confidence, confidence_penalty, risk_tags, pipeline_status,
                 missing_inputs, degraded_reasons,
                 code_version, model_version, data_fingerprint,
+                git_commit, input_hash, source_timestamps,
+                odds_snapshot_id, weather_snapshot_id, injury_snapshot_id,
                 prediction_mode, report_markdown, llm_analysis
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                      ?, ?, ?, ?, ?, ?)""",
+                      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 snapshot_id,
                 match_id,
-                datetime.now(timezone.utc).isoformat(),
+                freeze_dt,
                 kickoff_at or None,
                 hours_to_kickoff,
                 home_team,
@@ -175,6 +205,12 @@ def save_pre_match_snapshot(
                 code_version or "",
                 model_version or None,
                 data_fingerprint or None,
+                git_commit or None,
+                input_hash,
+                _json_dump(source_timestamps),
+                odds_snapshot_id or None,
+                weather_snapshot_id or None,
+                injury_snapshot_id or None,
                 prediction_mode,
                 report_markdown or None,
                 llm_analysis or None,
@@ -215,6 +251,47 @@ def _json_dump(obj: Any) -> str | None:
         return json.dumps(obj, ensure_ascii=False, default=str)
     except (TypeError, ValueError):
         return None
+
+
+def run_migration() -> bool:
+    """Add any missing columns to existing pre_match_snapshots table.
+
+    Safe to call repeatedly — each ALTER TABLE is wrapped in a try/except
+    so it succeeds once and no-ops on subsequent calls.
+    """
+    if not DB_PATH.exists():
+        return False
+
+    new_columns = [
+        ("git_commit", "TEXT"),
+        ("input_hash", "TEXT"),
+        ("source_timestamps", "TEXT"),
+        ("odds_snapshot_id", "TEXT"),
+        ("weather_snapshot_id", "TEXT"),
+        ("injury_snapshot_id", "TEXT"),
+    ]
+
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(pre_match_snapshots)")}
+
+        added = 0
+        for col_name, col_type in new_columns:
+            if col_name not in existing:
+                try:
+                    conn.execute(f"ALTER TABLE pre_match_snapshots ADD COLUMN {col_name} {col_type}")
+                    added += 1
+                except sqlite3.OperationalError:
+                    pass  # column already exists
+
+        if added:
+            conn.commit()
+            logger.info("pre_match_snapshots migration: added %d column(s)", added)
+        conn.close()
+        return True
+    except Exception:
+        logger.debug("Migration check skipped — table may not exist yet", exc_info=True)
+        return False
 
 
 def _ensure_table(conn: sqlite3.Connection) -> None:
@@ -264,6 +341,12 @@ def _ensure_table(conn: sqlite3.Connection) -> None:
             code_version TEXT NOT NULL,
             model_version TEXT,
             data_fingerprint TEXT,
+            git_commit TEXT,
+            input_hash TEXT,
+            source_timestamps TEXT,
+            odds_snapshot_id TEXT,
+            weather_snapshot_id TEXT,
+            injury_snapshot_id TEXT,
             prediction_mode TEXT DEFAULT 'full',
             report_markdown TEXT,
             llm_analysis TEXT

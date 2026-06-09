@@ -672,7 +672,7 @@ def _save_snapshot_from_pipeline(
     """Save a PreMatchSnapshot to the database (best-effort, never throws)."""
     try:
         from app.services.snapshot_service import save_pre_match_snapshot
-        from app.version import VERSION
+        from app.version import VERSION, get_git_commit
 
         # Collect risk tags from all sources
         risk_tags = list(result.get("risk_tags", []))
@@ -722,6 +722,7 @@ def _save_snapshot_from_pipeline(
             missing_inputs=[],
             degraded_reasons=degraded,
             code_version=VERSION,
+            git_commit=get_git_commit(),
             injury_data_available=injury_signals_count > 0,
             news_signals_available=news_signals_count > 0,
         )

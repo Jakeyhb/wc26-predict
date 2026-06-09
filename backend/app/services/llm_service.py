@@ -75,8 +75,11 @@ class QwenAdapter(OpenAICompatibleAdapter):
 
 class DeepSeekAdapter(OpenAICompatibleAdapter):
     def __init__(self) -> None:
+        # DeepSeek OpenAI-compatible API: base URL should NOT include /v1.
+        # The adapter appends /v1 internally so the config value stays clean.
+        _base = (settings.llm_base_url or "https://api.deepseek.com").rstrip("/")
         super().__init__(
-            base_url="https://api.deepseek.com/v1",
+            base_url=f"{_base}/v1",
             api_key=settings.llm_api_key,
             model=settings.llm_model,
         )

@@ -101,6 +101,13 @@ class PreMatchSnapshot(Base):
     code_version: Mapped[str] = mapped_column(String(32), nullable=False)
     model_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     data_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    git_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source_timestamps: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Source reference IDs — link to source data rows for full traceability
+    odds_snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    weather_snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    injury_snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # ── Mode ──
     prediction_mode: Mapped[str] = mapped_column(String(32), default="full")
@@ -117,6 +124,11 @@ class PreMatchSnapshot(Base):
         )
 
     @property
+    def freeze_time(self) -> datetime | None:
+        """Explicit alias for snapshot_at — the moment this prediction was frozen."""
+        return self.snapshot_at
+
+    @property
     def total_input_availability(self) -> float:
         """Fraction of input categories that were available (0.0-1.0)."""
         inputs = [
@@ -127,3 +139,14 @@ class PreMatchSnapshot(Base):
             self.news_signals_available,
         ]
         return sum(inputs) / len(inputs)
+
+    @property
+    def input_total(self) -> int:
+        """Count of available input categories (0-5)."""
+        return sum([
+            self.weather_available,
+            self.odds_available,
+            self.lineup_available,
+            self.injury_data_available,
+            self.news_signals_available,
+        ])

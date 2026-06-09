@@ -180,13 +180,19 @@ def run_enhanced_prediction(
         logger.info("  [2/5] Fetching market odds...")
         try:
             market_probs = _fetch_market(home_team, away_team, competition)
-            if market_probs is not None:
+            if market_probs is not None and not market_probs.get("degraded"):
                 result.market_probs = market_probs
                 logger.info(
                     f"  [market] {market_probs['provider']}: "
                     f"H={market_probs['home_prob']:.3f} "
                     f"D={market_probs['draw_prob']:.3f} "
                     f"A={market_probs['away_prob']:.3f}"
+                )
+
+                # Persist consensus snapshot (best-effort, non-blocking)
+                _save_market_consensus_to_db(
+                    home_team=home_team, away_team=away_team,
+                    competition=competition, market_probs=market_probs,
                 )
 
                 # Compute divergence
@@ -315,6 +321,29 @@ def _fetch_market(
     except ImportError as e:
         logger.warning("sync_provider not available: %s", e)
         return None
+
+
+def _save_market_consensus_to_db(
+    *,
+    home_team: str,
+    away_team: str,
+    competition: str,
+    market_probs: dict[str, Any],
+    kickoff_at: str = "",
+) -> None:
+    """Persist market consensus to DB (best-effort, never throws)."""
+    try:
+        from app.services.market.consensus_save import save_market_consensus
+
+        save_market_consensus(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            market_probs=market_probs,
+            kickoff_at=kickoff_at,
+        )
+    except Exception:
+        logger.debug("Market consensus save skipped", exc_info=True)
     except Exception as e:
         logger.warning("Market fetch error: %s", e)
         return None

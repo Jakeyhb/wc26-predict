@@ -100,9 +100,12 @@ def check_deepseek_config() -> list[tuple[str, str]]:
 
     # Check base URL
     if base_url:
-        results.append((PASS, f"LLM_BASE_URL={base_url}"))
+        if "/v1" in base_url:
+            results.append((WARN, f"LLM_BASE_URL={base_url} — contains /v1; should be https://api.deepseek.com (without /v1). The adapter appends /v1 internally."))
+        else:
+            results.append((PASS, f"LLM_BASE_URL={base_url}"))
     else:
-        results.append((WARN, "LLM_BASE_URL not set (will use code default)"))
+        results.append((WARN, "LLM_BASE_URL not set (will use code default: https://api.deepseek.com)"))
 
     return results
 

@@ -17,6 +17,8 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
+
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 DB_PATH = os.path.join(
@@ -121,9 +123,11 @@ def _read_match_data(clean_id: str) -> dict[str, Any] | None:
 
 @router.post("/generate", response_model=AnalysisResponse)
 async def generate_analysis(req: AnalysisRequest):
-    deepseek_key = os.getenv("LLM_API_KEY", "")
-    deepseek_base = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
-    deepseek_model = os.getenv("LLM_MODEL", "deepseek-v4-pro")
+    settings = get_settings()
+    deepseek_key = settings.llm_api_key or os.getenv("LLM_API_KEY", "")
+    _base = (settings.llm_base_url or "https://api.deepseek.com").rstrip("/")
+    deepseek_base = f"{_base}/v1"
+    deepseek_model = settings.llm_model or os.getenv("LLM_MODEL", "deepseek-v4-pro")
 
     if not deepseek_key:
         raise HTTPException(status_code=500, detail="LLM_API_KEY 未配置，请在 .env.local 中设置")

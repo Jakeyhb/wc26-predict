@@ -242,7 +242,8 @@ class EmbeddingService:
 
     def _default_provider_base_url(self) -> str:
         if settings.llm_provider == "deepseek":
-            return "https://api.deepseek.com/v1"
+            _base = (settings.llm_base_url or "https://api.deepseek.com").rstrip("/")
+            return f"{_base}/v1"
         if settings.llm_provider == "zhipu":
             return "https://open.bigmodel.cn/api/paas/v4"
         return "https://dashscope.aliyuncs.com/compatible-mode/v1"
