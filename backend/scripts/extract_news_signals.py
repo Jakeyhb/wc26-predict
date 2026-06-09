@@ -5,7 +5,7 @@ Pipeline:
   -> DeepSeek V4 Pro signal extraction
   -> schema validation (source_url, source_title, evidence_quote required)
   -> candidate_signals (if short content or low confidence)
-  -> manual review (review_news_signals.py)
+  -> manual review (review_signals_cli.py)
   -> approved news_signals -> SignalAdjuster
 
 Short RSS snippets (< 300 chars) always go to candidate queue, never directly to model.

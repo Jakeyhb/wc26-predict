@@ -416,7 +416,7 @@ def main() -> None:
         )
         conn.commit()
         print(f"\n  Signal inserted successfully! ({signal_id})")
-        print("  Status: PENDING (ready for review via review_signals.py)")
+        print("  Status: PENDING (ready for review via review_signals_cli.py)")
     except sqlite3.Error as e:
         print(f"\n  Error inserting signal: {e}")
         conn.rollback()

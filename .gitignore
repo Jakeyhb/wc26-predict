@@ -77,6 +77,25 @@ shared-references/
 # Orphan files
 =1.44
 
-# Duplicate docs (keep only docs/ARCHITECTURE.md)
+# Root-level duplicates (keep only docs/ versions where applicable)
 ARCHITECTURE.md
 PROJECT_STATUS.md
+
+# Claude Code internal config
+.claude/
+
+# Redundant virtual environments
+.venv_fresh/
+
+# SQLite WAL temp files
+*.db-shm
+*.db-wal
+
+# Auto-generated probe reports (regenerated on demand)
+backend/docs/provider_coverage_report.md
+
+# Runtime artifacts (regenerated on demand)
+backend/artifacts/calibrator.json
+
+# Cheat-on-content article drafts
+scripts/2026-06-*
