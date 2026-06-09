@@ -6,10 +6,12 @@ POST /api/analysis/generate
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sqlite3
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -22,10 +24,6 @@ DB_PATH = os.path.join(
     "data",
     "local_stage2.db",
 )
-
-DEEPSEEK_BASE = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
-DEEPSEEK_KEY = os.getenv("LLM_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-pro")
 
 ANALYSIS_SYSTEM_PROMPT = """你是一位专业的足球分析师。你的任务是根据提供的比赛数据、模型预测和历史战绩，撰写深度赛前分析报告。
 
@@ -48,74 +46,103 @@ class AnalysisResponse(BaseModel):
     generated_at: str
 
 
+def _read_match_data(clean_id: str) -> dict[str, Any] | None:
+    """Read match + prediction + recent form from SQLite (sync, called via asyncio.to_thread)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        match = conn.execute(
+            """SELECT m.*, ht.name AS home_name, at.name AS away_name
+               FROM matches m
+               JOIN teams ht ON m.home_team_id = ht.id
+               JOIN teams at ON m.away_team_id = at.id
+               WHERE m.id = ?""",
+            (clean_id,),
+        ).fetchone()
+
+        if not match:
+            return None
+
+        pred = conn.execute(
+            """SELECT * FROM prediction_runs
+               WHERE match_id = ?
+               ORDER BY created_at DESC LIMIT 1""",
+            (clean_id,),
+        ).fetchone()
+
+        home_name = match["home_name"]
+        away_name = match["away_name"]
+        match_date = match["match_date"]
+
+        def get_recent_form(team_name: str, before_date: str) -> list[str]:
+            rows = conn.execute(
+                """SELECT ht.name AS home_name, at.name AS away_name,
+                          m.match_date, m.competition,
+                          r.home_goals, r.away_goals
+                   FROM matches m
+                   JOIN match_results r ON m.id = r.match_id
+                   JOIN teams ht ON m.home_team_id = ht.id
+                   JOIN teams at ON m.away_team_id = at.id
+                   WHERE (ht.name = ? OR at.name = ?)
+                     AND m.match_date < ?
+                     AND m.status = 'finished'
+                   ORDER BY m.match_date DESC
+                   LIMIT 5""",
+                (team_name, team_name, before_date),
+            ).fetchall()
+
+            form_lines = []
+            for r in rows:
+                if r["home_name"] == team_name:
+                    result = "W" if r["home_goals"] > r["away_goals"] else ("D" if r["home_goals"] == r["away_goals"] else "L")
+                    form_lines.append(f"  {r['match_date'][:10]} {result} {r['home_goals']}-{r['away_goals']} vs {r['away_name']} ({r['competition']})")
+                else:
+                    result = "W" if r["away_goals"] > r["home_goals"] else ("D" if r["home_goals"] == r["away_goals"] else "L")
+                    form_lines.append(f"  {r['match_date'][:10]} {result} {r['away_goals']}-{r['home_goals']} vs {r['home_name']} ({r['competition']})")
+            return form_lines
+
+        home_form = get_recent_form(home_name, match_date)
+        away_form = get_recent_form(away_name, match_date)
+
+        return {
+            "home_name": home_name,
+            "away_name": away_name,
+            "match_date": match_date,
+            "competition": match["competition"],
+            "is_neutral_venue": match["is_neutral_venue"],
+            "prediction": pred,
+            "home_form": home_form,
+            "away_form": away_form,
+        }
+    finally:
+        conn.close()
+
+
 @router.post("/generate", response_model=AnalysisResponse)
 async def generate_analysis(req: AnalysisRequest):
-    if not DEEPSEEK_KEY:
+    deepseek_key = os.getenv("LLM_API_KEY", "")
+    deepseek_base = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
+    deepseek_model = os.getenv("LLM_MODEL", "deepseek-v4-pro")
+
+    if not deepseek_key:
         raise HTTPException(status_code=500, detail="LLM_API_KEY 未配置，请在 .env.local 中设置")
 
     # Normalize match_id: strip dashes (snapshot uses dashes, DB stores without)
     clean_id = req.match_id.replace("-", "")
 
-    # ── Read match & prediction data ─────────────────────────
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    # ── Read match & prediction data (offloaded to thread to avoid blocking) ─
+    match_data = await asyncio.to_thread(_read_match_data, clean_id)
 
-    match = conn.execute(
-        """SELECT m.*, ht.name AS home_name, at.name AS away_name
-           FROM matches m
-           JOIN teams ht ON m.home_team_id = ht.id
-           JOIN teams at ON m.away_team_id = at.id
-           WHERE m.id = ?""",
-        (clean_id,),
-    ).fetchone()
-
-    if not match:
-        conn.close()
+    if match_data is None:
         raise HTTPException(status_code=404, detail="比赛不存在")
 
-    # Latest prediction run
-    pred = conn.execute(
-        """SELECT * FROM prediction_runs
-           WHERE match_id = ?
-           ORDER BY created_at DESC LIMIT 1""",
-        (clean_id,),
-    ).fetchone()
-
-    # Recent form (last 5 matches each team)
-    def get_recent_form(team_name: str, before_date: str) -> list[str]:
-        rows = conn.execute(
-            """SELECT ht.name AS home_name, at.name AS away_name,
-                      m.match_date, m.competition,
-                      r.home_goals, r.away_goals
-               FROM matches m
-               JOIN match_results r ON m.id = r.match_id
-               JOIN teams ht ON m.home_team_id = ht.id
-               JOIN teams at ON m.away_team_id = at.id
-               WHERE (ht.name = ? OR at.name = ?)
-                 AND m.match_date < ?
-                 AND m.status = 'finished'
-               ORDER BY m.match_date DESC
-               LIMIT 5""",
-            (team_name, team_name, before_date),
-        ).fetchall()
-
-        form_lines = []
-        for r in rows:
-            if r["home_name"] == team_name:
-                result = "W" if r["home_goals"] > r["away_goals"] else ("D" if r["home_goals"] == r["away_goals"] else "L")
-                form_lines.append(f"  {r['match_date'][:10]} {result} {r['home_goals']}-{r['away_goals']} vs {r['away_name']} ({r['competition']})")
-            else:
-                result = "W" if r["away_goals"] > r["home_goals"] else ("D" if r["home_goals"] == r["away_goals"] else "L")
-                form_lines.append(f"  {r['match_date'][:10]} {result} {r['away_goals']}-{r['home_goals']} vs {r['home_name']} ({r['competition']})")
-        return form_lines
-
-    home_name = match["home_name"]
-    away_name = match["away_name"]
-    match_date = match["match_date"]
-
-    home_form = get_recent_form(home_name, match_date)
-    away_form = get_recent_form(away_name, match_date)
-    conn.close()
+    home_name = match_data["home_name"]
+    away_name = match_data["away_name"]
+    match_date = match_data["match_date"]
+    pred = match_data["prediction"]
+    home_form = match_data["home_form"]
+    away_form = match_data["away_form"]
 
     # ── Build prompt ─────────────────────────────────────────
     if pred:
@@ -147,8 +174,8 @@ async def generate_analysis(req: AnalysisRequest):
 - 主队：{home_name}
 - 客队：{away_name}
 - 比赛时间：{match_date[:16]}
-- 赛事：{match['competition']}
-- 场地：{'中立场' if match['is_neutral_venue'] else '主场优势'}
+- 赛事：{match_data['competition']}
+- 场地：{'中立场' if match_data['is_neutral_venue'] else '主场优势'}
 
 {prediction_section}
 
@@ -166,13 +193,13 @@ async def generate_analysis(req: AnalysisRequest):
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             response = await client.post(
-                f"{DEEPSEEK_BASE}/chat/completions",
+                f"{deepseek_base}/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {DEEPSEEK_KEY}",
+                    "Authorization": f"Bearer {deepseek_key}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": DEEPSEEK_MODEL,
+                    "model": deepseek_model,
                     "messages": [
                         {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},

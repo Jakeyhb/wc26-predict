@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime
 from datetime import timedelta
 
@@ -28,6 +29,8 @@ from app.schemas.stats import (
 from app.services.calibration import IsotonicCalibrator
 from app.services.football_data_service import FootballDataService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/stats", tags=["stats"])
 settings = get_settings()
 
@@ -36,7 +39,8 @@ async def _cache_get(key: str) -> str | None:
     try:
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         return await asyncio.to_thread(redis.get, key)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Redis cache get failed for key=%s: %s", key, exc)
         return None
 
 
@@ -45,7 +49,8 @@ async def _cache_set(key: str, value: dict[str, object], ttl_seconds: int) -> No
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         payload = json.dumps(value, ensure_ascii=False)
         await asyncio.to_thread(redis.setex, key, ttl_seconds, payload)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Redis cache set failed for key=%s: %s", key, exc)
         return
 
 
@@ -150,8 +155,8 @@ async def get_accuracy_stats(request: Request, db: AsyncSession = Depends(get_db
     calibrator = IsotonicCalibrator()
     try:
         calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Calibrator load failed: %s", exc)
 
     latest_model_version = await db.scalar(
         select(PredictionRun.model_version).order_by(PredictionRun.created_at.desc()).limit(1)

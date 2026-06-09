@@ -9,10 +9,13 @@ All data writes remain through dedicated CLI scripts.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 
@@ -82,14 +85,22 @@ class DashboardDB:
         finally:
             conn.close()
 
+    def _validate_table(self, table: str) -> str:
+        """Return the table name if it exists in the database, otherwise raise ValueError."""
+        valid = self.get_tables()
+        if table not in valid:
+            raise ValueError(f"Unknown table: {table}")
+        return table
+
     def get_table_info(self, table: str) -> list[dict[str, Any]]:
         """Return column metadata for a table.
 
         Each dict: name, type, notnull, pk (primary key).
         """
+        safe_table = self._validate_table(table)
         conn = self.connect()
         try:
-            rows = conn.execute(f"PRAGMA table_info('{table}')").fetchall()
+            rows = conn.execute(f"PRAGMA table_info('{safe_table}')").fetchall()
             return [
                 {
                     "name": r["name"],
@@ -104,10 +115,11 @@ class DashboardDB:
 
     def get_row_count(self, table: str) -> int:
         """Return row count for a table."""
+        safe_table = self._validate_table(table)
         conn = self.connect()
         try:
             row = conn.execute(
-                f"SELECT COUNT(*) AS cnt FROM '{table}'"
+                f'SELECT COUNT(*) AS cnt FROM "{safe_table}"'
             ).fetchone()
             return row["cnt"] if row else 0
         finally:
@@ -263,7 +275,8 @@ class DashboardDB:
         for table in key_tables:
             try:
                 stats[table] = self.get_row_count(table)
-            except Exception:
+            except (ValueError, Exception) as exc:
+                logger.warning("Failed to get row count for table=%s: %s", table, exc)
                 stats[table] = None
         stats["total_tables"] = len(self.get_tables())
         return stats
