@@ -37,6 +37,7 @@ class NewsSignal(UUIDPrimaryKeyMixin, Base):
     review_notes: Mapped[str | None] = mapped_column(String(500))
     reviewed_by: Mapped[str | None] = mapped_column(String(50))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence_id: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True, default=None)
     enters_model: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

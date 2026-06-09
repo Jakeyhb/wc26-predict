@@ -32,7 +32,21 @@ async def fast_predict(
     is_neutral: bool = False,
     competition_weight: float = 0.9,
 ) -> dict:
-    """Run numeric prediction layers, return minimal result dict."""
+    """[DEPRECATED since V3.1] Run numeric prediction layers, return minimal result dict.
+
+    **Migration:** Use ``PredictionPipeline.from_snapshot_env()`` then
+    ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``
+    for the same result via the unified entry point.
+
+    This function will be removed in V3.3.
+    """
+    import warnings
+    warnings.warn(
+        "fast_predict.fast_predict() is deprecated since V3.1. "
+        "Migrate to PredictionPipeline.from_snapshot_env().predict_match(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     is_national = any(kw in competition.lower() for kw in ["world cup", "euro", "copa", "nations", "international"])
     comp_type = "national" if is_national else "club"

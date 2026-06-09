@@ -229,12 +229,24 @@ def run_artifact_pipeline(
     is_neutral: bool,
     mode: str,
 ) -> tuple[dict[str, Any], RunQuality, PredictionTimer]:
-    """Run artifact-based inference pipeline.
+    """[DEPRECATED since V3.1] Run artifact-based inference pipeline.
+
+    **Migration:** Use ``PredictionPipeline.from_artifacts(mode=mode)`` then
+    ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``.
+
+    This function will be removed in V3.3.
 
     Loads pre-trained models from artifacts/ — no .fit() calls.
 
     Returns (result_dict, run_quality, prediction_timer).
     """
+    import warnings
+    warnings.warn(
+        "run_artifact_pipeline is deprecated since V3.1. "
+        "Migrate to PredictionPipeline.from_artifacts(mode=mode).predict_match(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     timer = PredictionTimer()
     quality = RunQuality()
     component_probs: dict[str, dict[str, float]] = {}
@@ -593,10 +605,12 @@ def run_artifact_pipeline(
     # ── 13. News signals (best-effort, optional) ──
     signal_risk_tags: list[str] = []
     approved_signals_count = 0
+    approved_signal_ids: list[str] = []
     try:
         approved = load_approved_signals(home_team, away_team)
         if approved:
             approved_signals_count = len(approved)
+            approved_signal_ids = [s.get("id", "") for s in approved if s.get("id")]
             (
                 fused["home_win_prob"],
                 fused["draw_prob"],
@@ -652,6 +666,7 @@ def run_artifact_pipeline(
         wc=wc,
         injury_signals_count=len(injury_signals),
         news_signals_count=approved_signals_count,
+        news_signal_ids=approved_signal_ids,
     )
 
     return result, quality, timer
@@ -668,6 +683,7 @@ def _save_snapshot_from_pipeline(
     wc: "WeightConfig",
     injury_signals_count: int = 0,
     news_signals_count: int = 0,
+    news_signal_ids: list[str] | None = None,
 ) -> None:
     """Save a PreMatchSnapshot to the database (best-effort, never throws)."""
     try:
@@ -725,6 +741,7 @@ def _save_snapshot_from_pipeline(
             git_commit=get_git_commit(),
             injury_data_available=injury_signals_count > 0,
             news_signals_available=news_signals_count > 0,
+            news_signal_ids=news_signal_ids or [],
         )
     except Exception:
         logger.debug(

@@ -110,6 +110,7 @@ async def get_pending_signals(
             player_name=signal.player_name,
             claim=signal.claim,
             evidence_snippet=signal.evidence_snippet,
+            evidence_id=signal.evidence_id,
             normalized_availability=signal.normalized_availability,
             expected_minutes_delta=signal.expected_minutes_delta,
             effective_until=signal.effective_until,
@@ -160,6 +161,7 @@ async def get_conflicting_signals(
                 player_name=signal.player_name,
                 claim=signal.claim,
                 evidence_snippet=signal.evidence_snippet,
+                evidence_id=signal.evidence_id,
                 normalized_availability=signal.normalized_availability,
                 expected_minutes_delta=signal.expected_minutes_delta,
                 effective_until=signal.effective_until,
@@ -184,20 +186,84 @@ async def review_signal(
     payload: SignalReviewRequest,
     db: AsyncSession = Depends(get_db),
 ) -> APIMessage:
-    target_ids = payload.signal_ids or [signal_id]
-    result = await db.execute(select(NewsSignal).where(NewsSignal.id.in_(target_ids)))
-    signals = result.scalars().all()
-    if not signals:
+    """Review a single news signal (approve/reject).
+
+    - Each review **must** target a single signal (no batch approve).
+    - When approving with enters_model=True, an evidence_id is generated
+      (or accepted from the caller) to create an audit trail.
+    - Every review action is written to signal_review_log.
+    """
+    if payload.status not in ("approved", "rejected"):
+        raise NotFoundError("status must be 'approved' or 'rejected'")
+
+    if not payload.reviewed_by or not payload.reviewed_by.strip():
+        raise NotFoundError("reviewed_by is required (cannot be empty)")
+
+    result = await db.execute(select(NewsSignal).where(NewsSignal.id == signal_id))
+    signal = result.scalar_one_or_none()
+    if not signal:
         raise NotFoundError("Signal not found")
 
-    for signal in signals:
-        signal.review_status = ReviewStatus(payload.status)
-        signal.enters_model = payload.enters_model and payload.status == ReviewStatus.APPROVED
-        signal.review_notes = payload.notes
-        signal.reviewed_by = payload.reviewed_by
-        signal.reviewed_at = datetime.now(timezone.utc)
+    previous_status = signal.review_status
+
+    signal.review_status = ReviewStatus(payload.status)
+    signal.review_notes = payload.notes
+    signal.reviewed_by = payload.reviewed_by.strip()
+    signal.reviewed_at = datetime.now(timezone.utc)
+
+    if payload.status == ReviewStatus.APPROVED and payload.enters_model:
+        signal.enters_model = True
+        # Generate evidence_id if not provided by caller
+        import uuid as _uuid
+        signal.evidence_id = payload.evidence_id or str(_uuid.uuid4())
+    else:
+        signal.enters_model = False
+        signal.evidence_id = None
+
     await db.commit()
-    return APIMessage(status="ok", detail=f"Updated {len(signals)} signal(s)")
+    await db.refresh(signal)
+
+    # Write audit log (best-effort, non-blocking)
+    _log_signal_review(
+        signal_id=str(signal_id),
+        action=payload.status,
+        previous_status=str(previous_status),
+        reviewer=payload.reviewed_by.strip(),
+        notes=payload.notes,
+    )
+
+    detail_parts = [f"Signal {signal_id} → {payload.status}"]
+    if signal.enters_model:
+        detail_parts.append(f"(enters model, evidence_id={signal.evidence_id})")
+    return APIMessage(status="ok", detail=". ".join(detail_parts))
+
+
+def _log_signal_review(
+    signal_id: str,
+    action: str,
+    previous_status: str,
+    reviewer: str,
+    notes: str | None = None,
+) -> None:
+    """Write a signal_review_log entry (best-effort, never throws)."""
+    import sqlite3
+    from pathlib import Path
+
+    try:
+        db_path = Path(__file__).resolve().parents[2] / "data" / "local_stage2.db"
+        if not db_path.exists():
+            return
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            """INSERT INTO signal_review_log
+               (signal_id, action, previous_status, new_status, reviewer, notes)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (signal_id, action, previous_status, action, reviewer, notes or ""),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # audit log is best-effort; never fails the main request
 
 
 @router.post("/signals/manual", response_model=APIMessage)

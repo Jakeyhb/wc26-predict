@@ -100,6 +100,7 @@ class PredictionOrchestrator:
                 NewsSignal.match_id == match.id,
                 NewsSignal.review_status == ReviewStatus.APPROVED,
                 NewsSignal.enters_model.is_(True),
+                NewsSignal.evidence_id.isnot(None),
                 NewsSignal.created_at <= as_of_time,
             )
             .order_by(NewsSignal.created_at.asc())

@@ -87,12 +87,13 @@ def load_approved_signals(
         rows = conn.execute(
             f"""SELECT ns.id, ns.signal_type, ns.impact_direction, ns.confidence,
                        ns.summary_zh, ns.player_name, ns.claim, ns.source_reliability,
-                       ns.review_status, ns.enters_model, ns.team_id,
+                       ns.review_status, ns.enters_model, ns.evidence_id, ns.team_id,
                        t.name as team_name
                 FROM news_signals ns
                 LEFT JOIN teams t ON ns.team_id = t.id
                 WHERE (ns.review_status = 'approved' OR ns.review_status = 'APPROVED')
                   AND ns.enters_model = 1
+                  AND ns.evidence_id IS NOT NULL
                   AND (ns.team_id IN ({placeholders})
                        OR ns.team_id IS NULL)
                 ORDER BY ns.confidence DESC""",
@@ -113,6 +114,7 @@ def load_approved_signals(
                 "claim": r["claim"],
                 "source_reliability": r["source_reliability"],
                 "team_name": r["team_name"],
+                "evidence_id": r["evidence_id"],
             }
             signals.append(sig)
 

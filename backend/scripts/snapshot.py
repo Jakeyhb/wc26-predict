@@ -91,8 +91,21 @@ async def run_snapshot(
     competition: str = "Premier League",
     competitions: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Run the full prediction pipeline and return a structured result."""
+    """[DEPRECATED since V3.1] Run the full prediction pipeline and return a structured result.
 
+    **Migration:** Use ``PredictionPipeline.from_snapshot_env()`` then
+    ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``
+    for the same result via the unified entry point.
+
+    This function will be removed in V3.3.
+    """
+    import warnings
+    warnings.warn(
+        "snapshot.run_snapshot() is deprecated since V3.1. "
+        "Migrate to PredictionPipeline.from_snapshot_env().predict_match(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # ── Load training data ──
     # Detect national vs club competition
     print(f"  加载训练数据: {home_team} vs {away_team} ({competition})", flush=True)

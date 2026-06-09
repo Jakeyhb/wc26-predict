@@ -20,6 +20,7 @@ class PendingSignalItem(BaseModel):
     player_name: str | None = None
     claim: str | None = None
     evidence_snippet: str | None = None
+    evidence_id: str | None = None
     normalized_availability: str | None = None
     expected_minutes_delta: float | None = None
     effective_until: datetime | None = None
@@ -34,8 +35,8 @@ class SignalReviewRequest(BaseModel):
     status: str
     enters_model: bool = False
     notes: str | None = None
-    signal_ids: list[UUID] = Field(default_factory=list)
-    reviewed_by: str = "admin"
+    evidence_id: str | None = None
+    reviewed_by: str
 
 
 class ManualSignalCreateRequest(BaseModel):

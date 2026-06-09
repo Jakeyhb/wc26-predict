@@ -103,7 +103,13 @@ def run_enhanced_prediction(
     enable_llm: bool = True,
     market_blend_max: float = MAX_MARKET_BLEND,
 ) -> EnhancedPredictionResult:
-    """Run enhanced prediction with real-time data enrichment.
+    """[DEPRECATED since V3.1] Run enhanced prediction with real-time data enrichment.
+
+    **Migration:** Use ``PredictionPipeline.from_artifacts(mode=mode)`` then
+    ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``.
+    Market/weather/LLM enrichment will be available as pipeline plugins in Ticket 8a.
+
+    This function will be removed in V3.3.
 
     Flow:
     1. Base artifact prediction (prediction_core)
@@ -129,6 +135,13 @@ def run_enhanced_prediction(
     Returns:
         EnhancedPredictionResult with all available data.
     """
+    import warnings
+    warnings.warn(
+        "run_enhanced_prediction is deprecated since V3.1. "
+        "Migrate to PredictionPipeline.from_artifacts(mode=mode).predict_match(...)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     import time as time_module
 
     t_start = time_module.perf_counter()

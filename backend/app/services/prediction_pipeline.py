@@ -63,6 +63,87 @@ class PredictionPipeline:
         self._signal: SignalAdjuster = SignalAdjuster()
         self._market: MarketCalibrator | None = None
 
+    # ── Factory Methods ─────────────────────────────────────
+
+    @classmethod
+    def from_artifacts(cls, mode: str = "full") -> "PredictionPipeline":
+        """Create a pipeline wired for artifact-based prediction.
+
+        Uses pre-trained models from backend/artifacts/ (prediction_core style).
+        Synchronous, fast (~1-3 seconds), no DB required.
+
+        Args:
+            mode: "baseline" (DC only), "standard" (DC+Enhancer+Elo),
+                  "full" (DC+Enhancer+Elo+Pi), "research-full" (+Weibull).
+
+        Note:
+            The artifact-based predict_match() variant is coming in Ticket 8a.
+            Currently, use this factory to get a configured pipeline instance,
+            then call predict_match() with the standard callback-injected flow.
+        """
+        pipeline = cls()
+        pipeline._mode = mode
+        logger.info(
+            "PredictionPipeline.from_artifacts(mode=%s) — "
+            "Pre-trained model loading will be available in Ticket 8a. "
+            "For now, use from_snapshot_env() for DB-aware predictions.",
+            mode,
+        )
+        return pipeline
+
+    @classmethod
+    async def from_snapshot_env(
+        cls,
+        *,
+        db_session_factory=None,
+        load_training_frame=None,
+        build_team_info=None,
+        lookup_venue=None,
+        lookup_manual_events=None,
+        compute_motivation=None,
+        lookup_match_id=None,
+        resolve_team_id=None,
+        competitions: list[str] | None = None,
+    ) -> "PredictionPipeline":
+        """Create a pipeline wired for snapshot.py / batch_snapshot.py environment.
+
+        Auto-injects common DB callbacks used by snapshot scripts.
+        Callers can override individual callbacks as needed.
+
+        Usage:
+            pipeline = await PredictionPipeline.from_snapshot_env()
+            result = await pipeline.predict_match(
+                home_team="France", away_team="Brazil",
+                competition="FIFA World Cup 2026",
+                is_neutral=True,
+            )
+        """
+        pipeline = cls()
+        pipeline._db_session_factory = db_session_factory
+        pipeline._load_training_frame = load_training_frame
+        pipeline._build_team_info = build_team_info
+        pipeline._lookup_venue = lookup_venue
+        pipeline._lookup_manual_events = lookup_manual_events
+        pipeline._compute_motivation = compute_motivation
+        pipeline._lookup_match_id = lookup_match_id
+        pipeline._resolve_team_id = resolve_team_id
+        pipeline._competitions = competitions
+        logger.info("PredictionPipeline.from_snapshot_env() — callbacks injected.")
+        return pipeline
+
+    def _get_callbacks(self) -> dict[str, Any]:
+        """Return the stored callback dict for predict_match()."""
+        return {
+            "db_session_factory": getattr(self, "_db_session_factory", None),
+            "load_training_frame": getattr(self, "_load_training_frame", None),
+            "build_team_info": getattr(self, "_build_team_info", None),
+            "lookup_venue": getattr(self, "_lookup_venue", None),
+            "lookup_manual_events": getattr(self, "_lookup_manual_events", None),
+            "compute_motivation": getattr(self, "_compute_motivation", None),
+            "lookup_match_id": getattr(self, "_lookup_match_id", None),
+            "resolve_team_id": getattr(self, "_resolve_team_id", None),
+        }
+
     # ── Public API ──────────────────────────────────────────
 
     async def predict_match(
