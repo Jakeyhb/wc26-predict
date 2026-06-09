@@ -9,10 +9,12 @@ Usage (as a library):
     sim.load_schedule("data/local_stage2.db")
     sim.set_match_probability("France", "Senegal", {"home_win": 0.55, "draw": 0.25, "away_win": 0.20})
     sim.run()
-    print(sim.summary())
+    logger.info(sim.summary())
 """
 
 from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
 
 import json
 import sqlite3
@@ -126,7 +128,7 @@ class TournamentSimulator:
         # Option B: manually set per-match probabilities
         sim.set_match_probability("France", "Senegal", {"home_win": 0.55, ...})
         results = sim.run()
-        print(sim.summary())
+        logger.info(sim.summary())
     """
 
     def __init__(self, runs: int = 10_000, seed: Optional[int] = None) -> None:
@@ -303,7 +305,7 @@ class TournamentSimulator:
         conn.close()
 
         if count == 0:
-            print("  Warning: no predictions loaded from wc26_match_predictions")
+            logger.info("  Warning: no predictions loaded from wc26_match_predictions")
 
     def load_probabilities_from_json(self, json_path: str) -> None:
         """Load match probabilities from a JSON file.
@@ -454,12 +456,12 @@ class TournamentSimulator:
             for team in self.all_teams
         }
 
-        print(f"  Running {self.runs:,} simulations...")
+        logger.info(f"  Running {self.runs:,} simulations...")
 
         for sim_idx in range(self.runs):
             if self.runs >= 1000 and (sim_idx + 1) % max(1, self.runs // 10) == 0:
                 pct = (sim_idx + 1) / self.runs * 100
-                print(f"    {sim_idx + 1:,}/{self.runs:,} ({pct:.0f}%)")
+                logger.info(f"    {sim_idx + 1:,}/{self.runs:,} ({pct:.0f}%)")
 
             # --- Group stage ---
             # Track standings within each group

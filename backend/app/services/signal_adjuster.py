@@ -99,8 +99,8 @@ class SignalAdjuster:
             signal_type = signal["signal_type"]
             try:
                 multiplier = await self._get_dynamic_multiplier(signal_type)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Dynamic multiplier fetch failed for signal_type=%s: %s", signal_type, exc)
 
             magnitude = scale * confidence * multiplier
             if magnitude == 0:

@@ -72,7 +72,7 @@ class InjuryDataService:
         svc = InjuryDataService()
         records = svc.load()
         for r in records:
-            print(f"{r.player_name} ({r.team_name}): {r.status}")
+            logger.info(f"{r.player_name} ({r.team_name}): {r.status}")
     """
 
     def __init__(self, seed_path: str | None = None) -> None:

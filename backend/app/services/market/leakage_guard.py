@@ -8,6 +8,7 @@ Rules (from action plan section 5.7):
   - Train/val/test splits must be temporal, not random
 """
 from __future__ import annotations
+import logging
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone

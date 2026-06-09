@@ -16,9 +16,9 @@ Typical usage:
         timeout_s=120,
     )
     if result["ok"]:
-        print(f"Fit succeeded: {result['result']}")
+        logger.info(f"Fit succeeded: {result['result']}")
     else:
-        print(f"Fit failed/timed out: {result['error']}")
+        logger.warning(f"Fit failed/timed out: {result['error']}")
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
 
 CALIBRATION_KEYS = {
     "home_win": "home_win_prob",
@@ -66,7 +68,8 @@ class IsotonicCalibrator:
 
         try:
             from sklearn.isotonic import IsotonicRegression
-        except Exception:
+        except Exception as exc:
+            logger.warning("sklearn.isotonic not available, calibrator un-fitted: %s", exc)
             return self
 
         ece_values: list[float] = []

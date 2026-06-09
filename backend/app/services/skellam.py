@@ -52,8 +52,8 @@ def get_knockout_draw_bias() -> float:
             avg_bias = sum(biases) / len(biases)
             # Clamp to reasonable range
             return max(0.01, min(0.08, avg_bias))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("DB read failed in Skellam draw bias calc, using default: %s", exc)
 
     return DEFAULT_KNOCKOUT_BIAS
 

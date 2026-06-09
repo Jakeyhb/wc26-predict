@@ -24,6 +24,7 @@ from app.models.prediction_learning_log import PredictionLearningLog
 from app.models.signal_track_record import SignalTrackRecord
 from app.models.context_performance_matrix import ContextPerformanceMatrix
 from app.models.model_weight_config import ModelWeightConfig
+from app.models.pre_match_snapshot import PreMatchSnapshot
 
 __all__ = [
     "Base",
@@ -53,4 +54,5 @@ __all__ = [
     "SignalTrackRecord",
     "ContextPerformanceMatrix",
     "ModelWeightConfig",
+    "PreMatchSnapshot",
 ]

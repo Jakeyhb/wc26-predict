@@ -44,7 +44,8 @@ class PiRatingWrapper:
                 ag = int(row["away_goals"]) if pd.notna(row.get("away_goals")) else 0
                 pi.update_ratings(home, away, hg, ag)
                 self._match_count += 1
-            except Exception:
+            except Exception as exc:
+                logger.warning("Skipping malformed Pi-rating match row: %s", exc)
                 continue
 
         self.team_ratings = {

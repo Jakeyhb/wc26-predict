@@ -11,6 +11,7 @@ Provides:
 from __future__ import annotations
 
 import json
+import logging
 import pickle
 import re
 import sys
@@ -37,7 +38,11 @@ from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.weights import get_weight_config
+from app.services.injury_data import fuse_injury_signals
 from app.services.fusion_graph import FusionGraph, probs_dict_to_list
+from app.services.signal_adjuster_sync import apply_signal_adjustments, load_approved_signals
+
+logger = logging.getLogger(__name__)
 
 # ── Artifact paths (relative to backend/) ────────────────────────────────────
 ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
@@ -152,11 +157,11 @@ def _try_load_weibull(timer: PredictionTimer) -> WeibullWrapper | None:
         with open(weibull_path, "rb") as f:
             wb = pickle.load(f)
         if isinstance(wb, WeibullWrapper) and wb._fitted:
-            print("  [load] Weibull model loaded from artifact", flush=True)
+            logger.info("  [load] Weibull model loaded from artifact")
             timer.stop()
             return wb
     except Exception as exc:
-        print(f"  [load] Weibull load failed: {exc}", flush=True)
+        logger.warning(f"  [load] Weibull load failed: {exc}")
     timer.stop()
     return None
 
@@ -167,15 +172,16 @@ def _load_training_df(timer: PredictionTimer) -> pd.DataFrame:
     try:
         if DF_PATH.exists():
             df = pd.read_pickle(str(DF_PATH))
-            print(
+            logger.info(
                 f"  [data] Training DF: {len(df)} rows, "
                 f"{df.home_team.nunique()} teams",
-                flush=True,
             )
             timer.stop()
             return df
     except Exception as exc:
-        print(f"  [data] Pickle load failed ({exc}), trying SQLite...", flush=True)
+        logger.warning(
+            f"  [data] Pickle load failed ({exc}), trying SQLite..."
+        )
 
     # Fallback: SQLite query
     db_path = BACKEND_DIR / "data" / "local_stage2.db"
@@ -205,10 +211,9 @@ def _load_training_df(timer: PredictionTimer) -> pd.DataFrame:
     )
     conn.close()
     df["match_date"] = pd.to_datetime(df["match_date"], utc=True, format="ISO8601")
-    print(
+    logger.info(
         f"  [data] Training DF: {len(df)} rows, "
         f"{df.home_team.nunique()} teams (SQLite)",
-        flush=True,
     )
     timer.stop()
     return df
@@ -246,7 +251,7 @@ def run_artifact_pipeline(
         msg = (
             f"Required artifacts missing: {missing}. Run train_models.py first."
         )
-        print(
+        logger.warning(
             json.dumps(
                 {
                     "ok": False,
@@ -294,16 +299,14 @@ def run_artifact_pipeline(
     )
     fg.compute_effective_weights()
     eff = fg.effective_weights
-    print(
+    logger.info(
         f"  [weights] {wc.label}  DC={wc.dc:.2f}  Enh={wc.enhancer:.2f}  "
         f"Elo={wc.elo:.2f}  Pi={wc.pi:.2f}  Wb={wc.weibull:.2f}",
-        flush=True,
     )
-    print(
+    logger.info(
         f"  [effective]  dc={eff['dc_effective']:.3f}  "
         f"enh={eff['enhancer_effective']:.3f}  "
         f"elo={eff['elo_effective']:.3f}  pi={eff['pi_effective']:.3f}",
-        flush=True,
     )
 
     # ── 3. Load training DataFrame ──
@@ -316,10 +319,9 @@ def run_artifact_pipeline(
     timer.start("dc_predict")
     dc_pred = dc.predict_match(home_team, away_team, is_neutral_venue=is_neutral)
     timer.stop()
-    print(
+    logger.info(
         f"  [DC] H={dc_pred['home_win_prob']:.3f}  "
         f"D={dc_pred['draw_prob']:.3f}  A={dc_pred['away_win_prob']:.3f}",
-        flush=True,
     )
     component_probs["dixon_coles"] = {
         "home": dc_pred["home_win_prob"],
@@ -343,10 +345,9 @@ def run_artifact_pipeline(
             training_df=training_df,
         )
         timer.stop()
-        print(
+        logger.info(
             f"  [Enhancer] H={enh_pred['home_win_prob']:.3f}  "
             f"D={enh_pred['draw_prob']:.3f}  A={enh_pred['away_win_prob']:.3f}",
-            flush=True,
         )
         component_probs["enhancer"] = {
             "home": enh_pred["home_win_prob"],
@@ -368,10 +369,9 @@ def run_artifact_pipeline(
             probs_dict_to_list(fused),
         )
         timer.stop()
-        print(
+        logger.info(
             f"  [DC+Enh] H={fused['home_win_prob']:.3f}  "
             f"D={fused['draw_prob']:.3f}  A={fused['away_win_prob']:.3f}",
-            flush=True,
         )
 
     # ── 6. Elo (standard+) ──
@@ -387,10 +387,9 @@ def run_artifact_pipeline(
             competition=competition,
         )
         timer.stop()
-        print(
+        logger.info(
             f"  [Elo] H={elo_pred.home_win_prob:.3f}  "
             f"D={elo_pred.draw_prob:.3f}  A={elo_pred.away_win_prob:.3f}",
-            flush=True,
         )
         component_probs["elo"] = {
             "home": elo_pred.home_win_prob,
@@ -412,10 +411,9 @@ def run_artifact_pipeline(
             "+elo", f"elo_weight={wc.elo}", before_step2, probs_dict_to_list(fused)
         )
         timer.stop()
-        print(
+        logger.info(
             f"  [+Elo] H={fused['home_win_prob']:.3f}  "
             f"D={fused['draw_prob']:.3f}  A={fused['away_win_prob']:.3f}",
-            flush=True,
         )
 
     # ── 7. Pi-Rating (full+) ──
@@ -426,10 +424,9 @@ def run_artifact_pipeline(
         try:
             pi_pred = pi_model.predict(home_team, away_team, is_neutral)
             timer.stop()
-            print(
+            logger.info(
                 f"  [Pi] H={pi_pred['home_win_prob']:.3f}  "
                 f"D={pi_pred['draw_prob']:.3f}  A={pi_pred['away_win_prob']:.3f}",
-                flush=True,
             )
             component_probs["pi_rating"] = {
                 "home": pi_pred["home_win_prob"],
@@ -450,10 +447,9 @@ def run_artifact_pipeline(
                 probs_dict_to_list(fused),
             )
             timer.stop()
-            print(
+            logger.info(
                 f"  [+Pi] H={fused['home_win_prob']:.3f}  "
                 f"D={fused['draw_prob']:.3f}  A={fused['away_win_prob']:.3f}",
-                flush=True,
             )
         except Exception as exc:
             timer.stop()
@@ -461,7 +457,9 @@ def run_artifact_pipeline(
             quality.mark_degraded(
                 f"Pi-Rating artifact prediction failed: {exc}"
             )
-            print(f"  [Pi] FAILED: {exc} — continuing without Pi", flush=True)
+            logger.warning(
+                f"  [Pi] FAILED: {exc} — continuing without Pi"
+            )
 
     # ── 8. Weibull (research-full only, optional) ──
     if mode == "research-full":
@@ -501,29 +499,25 @@ def run_artifact_pipeline(
                         probs_dict_to_list(fused),
                     )
                     timer.stop()
-                    print(
+                    logger.info(
                         f"  [+Weibull] H={fused['home_win_prob']:.3f}  "
                         f"D={fused['draw_prob']:.3f}  "
                         f"A={fused['away_win_prob']:.3f}",
-                        flush=True,
                     )
                 else:
                     timer.stop()
-                    print(
+                    logger.info(
                         "  [Weibull] predict returned None — skipping",
-                        flush=True,
                     )
             except Exception as exc:
                 timer.stop()
-                print(
+                logger.warning(
                     f"  [Weibull] prediction failed: {exc} — skipping",
-                    flush=True,
                 )
         else:
             quality.model_components["weibull"] = "unavailable"
-            print(
+            logger.info(
                 "  [Weibull] artifact not found — optional, continuing",
-                flush=True,
             )
 
     # ── 9. Fusion diagnostics ──
@@ -558,7 +552,75 @@ def run_artifact_pipeline(
     else:
         quality.pipeline_status = "failed"
 
-    # ── 12. Assemble result ──
+    # ── 12. Injury data (best-effort, optional) ──
+    injury_signals: list[dict[str, Any]] = []
+    try:
+        from app.services.injury_data import InjuryDataService
+        injury_svc = InjuryDataService()
+        injury_records = injury_svc.load()
+        if injury_records:
+            quality.model_components["injury_data"] = "loaded"
+            # Filter to relevant teams
+            relevant = [
+                r for r in injury_records
+                if r.team_name.lower() in (home_team.lower(), away_team.lower())
+            ]
+            if relevant:
+                # Convert to dict format expected by fuse_injury_signals
+                injury_dicts = [
+                    {
+                        "team_name": r.team_name,
+                        "player_name": r.player_name,
+                        "status": r.status,
+                        "confidence": r.confidence,
+                    }
+                    for r in relevant
+                ]
+                fused = fuse_injury_signals(
+                    fused, injury_dicts, home_team=home_team, away_team=away_team
+                )
+                quality.model_components["injury_data"] = "applied"
+                injury_signals = injury_dicts
+                logger.info(
+                    f"  [Injury] {len(relevant)} records applied — "
+                    f"H={fused['home_win_prob']:.3f} "
+                    f"D={fused['draw_prob']:.3f} "
+                    f"A={fused['away_win_prob']:.3f}"
+                )
+    except Exception as exc:
+        logger.debug(f"  [Injury] Skipped: {exc}")
+
+    # ── 13. News signals (best-effort, optional) ──
+    signal_risk_tags: list[str] = []
+    approved_signals_count = 0
+    try:
+        approved = load_approved_signals(home_team, away_team)
+        if approved:
+            approved_signals_count = len(approved)
+            (
+                fused["home_win_prob"],
+                fused["draw_prob"],
+                fused["away_win_prob"],
+                signal_risk_tags,
+            ) = apply_signal_adjustments(
+                home_prob=fused["home_win_prob"],
+                draw_prob=fused["draw_prob"],
+                away_prob=fused["away_win_prob"],
+                home_team=home_team,
+                away_team=away_team,
+                signals=approved,
+            )
+            quality.model_components["news_signals"] = "applied"
+            logger.info(
+                f"  [Signals] {len(approved)} approved signals applied — "
+                f"H={fused['home_win_prob']:.3f} "
+                f"D={fused['draw_prob']:.3f} "
+                f"A={fused['away_win_prob']:.3f}"
+            )
+    except Exception as exc:
+        logger.debug(f"  [Signals] Skipped: {exc}")
+
+    # ── 14. Assemble result ──
     result = {
         "home_team": home_team,
         "away_team": away_team,
@@ -572,11 +634,98 @@ def run_artifact_pipeline(
         "top_scores": dc_pred.get("top3_scores", []),
         "components_used": used_components,
         "weight_config": wc,
-        "risk_tags": dc_pred.get("risk_tags", []),
+        "risk_tags": dc_pred.get("risk_tags", []) + signal_risk_tags,
+        "injury_signals_applied": len(injury_signals),
+        "news_signals_applied": approved_signals_count,
         "confidence_penalty": dc_pred.get("confidence_penalty", 0.0),
         "mode": mode,
         "artifacts_used": used_components,
         "fusion_graph": fg.to_dict(),
     }
 
+    # ── 14. Save pre-match snapshot (non-blocking, best-effort) ──
+    _save_snapshot_from_pipeline(
+        result=result,
+        quality=quality,
+        component_probs=component_probs,
+        fg=fg,
+        wc=wc,
+        injury_signals_count=len(injury_signals),
+        news_signals_count=approved_signals_count,
+    )
+
     return result, quality, timer
+
+
+# ── Snapshot persistence ───────────────────────────────────────────────────────
+
+
+def _save_snapshot_from_pipeline(
+    result: dict[str, Any],
+    quality: "RunQuality",
+    component_probs: dict[str, dict[str, float]],
+    fg: "FusionGraph",
+    wc: "WeightConfig",
+    injury_signals_count: int = 0,
+    news_signals_count: int = 0,
+) -> None:
+    """Save a PreMatchSnapshot to the database (best-effort, never throws)."""
+    try:
+        from app.services.snapshot_service import save_pre_match_snapshot
+        from app.version import VERSION
+
+        # Collect risk tags from all sources
+        risk_tags = list(result.get("risk_tags", []))
+        if quality.warnings:
+            risk_tags.extend(quality.warnings)
+
+        # Detect model disagreement as a risk flag
+        max_diff = (
+            fg.model_disagreement.get("max_home_diff", 0.0)
+            if fg.model_disagreement
+            else 0.0
+        )
+        if max_diff > 0.30:
+            risk_tags.append(f"high_model_disagreement_{max_diff:.2f}")
+
+        # Convert degraded reasons
+        degraded: list[dict[str, str]] = []
+        for w in quality.warnings:
+            degraded.append({
+                "source": "pipeline",
+                "reason": w,
+                "severity": "warning",
+            })
+
+        save_pre_match_snapshot(
+            home_team=result["home_team"],
+            away_team=result["away_team"],
+            competition=result["competition"],
+            is_neutral=result.get("is_neutral", False),
+            prediction_mode=result.get("mode", "full"),
+            final_home_prob=result["home_win_prob"],
+            final_draw_prob=result["draw_prob"],
+            final_away_prob=result["away_win_prob"],
+            home_xg=result.get("home_xg"),
+            away_xg=result.get("away_xg"),
+            top_scores=result.get("top_scores", []),
+            component_probs=component_probs,
+            weight_config_label=getattr(wc, "label", ""),
+            weight_config=wc.to_dict() if hasattr(wc, "to_dict") else None,
+            effective_weights=fg.effective_weights,
+            fusion_graph=fg.to_dict(),
+            model_disagreement=max_diff,
+            confidence="medium",
+            confidence_penalty=result.get("confidence_penalty", 0.0),
+            risk_tags=risk_tags,
+            pipeline_status=quality.pipeline_status,
+            missing_inputs=[],
+            degraded_reasons=degraded,
+            code_version=VERSION,
+            injury_data_available=injury_signals_count > 0,
+            news_signals_available=news_signals_count > 0,
+        )
+    except Exception:
+        logger.debug(
+            "PreMatchSnapshot save skipped (non-critical)", exc_info=True
+        )

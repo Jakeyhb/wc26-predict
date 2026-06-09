@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from datetime import datetime
 from datetime import timezone
@@ -59,6 +60,8 @@ from app.services.team_resolver import TeamResolver
 from app.utils.datetime import utc_now
 from app.utils.task_runs import read_task_runs
 from app.utils.text import normalize_text
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_token)])
 settings = get_settings()
@@ -353,8 +356,8 @@ async def get_dashboard(request: Request, db: AsyncSession = Depends(get_db)) ->
     calibrator = IsotonicCalibrator()
     try:
         calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to load calibrator JSON: %s", exc)
     calibrator_stats = calibrator.calibration_stats()
     fitted_at = calibrator_stats.get("fitted_at")
     if isinstance(fitted_at, str):
@@ -517,8 +520,8 @@ async def get_hermes_digest(request: Request, db: AsyncSession = Depends(get_db)
     calibrator = IsotonicCalibrator()
     try:
         calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to load calibrator JSON: %s", exc)
     calibrator_stats = calibrator.calibration_stats()
     calibrator_is_fitted = bool(calibrator_stats.get("is_fitted"))
     calibrator_detail = "未训练"
@@ -675,8 +678,8 @@ async def update_manual_match_result(
         from app.workers.tasks import postmatch_eval_task
 
         postmatch_eval_task.delay()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to dispatch postmatch_eval_task: %s", exc)
 
     return APIMessage(status="updated", detail="Match result saved")
 

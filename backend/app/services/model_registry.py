@@ -161,8 +161,8 @@ class ModelRegistry:
                                 notes=data.get("notes", ""),
                                 created_at=data.get("created_at", ""),
                             ))
-                        except (json.JSONDecodeError, KeyError):
-                            pass
+                        except (json.JSONDecodeError, KeyError) as exc:
+                            logger.debug("Skipping malformed registry entry: %s", exc)
         self._entries = entries
         return entries
 

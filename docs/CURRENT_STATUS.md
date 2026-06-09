@@ -1,7 +1,7 @@
 # WC26 Predict — 当前项目状态
 
 > 这是项目唯一权威状态文件。所有其他文档如与本文档冲突，以本文档为准。
-> 最后更新：2026-06-08 | 当前发布：V2.9 Conservative
+> 最后更新：2026-06-09 | 当前发布：V2.9 Conservative
 
 ---
 
@@ -70,19 +70,30 @@
 | 编号 | 问题 | 状态 |
 |------|------|------|
 | H2 | 7 文件绕过 ORM 直连 SQLite（`prediction_core.py`, `elo_ratings.py`, `weights.py`, `skellam.py`, `tournament_simulator.py`, `routers/analysis.py`, `learning_engine.py`） | 推迟 — Phase 2 |
-| H3 | 3 处 `asyncio.run()` 可能在 FastAPI 事件循环中崩溃 | 待修复 — Ticket 0.5B |
-| H4 | Shin Vig 去除公式 `(1-z)/odds` 数学错误 | 待修复 — Ticket 0.4 |
 | C2 | 5 个活跃 API Key 明文存储在 `.env` 文件 | 需用户自行轮换 |
 | C5 | ADMIN_TOKEN = "change-me" 未更改 | 需用户自行操作 |
 | M1-M7 | Dashboard 直连 service、PUBLIC_SAFE 过阻、Pi-Rating 启发式常量、PostgreSQL 密码硬编码、Celery SQLite broker、pickle 缓存过期、analysis.py 重复实现 DeepSeek | 推迟 |
+
+### 已修复（Phase 0+ 完整审计修复）
+
+| 编号 | 问题 | 修复 |
+|------|------|------|
+| H4 | Shin Vig 去除公式 `(1-z)/odds` 数学错误 | ✅ 替换为 Shin (1993) 正确公式 |
+| H3 | 3 处 `asyncio.run()` 事件循环冲突 | ✅ 事件循环检测 + degraded flag |
+| — | 73 个 `print()` 散布在 13 个 service 文件 | ✅ 全部迁移为 `logger.info/warning` |
+| — | 14 处 `except: pass` 静默吞错 | ✅ 全部替换为 `logger.warning/logging.debug` |
+| — | 6 项文档版本漂移 | ✅ README/CHANGELOG/CURRENT_STATUS/AGENTS/PRD/banner 同步至 V2.9 |
+| — | Tournament 模拟器冠军计数器 bug | ✅ `team` → `champion` 变量修复 |
+| — | predictions 路由内存泄漏 + 竞态 | ✅ `asyncio.Lock` + 过期 job 清理 |
+| — | analysis 路由阻塞事件循环 | ✅ sync sqlite3 → `asyncio.to_thread()` |
 
 ## Next Planned
 
 | Phase | 内容 | 状态 |
 |-------|------|------|
-| **Phase 0** | 建立可验证基线 | **进行中** — Ticket 0.1A ✅, 0.1B ✅, 0.2 ✅, 0.3 ← 当前 |
-| **Phase 0+** | 剩余审计修复 (H4 Shin, H3 asyncio) | 待开始 |
-| **Phase 1** | 预测入口盘点 + pipeline contract | 待开始 |
+| **Phase 0** | 建立可验证基线 | ✅ 完成 — 0.1A, 0.1B, 0.2, 0.3 全部完成 |
+| **Phase 0+** | 审计修复 (H4 Shin, H3 asyncio, print→logger, 静默异常) | ✅ 完成 — 全部修复并 commit |
+| **Phase 1** | 预测入口盘点 + pipeline contract | ✅ 完成 — Ticket 1.1 + 1.2 |
 | **Phase 2** | data_sources/ 模块 + pre_match_snapshot | **未执行** |
 | **Phase 3** | match_fact + 富赛后复盘 | **未执行** |
 | **Phase 4** | 学习闭环 + replay harness | **未执行** |

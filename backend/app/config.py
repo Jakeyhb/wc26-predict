@@ -59,6 +59,20 @@ class Settings(BaseSettings):
     model_artifact_dir: Path = Field(default=BACKEND_DIR / "model_artifacts", alias="MODEL_ARTIFACT_DIR")
 
     admin_token: str = Field(default="change-me", alias="ADMIN_TOKEN")
+
+    @field_validator("admin_token", mode="after")
+    @classmethod
+    def _warn_default_admin_token(cls, value: str) -> str:
+        if value == "change-me":
+            import logging
+            logging.getLogger("app.config").warning(
+                "\n╔══════════════════════════════════════════════════════════════╗\n"
+                "║  SECURITY WARNING: ADMIN_TOKEN is still \"change-me\".        ║\n"
+                "║  Generate a secure token and set it in your .env file:       ║\n"
+                "║    python -c \"import secrets; print(secrets.token_urlsafe(32))\"  ║\n"
+                "╚══════════════════════════════════════════════════════════════╝"
+            )
+        return value
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         alias="CORS_ORIGINS",

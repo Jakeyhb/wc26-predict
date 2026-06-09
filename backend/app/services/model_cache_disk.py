@@ -74,7 +74,7 @@ def load_dc_from_disk(competition_type: str, df: pd.DataFrame) -> CachedDC | Non
             "Disk cache DC hit: key=%s… age=%.1fh teams=%d",
             key[:12], age_hours, len(cached._team_order),
         )
-        print(f"  [CACHE] DC disk cache hit ({age_hours:.1f}h old, {len(cached._team_order)} teams)")
+        logger.info(f"  [CACHE] DC disk cache hit ({age_hours:.1f}h old, {len(cached._team_order)} teams)")
         return cached
     except Exception as exc:
         logger.warning("Disk cache DC load failed: %s", exc)
@@ -95,7 +95,7 @@ def save_dc_to_disk(
             "Disk cache DC saved: key=%s… teams=%d",
             key[:12], len(cached._team_order),
         )
-        print(f"  [CACHE] DC disk cache saved ({len(cached._team_order)} teams)")
+        logger.info(f"  [CACHE] DC disk cache saved ({len(cached._team_order)} teams)")
     except Exception as exc:
         logger.error("Disk cache DC save failed: %s", exc)
 
@@ -133,7 +133,7 @@ def load_enhancer_from_disk(
             cached: CachedEnhancer = pickle.load(f)
         age_hours = (time.time() - os.path.getmtime(path)) / 3600
         logger.info("Disk cache Enhancer hit: key=%s… age=%.1fh", key[:12], age_hours)
-        print(f"  [CACHE] Enhancer disk cache hit ({age_hours:.1f}h old)")
+        logger.info(f"  [CACHE] Enhancer disk cache hit ({age_hours:.1f}h old)")
         return cached
     except Exception as exc:
         logger.warning("Disk cache Enhancer load failed: %s", exc)
@@ -151,7 +151,7 @@ def save_enhancer_to_disk(
         with open(path, "wb") as f:
             pickle.dump(cached, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info("Disk cache Enhancer saved: key=%s…", key[:12])
-        print(f"  [CACHE] Enhancer disk cache saved")
+        logger.info(f"  [CACHE] Enhancer disk cache saved")
     except Exception as exc:
         logger.error("Disk cache Enhancer save failed: %s", exc)
 
@@ -175,9 +175,9 @@ def clear_old_disk_cache(keep_latest: int = 3) -> int:
                 os.remove(f)
                 deleted += 1
                 logger.info("Removed old disk cache: %s", os.path.basename(f))
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("Old disk cache file removal skipped: %s", exc)
 
     if deleted:
-        print(f"  [CACHE] Cleaned {deleted} old disk cache files")
+        logger.info(f"  [CACHE] Cleaned {deleted} old disk cache files")
     return deleted

@@ -142,11 +142,11 @@ def run_enhanced_prediction(
     )
 
     # ── Step 1: Base artifact prediction ────────────────────────────────────
-    print(f"\n{'='*60}")
-    print(f"  WC26 Predict V2.6 Enhanced — {home_team} vs {away_team}")
-    print(f"  {competition} | Neutral: {is_neutral} | Mode: {mode}")
-    print(f"{'='*60}\n")
-    print("  [1/5] Running base artifact pipeline...")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"  WC26 Predict V2.6 Enhanced — {home_team} vs {away_team}")
+    logger.info(f"  {competition} | Neutral: {is_neutral} | Mode: {mode}")
+    logger.info(f"{'='*60}\n")
+    logger.info("  [1/5] Running base artifact pipeline...")
 
     try:
         from app.services.prediction_core import run_artifact_pipeline
@@ -177,12 +177,12 @@ def run_enhanced_prediction(
 
     # ── Step 2: Market odds ─────────────────────────────────────────────────
     if enable_market:
-        print("  [2/5] Fetching market odds...")
+        logger.info("  [2/5] Fetching market odds...")
         try:
             market_probs = _fetch_market(home_team, away_team, competition)
             if market_probs is not None:
                 result.market_probs = market_probs
-                print(
+                logger.info(
                     f"  [market] {market_probs['provider']}: "
                     f"H={market_probs['home_prob']:.3f} "
                     f"D={market_probs['draw_prob']:.3f} "
@@ -224,23 +224,23 @@ def run_enhanced_prediction(
                     MIN_MARKET_BLEND,
                     min(market_blend_max, 0.25),
                 )
-                print(
+                logger.info(
                     f"  [blend] After market: "
                     f"H={result.final_home_prob:.3f} "
                     f"D={result.final_draw_prob:.3f} "
                     f"A={result.final_away_prob:.3f}"
                 )
             else:
-                print("  [market] No odds available — using model-only probabilities")
+                logger.info("  [market] No odds available — using model-only probabilities")
         except Exception as exc:
             logger.warning(f"Market fetch failed, using model-only: {exc}")
-            print(f"  [market] Failed: {exc} — using model-only probabilities")
+            logger.warning(f"  [market] Failed: {exc} — using model-only probabilities")
     else:
-        print("  [2/5] Market odds: disabled")
+        logger.info("  [2/5] Market odds: disabled")
 
     # ── Step 3: Weather ─────────────────────────────────────────────────────
     if enable_weather:
-        print("  [3/5] Fetching weather...")
+        logger.info("  [3/5] Fetching weather...")
         try:
             weather = _fetch_weather(home_team, away_team)
             if weather is not None and weather.get("forecast_available"):
@@ -250,51 +250,51 @@ def run_enhanced_prediction(
 
                 ws = WeatherService()
                 result.weather_impact_tags = ws.weather_impact_tags(weather)
-                print(
+                logger.info(
                     f"  [weather] {weather.get('weather_description', '?')}, "
                     f"{weather.get('temperature_c', '?')}°C, "
                     f"wind {weather.get('wind_speed_kmh', '?')} km/h"
                 )
                 if result.weather_impact_tags:
                     result.risk_tags.extend(result.weather_impact_tags)
-                    print(f"  [weather] Impact: {', '.join(result.weather_impact_tags)}")
+                    logger.info(f"  [weather] Impact: {', '.join(result.weather_impact_tags)}")
             else:
-                print("  [weather] No forecast available for this match")
+                logger.info("  [weather] No forecast available for this match")
         except Exception as exc:
             logger.warning(f"Weather fetch failed: {exc}")
-            print(f"  [weather] Failed: {exc}")
+            logger.warning(f"  [weather] Failed: {exc}")
     else:
-        print("  [3/5] Weather: disabled")
+        logger.info("  [3/5] Weather: disabled")
 
     # ── Step 4: LLM Analysis ────────────────────────────────────────────────
     if enable_llm:
-        print("  [4/5] Generating AI analysis via DeepSeek V4 Pro...")
+        logger.info("  [4/5] Generating AI analysis via DeepSeek V4 Pro...")
         try:
             llm_result = _generate_llm_analysis(result)
             if llm_result:
                 result.llm_analysis = llm_result.get("analysis")
                 result.llm_video_script = llm_result.get("video_script")
                 result.llm_social_copy = llm_result.get("social_copy")
-                print(
+                logger.info(
                     f"  [LLM] Analysis: {len(result.llm_analysis or '')} chars, "
                     f"Script: {len(result.llm_video_script or '')} chars"
                 )
             else:
-                print("  [LLM] Generation returned empty — using template fallback")
+                logger.info("  [LLM] Generation returned empty — using template fallback")
         except Exception as exc:
             logger.warning(f"LLM analysis failed: {exc}")
             result.llm_error = str(exc)
-            print(f"  [LLM] Failed: {exc}")
+            logger.warning(f"  [LLM] Failed: {exc}")
     else:
-        print("  [4/5] LLM analysis: disabled")
+        logger.info("  [4/5] LLM analysis: disabled")
 
     # ── Step 5: Finalize ────────────────────────────────────────────────────
     result.total_seconds = time_module.perf_counter() - t_start
-    print(f"\n  [5/5] Enhanced prediction complete in {result.total_seconds:.1f}s")
-    print(f"  Final: H={result.final_home_prob:.3f} "
-          f"D={result.final_draw_prob:.3f} "
-          f"A={result.final_away_prob:.3f}")
-    print(f"{'='*60}\n")
+    logger.info(f"\n  [5/5] Enhanced prediction complete in {result.total_seconds:.1f}s")
+    logger.info(f"  Final: H={result.final_home_prob:.3f} "
+                f"D={result.final_draw_prob:.3f} "
+                f"A={result.final_away_prob:.3f}")
+    logger.info(f"{'='*60}\n")
 
     return result
 

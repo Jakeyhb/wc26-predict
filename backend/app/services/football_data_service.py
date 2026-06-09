@@ -120,7 +120,7 @@ class FootballDataService:
         for season in seasons:
             matches = await self.fetch_competition_matches("WC", season)
             if matches:
-                print(f"[football-data] competition=WC season={season} status=ALL matches={len(matches)}")
+                logger.info(f"[football-data] competition=WC season={season} status=ALL matches={len(matches)}")
                 for payload in matches:
                     created = await self._upsert_match_from_payload(payload, db, "WC")
                     inserted += int(created)
@@ -154,24 +154,24 @@ class FootballDataService:
             for season in seasons:
                 statuses = ["FINISHED"] if season < CURRENT_LEAGUE_SEASON else ["FINISHED", "SCHEDULED"]
                 for status in statuses:
-                    print(
+                    logger.info(
                         f"[league-sync] competition={code} season={season} status={status} starting "
                         f"(预计受 6 秒/次限流约束)"
                     )
                     matches = await self.fetch_competition_matches(code, season, status=status)
-                    print(f"[league-sync] competition={code} season={season} status={status} fetched={len(matches)}")
+                    logger.info(f"[league-sync] competition={code} season={season} status={status} fetched={len(matches)}")
                     for match_index, payload in enumerate(matches, start=1):
                         created = await self._upsert_match_from_payload(payload, db, code)
                         inserted += int(created)
                         run.items_seen += 1
                         if match_index % 25 == 0 or match_index == len(matches):
-                            print(
+                            logger.info(
                                 f"[league-sync] competition={code} season={season} status={status} "
                                 f"processed={match_index}/{len(matches)} total_inserted={inserted}"
                             )
                     await db.commit()
             if competition_index < len(LEAGUE_COMPETITION_CODES) - 1:
-                print(f"[league-sync] competition switch pause for {code} -> next (10s)")
+                logger.info(f"[league-sync] competition switch pause for {code} -> next (10s)")
                 await asyncio.sleep(10)
 
         run.status = "completed"
@@ -226,7 +226,7 @@ class FootballDataService:
                 created = await self._upsert_match_from_payload(payload, db, code)
                 inserted_for_competition += int(created)
             totals[code] = inserted_for_competition
-            print(f"[league-upcoming] competition={code} inserted={inserted_for_competition}")
+            logger.info(f"[league-upcoming] competition={code} inserted={inserted_for_competition}")
             await db.commit()
             if competition_index < len(LEAGUE_COMPETITION_CODES) - 1:
                 await asyncio.sleep(10)

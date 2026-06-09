@@ -78,7 +78,7 @@ class FootballDataUKImporter:
     Usage:
         importer = FootballDataUKImporter()
         result = await importer.import_league("E0", "2425", dry_run=True)
-        print(f"Parsed {result.rows_parsed} matches")
+        logger.info(f"Parsed {result.rows_parsed} matches")
     """
 
     def __init__(self) -> None:

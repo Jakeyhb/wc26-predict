@@ -4,6 +4,7 @@ Replaces the ad-hoc dict returned by snapshot.py/run_snapshot().
 Provides backward-compatible .to_dict() for existing consumers.
 """
 from __future__ import annotations
+import logging
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

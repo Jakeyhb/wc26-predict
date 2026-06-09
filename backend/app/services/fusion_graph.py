@@ -9,9 +9,11 @@ Typical usage::
     fg.add_step("dc+enhancer", "base_weight=0.55", before_dict, after_list)
     fg.compute_effective_weights()
     fg.compute_disagreement(component_probs)
-    print(fg.to_dict())
+    logger.info(fg.to_dict())
 """
 from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
 
 from dataclasses import dataclass, field
 from typing import Any

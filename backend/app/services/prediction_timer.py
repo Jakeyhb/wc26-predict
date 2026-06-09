@@ -16,7 +16,7 @@ Typical usage:
 
     print(timer.to_dict())       # {"dixon_coles_fit": 0.345, ...}
     print(timer.total())         # 0.891
-    print(timer.slowest())       # ("enhancer_fit", 0.546)
+    logger.info(timer.slowest())       # ("enhancer_fit", 0.546)
 """
 
 from __future__ import annotations
@@ -109,3 +109,4 @@ def timed_step(timer: PredictionTimer, name: str, fn: callable, *args: Any, **kw
     result = fn(*args, **kwargs)
     timer.stop()
     return result
+

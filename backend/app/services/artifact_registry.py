@@ -11,7 +11,7 @@ Typical usage:
     if bundle:
         ok, missing = validate_bundle(bundle, mode="standard")
         if ok:
-            print("All required components ready")
+            logger.info("All required components ready")
 """
 
 from __future__ import annotations

@@ -10,6 +10,7 @@ no win-rate guarantees, mandatory disclaimer.
 """
 
 from __future__ import annotations
+import logging
 
 # ── System prompts ──────────────────────────────────────────────────────────────
 

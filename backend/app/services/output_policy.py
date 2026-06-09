@@ -13,6 +13,8 @@ Usage:
     safe_dict = policy.filter_prediction(prediction_result)
 """
 from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
 
 from enum import Enum
 from typing import Any
@@ -208,12 +210,12 @@ class OutputPolicy:
         passed = len(violations) == 0
         if not passed:
             team_names = {v["team"] for v in violations}
-            print(
+            logger.warning(
                 f"[FACT_CHECK_FAILED] Teams {team_names}: "
                 f"{len(violations)} factual error(s) detected"
             )
             for v in violations:
-                print(
+                logger.warning(
                     f"  -> Team '{v['team']}' is '{v['status']}' "
                     f"but report says: '{v['matched']}'"
                 )
@@ -273,3 +275,4 @@ def _load_team_statuses() -> dict[str, Any] | None:
                 continue
 
     return None
+

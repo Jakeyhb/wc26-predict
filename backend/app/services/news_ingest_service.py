@@ -316,5 +316,6 @@ class NewsIngestService:
                 from dateutil import parser
 
                 return parser.parse(value)
-            except Exception:
+            except Exception as exc:
+                logger.debug("Date parsing fallback failed for value=%r: %s", value, exc)
                 return None

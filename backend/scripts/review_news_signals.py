@@ -33,7 +33,7 @@ async def list_candidates(db):
         "na.title, na.source_name, ns.created_at "
         "FROM news_signals ns "
         "JOIN news_articles na ON ns.article_id = na.id "
-        "WHERE ns.review_status = 'candidate' "
+        "WHERE (ns.review_status = 'candidate' OR ns.review_status = 'pending' OR ns.review_status = 'PENDING') "
         "ORDER BY ns.confidence DESC, ns.created_at DESC LIMIT 30"
     ))
     rows = r.fetchall()

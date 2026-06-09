@@ -5,8 +5,11 @@ Forbidden terms list from action plan Section 8 (Output Filtering Rules).
 Design: Pure functions, no side effects, importable from anywhere.
 """
 from __future__ import annotations
+import logging
 
 import re
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from typing import Any
 
@@ -170,8 +173,8 @@ async def audit_artifact(
                 },
             )
             await db_session.commit()
-        except Exception:
-            pass  # Best-effort logging
+        except Exception as exc:
+            logger.debug("Output audit log write skipped (best-effort): %s", exc)
 
     return {
         "artifact_type": artifact_type,

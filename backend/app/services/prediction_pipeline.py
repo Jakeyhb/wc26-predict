@@ -51,7 +51,7 @@ class PredictionPipeline:
             competition="FIFA World Cup 2026",
             is_neutral=True,
         )
-        print(result.home_win_prob, result.draw_prob, result.away_win_prob)
+        logger.info(result.home_win_prob, result.draw_prob, result.away_win_prob)
     """
 
     def __init__(self) -> None:

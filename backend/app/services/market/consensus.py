@@ -7,6 +7,7 @@ When multiple providers report odds for the same match:
   4. Compute confidence score.
 """
 from __future__ import annotations
+import logging
 
 from datetime import datetime, timezone
 from typing import Any

@@ -128,8 +128,8 @@ class MarketCalibrator:
                 logger.warning(f"market provider: apifootball.com error: {e}")
                 try:
                     await provider.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Best-effort provider close failed: %s", exc)
 
         # ── Try API-Sports ──
         if self._api_sports_key:
@@ -151,8 +151,8 @@ class MarketCalibrator:
                 logger.warning(f"market provider: API-Sports error: {e}")
                 try:
                     await provider.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Best-effort provider close failed: %s", exc)
 
         self._odds_provider = None
         self._odds_provider_resolved = True
