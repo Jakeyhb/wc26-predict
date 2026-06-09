@@ -299,7 +299,7 @@ def _build_postmatch_eval(run: PredictionRun) -> PostmatchEval:
     probs = [run.home_win_prob, run.draw_prob, run.away_win_prob]
     actual = [0.0, 0.0, 0.0]
     actual[actual_index] = 1.0
-    brier = sum((prob - observed) ** 2 for prob, observed in zip(probs, actual, strict=False)) / 3
+    brier = sum((prob - observed) ** 2 for prob, observed in zip(probs, actual, strict=False))
     log_loss = -math.log(max(probs[actual_index], 1e-12))
     exact_score = f"{result.home_goals}:{result.away_goals}"
     top3_hit = any(item["score"] == exact_score for item in run.top3_scores)

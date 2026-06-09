@@ -572,7 +572,7 @@ class TournamentSimulator:
                 if team in counts:
                     counts[team]["final"] += 1
             if champion in counts:
-                counts[team]["champion"] += 1
+                counts[champion]["champion"] += 1
 
             # Track group winners and advancement (top 2 per group + best 3rd)
             for g in GROUPS:

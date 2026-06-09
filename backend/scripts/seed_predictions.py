@@ -58,7 +58,7 @@ def _build_postmatch_eval(run: PredictionRun) -> PostmatchEval:
     probs = [run.home_win_prob, run.draw_prob, run.away_win_prob]
     actual = [0.0, 0.0, 0.0]
     actual[actual_index] = 1.0
-    brier = sum((prob - observed) ** 2 for prob, observed in zip(probs, actual, strict=False)) / 3
+    brier = sum((prob - observed) ** 2 for prob, observed in zip(probs, actual, strict=False))
     exact_score = f"{result.home_goals}:{result.away_goals}"
 
     import math
