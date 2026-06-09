@@ -3,8 +3,8 @@
 > AI 足球分析引擎 · 本地可视化工作台 · 世界杯 2026 研究系统
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v2.6--enhanced-blue" alt="version">
-  <img src="https://img.shields.io/badge/tests-118%20passed-green" alt="tests">
+  <img src="https://img.shields.io/badge/version-v2.9.0--conservative-blue" alt="version">
+  <img src="https://img.shields.io/badge/tests-146%20passed-green" alt="tests">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="license">
   <img src="https://img.shields.io/badge/python-3.11+-blue" alt="python">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="platform">
@@ -26,7 +26,7 @@ WC26 Predict 是一个**完整的 AI 足球研究系统**，面向 2026 年 FIFA
 
 ---
 
-## V2.6 亮点
+## V2.9 亮点
 
 <p align="center">
   <b>基础预测 → 实时增强 → AI 内容 → 赛后复盘 → 模型优化</b>
@@ -417,23 +417,15 @@ WC26 Predict 严格区分内部研究和公开内容：
 - [x] V2.2: FusionGraph + 回测优化 + 48 队 + 模拟器 (84 tests)
 - [x] V2.4: Streamlit Dashboard + prediction_core + 全中文化 (91 tests)
 - [x] V2.5: Local Demo Release — 收口冻结 (91 tests)
-- [x] **V2.6: Enhanced — 实时数据 + LLM 分析 + 赛后复盘闭环**
-
-### V2.6 详细
-
-- [x] 市场赔率融合 (apifootball.com + The Odds API, 15% 混合)
-- [x] 实时天气 (Open-Meteo, 免费)
-- [x] DeepSeek V4 Pro AI 赛前分析 + 视频脚本 + 社媒文案
-- [x] 赛后复盘引擎 (Brier/LogLoss/RPS + 7 级评级)
-- [x] AI 赛后复盘 (DeepSeek 偏差分析)
-- [x] 友谊赛权重自适应 (Enhancer 39.6% → 57.1%)
-- [x] 事件自动过期 (SQL 层过滤)
-- [x] Dashboard 第 9 页：赛后复盘
+- [x] V2.6: Enhanced — 实时数据 + LLM 分析 + 赛后复盘闭环
+- [x] **V2.7: 友谊赛自进化** — 3 场赛后复盘驱动权重优化
+- [x] **V2.8: BEL-TUN 单场适应** — 降幅参数微调
+- [x] **V2.9: Conservative** — Brier 标准化 + 保守权重回滚 + 版本统一 + 静默异常消除
+- [x] **Phase 0**: 验证基线 + Shin 公式修复 + asyncio 安全 + 预测入口盘点 + pipeline contract
 
 ### 展望
 
-- [ ] V2.7: 实时首发阵容接入 + 伤病/轮换信号自动提取闭环
-- [ ] V3.0: 公开演示版
+- [ ] V3.0: 公开演示版 — 安全合规审核 + 公开部署
 
 ---
 

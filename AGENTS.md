@@ -106,7 +106,7 @@ python scripts/seed_2026_schedule.py
 |------|------|------|
 | `CLAUDE.md` | Claude Code | Claude Code 的 ticket 执行规则、验证规则、停止条件 |
 | `AGENTS.md` | 所有 Agent | 通用项目规则、工程约定、技术栈、常用命令 |
-| Hermes 监督流程 | Hermes Agent | PR 审查流程、监督协议 — 应放在 Hermes skill 或 `docs/agent_workflow/hermes_agent_supervision_playbook_wc26.md` |
+| Hermes 监督流程 | Hermes Agent | PR 审查流程、监督协议 — 应放在 Hermes skill 或独立监督文档中 |
 
 - **AGENTS.md 不放** Hermes 的具体 PR 审查 check-list
 - **AGENTS.md 不放** GitHub PR 审查模板

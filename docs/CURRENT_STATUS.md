@@ -13,7 +13,7 @@
 | Tag | v2.9-conservative |
 | Build Name | V2.9 Conservative — Brier标准化 + FRIENDLY_V4 保守权重 + 版本统一 |
 | 定位 | 本地 AI 增强分析工作台 — 模型预测 + 市场赔率 + 天气 + DeepSeek 内容生成 |
-| 测试 | 118 passed |
+| 测试 | 146 passed |
 
 ## 包含范围
 
@@ -32,14 +32,19 @@
 
 ## Phase 0 修复历史（V2.7 → V2.9）
 
-> **注意**：以下修复均已落地到代码但 **尚未 commit**。所有变更在工作区中。
+> **状态**: 全部已 commit 并推送至 `phase-0-baseline` 分支。PR #1 待合并至 master。
 
 | 编号 | 版本 | 问题 | 修复 | 文件 |
 |------|------|------|------|------|
-| C3 | V2.9 | Brier Score 计算错误 — 所有评估值被除以 3 | 移除 `/3` 除法，重校评级阈值 (C: <0.67, D: <1.05, F: ≥1.05) | `dixon_coles.py`, `postmatch.py`, `learning_engine.py` |
+| C3 | V2.9 | Brier Score 计算错误 — 所有评估值被除以 3 | 移除 `/3` 除法，重校评级阈值 (C: <0.67, D: <1.05, F: ≥1.05) | `dixon_coles.py`, `postmatch.py`, `learning_engine.py`, `workers/tasks.py`, `seed_predictions.py` |
 | C1 | V2.9 | V2.8 权重基于单场 BEL-TUN 过拟合（Enhancer 57% 降幅，Elo 12× 增幅） | 回滚到 V2.9 保守权重 (FRIENDLY_ADJUSTED_V4: dc=0.35, enhancer=0.25, elo=0.15, pi=0.15) | `weights.py` |
 | C4 | V2.9 | 版本号在 3 处硬编码（"1.0.0", "2.0.0", "1.5"）与 version.py 脱节 | 全部改为读取 `app.version.VERSION` | `main.py`, `snapshot_store.py`, `prediction_result.py` |
 | H1 | V2.9 | 12 处 `except Exception: pass` 静默吞错误 | 替换为 `logger.warning("...", exc_info=True)` | `prediction_pipeline.py`, `prediction_orchestrator.py`, `elo_ratings.py`, `learning_engine.py`, `database.py` 等 |
+| — | V2.9 | Shin 公式错误（线性近似） | 替换为 Shin (1993) 正确公式 | `market/probability.py` |
+| — | V2.9 | asyncio.run() 在已存在事件循环中崩溃 | 添加事件循环检测 + degraded 标记 | `prediction_enhanced.py`, `sync_provider.py`, `weather_service.py` |
+| — | V2.9 | Tournament 模拟器冠军计数器 bug | `team` → `champion` 变量修复 | `tournament_simulator.py` |
+| — | V2.9 | predictions 路由内存泄漏 + 竞态条件 | asyncio.Lock + 过期 job 自动清理 | `routers/predictions.py` |
+| — | V2.9 | analysis 路由阻塞事件循环 | sync sqlite3 → asyncio.to_thread() | `routers/analysis.py` |
 
 ### V2.7 — 友谊赛自进化（已 commit: `6929591`）
 
