@@ -50,3 +50,33 @@ backend/package.json
 # cheat-on-content local cache
 .cheat-cache/
 .cheat-secrets.json
+
+# Claude Code internal files (do not commit)
+AGENTS.md
+CLAUDE.md
+HANDOFF.md
+.cheat-hooks/
+.cheat-state.json
+.auth/
+
+# Cheat-on-content files (separate project)
+STATUS.md
+WORKFLOW.md
+audience.md
+benchmark.md
+candidates.md
+rubric-memo.md
+rubric_notes.md
+script_patterns.md
+cheat-on-content/
+predictions/
+videos/
+samples/
+shared-references/
+
+# Orphan files
+=1.44
+
+# Duplicate docs (keep only docs/ARCHITECTURE.md)
+ARCHITECTURE.md
+PROJECT_STATUS.md
