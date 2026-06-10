@@ -54,6 +54,7 @@ class LearningEngine:
         home_goals: int,
         away_goals: int,
         db: AsyncSession,
+        verified_result_id: str | None = None,
     ) -> PredictionLearningLog:
         """Complete per-match learning cycle.
 
@@ -61,13 +62,19 @@ class LearningEngine:
             snapshot: The prediction snapshot to evaluate
             home_goals, away_goals: Actual match result
             db: Active database session
+            verified_result_id: UUID string of a consensus row from
+                MatchResultVerification.  If None, the learning log is
+                written with status="pending_review" and does NOT affect
+                production weights.
 
         Returns the created PredictionLearningLog record.
         """
         actual_index = _result_index(home_goals, away_goals)
 
         # 1. Error attribution
-        error_log = await self._attribute_error(snapshot, actual_index, db)
+        error_log = await self._attribute_error(
+            snapshot, actual_index, db, verified_result_id,
+        )
 
         # 2. Signal track record update
         await self._update_signal_track_records(snapshot, actual_index, db)
@@ -86,6 +93,7 @@ class LearningEngine:
         snapshot: PredictionSnapshot,
         actual_index: int,
         db: AsyncSession,
+        verified_result_id: str | None = None,
     ) -> PredictionLearningLog:
         """Attribute prediction error using leave-one-out marginal contributions.
 
@@ -159,6 +167,9 @@ class LearningEngine:
         else:
             direction = "mispredict"
 
+        # Resolve learning status from verification state
+        learning_status = await self._resolve_learning_status(db, verified_result_id)
+
         # Delete any previous log for this snapshot (idempotent)
         if snapshot.id:
             await db.execute(
@@ -170,6 +181,7 @@ class LearningEngine:
         log = PredictionLearningLog(
             match_id=snapshot.match_id or None,
             snapshot_id=snapshot.id or None,
+            status=learning_status,
             error_magnitude=final_brier,
             error_direction=direction,
             dc_error_contribution=dc_contrib,
@@ -183,6 +195,54 @@ class LearningEngine:
         )
         db.add(log)
         return log
+
+    async def _resolve_learning_status(
+        self,
+        db: AsyncSession,
+        verified_result_id: str | None,
+    ) -> str:
+        """Determine the learning log status based on verification state.
+
+        Returns:
+            "active" if a verified consensus exists,
+            "pending_review" otherwise.
+        """
+        if verified_result_id is None:
+            return "pending_review"
+
+        from uuid import UUID
+        from app.models.match_result_verification import MatchResultVerification
+
+        try:
+            vid = UUID(verified_result_id)
+        except (ValueError, TypeError):
+            logger.warning(
+                "verified_result_id=%s is not a valid UUID, falling back to pending_review",
+                verified_result_id,
+            )
+            return "pending_review"
+
+        result = await db.execute(
+            select(MatchResultVerification).where(
+                MatchResultVerification.id == vid
+            )
+        )
+        verification = result.scalar_one_or_none()
+        if verification is None:
+            logger.warning(
+                "verified_result_id=%s not found in DB, falling back to pending_review",
+                verified_result_id,
+            )
+            return "pending_review"
+
+        if verification.is_consensus:
+            return "active"
+
+        logger.warning(
+            "verified_result_id=%s exists but is_consensus=False, falling back to pending_review",
+            verified_result_id,
+        )
+        return "pending_review"
 
     @staticmethod
     def _fuse_without(

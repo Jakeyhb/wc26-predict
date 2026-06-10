@@ -51,6 +51,16 @@ class PredictionLearningLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     model_was_right: Mapped[bool | None] = mapped_column(Boolean)
     divergence_at_prediction: Mapped[float | None] = mapped_column(Float)
 
+    # Verification status
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="active",
+        server_default="active",
+        nullable=False,
+    )
+    # Values: "active" (verified, in-use), "pending_review" (awaiting verification),
+    #         "invalidated" (wrong result later corrected), "superseded" (replaced by newer verified record)
+
     # Context
     context_tags: Mapped[dict | None] = mapped_column(JSONVariant)
     signal_verdicts: Mapped[dict | None] = mapped_column(JSONVariant)

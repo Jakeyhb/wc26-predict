@@ -22,12 +22,18 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from uuid import UUID
+
 from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models.match import Match, MatchResult
 from app.models.prediction_snapshot import PredictionSnapshot
 from app.models.prediction_learning_log import PredictionLearningLog
 from app.services.learning_engine import get_learning_engine
+from app.services.result_verification import (
+    get_verification_service,
+    SourceTier,
+)
 
 
 async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
@@ -92,6 +98,44 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                 skipped_already_logged += 1
                 continue
 
+            # ── Verification gate ─────────────────────────────────
+            # Record the source claim from match_results table and attempt
+            # consensus.  If consensus fails (single source only), the
+            # learning log will be written with status="pending_review".
+            verification_service = get_verification_service()
+            match_uuid = UUID(match_id_raw)
+            verified_result_id: str | None = None
+
+            try:
+                await verification_service.add_source_result(
+                    db=db,
+                    match_id=match_uuid,
+                    home_goals=int(home_goals),
+                    away_goals=int(away_goals),
+                    source_name="match_results_import",
+                    source_tier=SourceTier.REPUTABLE_DATA_PROVIDER,
+                    match_status="Finished",
+                    notes=f"Auto-recorded from match_results table via auto_postmatch (snapshot={snapshot.id})",
+                )
+            except ValueError:
+                # Source claims match not finished — skip learning entirely
+                skipped_no_snapshot += 1  # reuse counter as "skipped"
+                print(f"  ⚠ {row.match_date[:10]} {snapshot.home_team} vs "
+                      f"{snapshot.away_team}: match status rejected by verification gate")
+                continue
+
+            # Build consensus from all available source claims
+            consensus = await verification_service.build_consensus(db, match_uuid)
+
+            if consensus is not None and consensus.is_verified:
+                verified_result_id = str(consensus.verification_id)
+                print(f"  🔒 Verified: {consensus.home_goals}-{consensus.away_goals} "
+                      f"({consensus.source_count} sources: {', '.join(consensus.source_names)})")
+            elif consensus is not None:
+                print(f"  ⚠ Unverified: {consensus.home_goals}-{consensus.away_goals} "
+                      f"(only {consensus.source_count} source(s): {', '.join(consensus.source_names)})")
+            # ── End verification gate ──────────────────────────────
+
             if dry_run:
                 print(f"[DRY-RUN] {row.match_date[:10]} {snapshot.home_team} "
                       f"{home_goals}-{away_goals} {snapshot.away_team}")
@@ -101,14 +145,19 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
             # Run learning
             try:
                 error_log = await engine.process_match_result(
-                    snapshot, int(home_goals), int(away_goals), db
+                    snapshot,
+                    int(home_goals),
+                    int(away_goals),
+                    db,
+                    verified_result_id=verified_result_id,
                 )
                 total_brier += error_log.error_magnitude
                 processed += 1
                 print(f"  ✓ {row.match_date[:10]} {snapshot.home_team} "
                       f"{home_goals}-{away_goals} {snapshot.away_team} "
                       f"Brier={error_log.error_magnitude:.3f} "
-                      f"dir={error_log.error_direction}")
+                      f"dir={error_log.error_direction} "
+                      f"status={error_log.status}")
             except Exception as e:
                 await db.rollback()
                 # Avoid accessing lazy attributes after rollback — use pre-extracted values

@@ -204,11 +204,31 @@ class PredictionPipeline:
         # ── Degraded reasons accumulator (Ticket 1.2 contract) ──
         degraded_reasons: list[DegradedReason] = []
 
+        # ── Fallback to stored callbacks (from_snapshot_env / from_artifacts) ──
+        stored = self._get_callbacks()
+        if db_session_factory is None:
+            db_session_factory = stored.get("db_session_factory")
+        if load_training_frame is None:
+            load_training_frame = stored.get("load_training_frame")
+        if build_team_info is None:
+            build_team_info = stored.get("build_team_info")
+        if lookup_venue is None:
+            lookup_venue = stored.get("lookup_venue")
+        if lookup_manual_events is None:
+            lookup_manual_events = stored.get("lookup_manual_events")
+        if compute_motivation is None:
+            compute_motivation = stored.get("compute_motivation")
+        if lookup_match_id is None:
+            lookup_match_id = stored.get("lookup_match_id")
+        if resolve_team_id is None:
+            resolve_team_id = stored.get("resolve_team_id")
+
         # ── Validate callbacks ──
         if db_session_factory is None or load_training_frame is None:
             raise ValueError(
                 "db_session_factory and load_training_frame are required. "
-                "Use PredictionPipeline.from_snapshot() for the snapshot.py environment."
+                "Use PredictionPipeline.from_snapshot_env() then predict_match(), "
+                "or pass them as keyword arguments to predict_match() directly."
             )
 
         # ── 1. Load training data ──
