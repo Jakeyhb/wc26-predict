@@ -9,8 +9,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
+import re
 import sys
 from pathlib import Path
+
+import httpx
 
 # Fix Windows GBK encoding for emoji characters
 if sys.platform == 'win32':
@@ -33,6 +36,8 @@ async def run_postmatch(
     match_id: str,
     home_score: int,
     away_score: int,
+    verify_url: str | None = None,
+    verify_source_name: str | None = None,
 ) -> dict:
     """Execute full post-match flow for a single match."""
 
@@ -106,7 +111,7 @@ async def run_postmatch(
             await db.flush()
 
         # ═══════════════════════════════════════════════════════════════
-        # STEP 3: Multi-source verification
+        # STEP 3: Multi-source verification with INDEPENDENT second source
         # ═══════════════════════════════════════════════════════════════
         print("\n[3] Multi-source verification gate...")
         verification_service = get_verification_service()
@@ -124,18 +129,70 @@ async def run_postmatch(
         )
         print("  + Source 1: match_results_import (tier 3)")
 
-        # Source 2: web search agent (tier 4)
-        await verification_service.add_source_result(
-            db=db,
-            match_id=UUID(match_uuid),
-            home_goals=home_score,
-            away_goals=away_score,
-            source_name="web_search_agent",
-            source_tier=SourceTier.REPUTABLE_MEDIA,
-            match_status="Finished",
-            notes=f"Verified via multiple sports media (SkySports, ESPN, AS) (snapshot={snapshot.id})",
-        )
-        print("  + Source 2: web_search_agent (tier 4)")
+        # Source 2: MUST be independent — either URL-verified or user-attested
+        second_source_added = False
+        if verify_url:
+            # Actually fetch the URL and extract the score for true independence
+            print(f"  → Fetching verification URL: {verify_url}")
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(
+                        verify_url,
+                        headers={"User-Agent": "Mozilla/5.0 (compatible; WC26Predict/3.4)"},
+                        follow_redirects=True,
+                    )
+                if resp.status_code == 200:
+                    page_text = resp.text[:50000]  # first 50KB
+                    # Extract score patterns like "2-1", "2:1", "2–1"
+                    score_patterns = re.findall(
+                        rf'(\d+)\s*[-–:]\s*(\d+)',
+                        page_text,
+                    )
+                    url_score_matched = False
+                    for h_str, a_str in score_patterns:
+                        try:
+                            h, a = int(h_str), int(a_str)
+                            if h == home_score and a == away_score:
+                                url_score_matched = True
+                                break
+                        except ValueError:
+                            continue
+                    if url_score_matched:
+                        source_label = verify_source_name or "url_verified"
+                        await verification_service.add_source_result(
+                            db=db,
+                            match_id=UUID(match_uuid),
+                            home_goals=home_score,
+                            away_goals=away_score,
+                            source_name=source_label,
+                            source_tier=SourceTier.REPUTABLE_MEDIA,
+                            match_status="Finished",
+                            notes=f"Verified via URL fetch: {verify_url} (snapshot={snapshot.id})",
+                        )
+                        print(f"  + Source 2: {source_label} (tier 4, URL-verified ✅)")
+                        second_source_added = True
+                    else:
+                        print(f"  ⚠ URL fetched but score {home_score}-{away_score} not found in page content")
+                        print(f"     Found scores: {score_patterns[:10]}")
+                else:
+                    print(f"  ⚠ URL fetch failed: HTTP {resp.status_code}")
+            except Exception as e:
+                print(f"  ⚠ URL fetch error: {e}")
+
+        if not second_source_added:
+            # No independent URL verification — record as user-provided (tier 6)
+            # This will NOT achieve consensus (only 1 tier 3 source + 1 tier 6 ≠ 2 reliable)
+            await verification_service.add_source_result(
+                db=db,
+                match_id=UUID(match_uuid),
+                home_goals=home_score,
+                away_goals=away_score,
+                source_name="user_provided",
+                source_tier=SourceTier.OTHER,
+                match_status="Finished",
+                notes=f"User-provided score without URL verification (snapshot={snapshot.id})",
+            )
+            print("  + Source 2: user_provided (tier 6, NOT independently verified ⚠)")
 
         # Build consensus
         consensus = await verification_service.build_consensus(db, UUID(match_uuid))
@@ -149,6 +206,8 @@ async def run_postmatch(
             else:
                 print(f"  ⚠ UNVERIFIED: {consensus.home_goals}-{consensus.away_goals} "
                       f"(only {consensus.source_count} source: {', '.join(consensus.source_names)})")
+                if not verify_url:
+                    print(f"  💡 TIP: Re-run with --verify-url <URL> to add an independent second source")
         else:
             print("  ✗ No sources recorded")
 
@@ -205,10 +264,16 @@ def main():
     parser.add_argument("--match-id", required=True)
     parser.add_argument("--home-score", type=int, required=True)
     parser.add_argument("--away-score", type=int, required=True)
+    parser.add_argument("--verify-url", default=None,
+                        help="URL to a sports site confirming the score (for independent verification)")
+    parser.add_argument("--verify-source-name", default=None,
+                        help="Label for the verification source (e.g. 'ESPN', 'SkySports')")
     args = parser.parse_args()
 
     summary = asyncio.run(run_postmatch(
         args.match_id, args.home_score, args.away_score,
+        verify_url=args.verify_url,
+        verify_source_name=args.verify_source_name,
     ))
     print(f"\n=== SUMMARY ===")
     for k, v in summary.items():

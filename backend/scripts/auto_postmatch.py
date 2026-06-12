@@ -64,6 +64,8 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
         processed = 0
         skipped_no_snapshot = 0
         skipped_already_logged = 0
+        skipped_insufficient_sources = 0
+        skipped_verification_failed = 0
         total_brier = 0.0
         engine = get_learning_engine()
 
@@ -99,13 +101,15 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                 continue
 
             # ── Verification gate ─────────────────────────────────
-            # Record the source claim from match_results table and attempt
-            # consensus.  If consensus fails (single source only), the
-            # learning log will be written with status="pending_review".
+            # HARD RULE: require ≥2 independent source claims before learning.
+            # A single source (match_results table alone) is NOT sufficient —
+            # this prevents wrong scores from silently entering the learning log.
+            # Use run_postmatch.py for manual verification with a second source.
             verification_service = get_verification_service()
             match_uuid = UUID(match_id_raw)
             verified_result_id: str | None = None
 
+            # Source 1: match_results table (tier 3)
             try:
                 await verification_service.add_source_result(
                     db=db,
@@ -118,8 +122,8 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
                     notes=f"Auto-recorded from match_results table via auto_postmatch (snapshot={snapshot.id})",
                 )
             except ValueError:
-                # Source claims match not finished — skip learning entirely
-                skipped_no_snapshot += 1  # reuse counter as "skipped"
+                # Match status not acceptable — skip learning entirely
+                skipped_verification_failed += 1
                 print(f"  ⚠ {row.match_date[:10]} {snapshot.home_team} vs "
                       f"{snapshot.away_team}: match status rejected by verification gate")
                 continue
@@ -127,13 +131,25 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
             # Build consensus from all available source claims
             consensus = await verification_service.build_consensus(db, match_uuid)
 
-            if consensus is not None and consensus.is_verified:
-                verified_result_id = str(consensus.verification_id)
-                print(f"  🔒 Verified: {consensus.home_goals}-{consensus.away_goals} "
-                      f"({consensus.source_count} sources: {', '.join(consensus.source_names)})")
-            elif consensus is not None:
-                print(f"  ⚠ Unverified: {consensus.home_goals}-{consensus.away_goals} "
-                      f"(only {consensus.source_count} source(s): {', '.join(consensus.source_names)})")
+            if consensus is None or not consensus.is_verified:
+                # INSUFFICIENT SOURCES — hard skip. Do NOT write a learning log.
+                # The match_results table provides only 1 source; a second
+                # independent source (web search, API, manual entry) is required.
+                skipped_insufficient_sources += 1
+                source_list = consensus.source_names if consensus else ["none"]
+                print(f"  ⛔ SKIPPED: {row.match_date[:10]} {snapshot.home_team} vs "
+                      f"{snapshot.away_team} — insufficient sources "
+                      f"({consensus.source_count if consensus else 0}/2 required: "
+                      f"{', '.join(source_list)})")
+                print(f"     → Use run_postmatch.py --match-id {match_id_raw} "
+                      f"--home-score {home_goals} --away-score {away_goals} "
+                      f"--verify-url <URL> for manual verification")
+                continue
+
+            # Consensus achieved — proceed with verified learning
+            verified_result_id = str(consensus.verification_id)
+            print(f"  🔒 Verified: {consensus.home_goals}-{consensus.away_goals} "
+                  f"({consensus.source_count} sources: {', '.join(consensus.source_names)})")
             # ── End verification gate ──────────────────────────────
 
             if dry_run:
@@ -170,6 +186,8 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
         "processed": processed,
         "skipped_no_snapshot": skipped_no_snapshot,
         "skipped_already_logged": skipped_already_logged,
+        "skipped_insufficient_sources": skipped_insufficient_sources,
+        "skipped_verification_failed": skipped_verification_failed,
         "avg_brier": avg_brier,
     }
     return summary
@@ -187,6 +205,8 @@ def main():
     print(f"Processed: {summary['processed']}")
     print(f"Skipped (no snapshot): {summary['skipped_no_snapshot']}")
     print(f"Skipped (already logged): {summary['skipped_already_logged']}")
+    print(f"Skipped (insufficient sources): {summary['skipped_insufficient_sources']}")
+    print(f"Skipped (verification failed): {summary['skipped_verification_failed']}")
     if summary['processed']:
         print(f"Average Brier: {summary['avg_brier']:.3f}")
 

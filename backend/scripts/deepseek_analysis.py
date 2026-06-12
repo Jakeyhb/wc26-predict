@@ -15,11 +15,11 @@ import httpx
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-DB_PATH = BACKEND_DIR / "data" / "local_stage2.db"
-MATCH_ID = "77382b67668e4d1a966a5fb88af6e408"
+DB_PATH_DEFAULT = BACKEND_DIR / "data" / "local_stage2.db"
+MATCH_ID_DEFAULT = "77382b67668e4d1a966a5fb88af6e408"
 
 
-def load_env() -> tuple[str, str, str]:
+def load_env(model_override: str | None = None) -> tuple[str, str, str]:
     """Load LLM config from .env.local or .env."""
     key = ""
     model = "deepseek-v4-pro"
@@ -42,12 +42,15 @@ def load_env() -> tuple[str, str, str]:
                     elif k == "LLM_BASE_URL":
                         base = v.rstrip("/")
 
+    if model_override:
+        model = model_override
+
     return key, model, base
 
 
-def read_match_data() -> dict | None:
+def read_match_data(match_id: str, db_path: str | Path) -> dict | None:
     """Read match + prediction + recent form from SQLite."""
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
 
     try:
@@ -57,7 +60,7 @@ def read_match_data() -> dict | None:
                JOIN teams ht ON m.home_team_id = ht.id
                JOIN teams at ON m.away_team_id = at.id
                WHERE m.id = ?""",
-            (MATCH_ID,),
+            (match_id,),
         ).fetchone()
 
         if not match:
@@ -68,7 +71,7 @@ def read_match_data() -> dict | None:
             """SELECT * FROM prediction_runs
                WHERE match_id = ?
                ORDER BY created_at DESC LIMIT 1""",
-            (MATCH_ID,),
+            (match_id,),
         ).fetchone()
 
         if not pred:
@@ -76,7 +79,7 @@ def read_match_data() -> dict | None:
                 """SELECT * FROM prediction_snapshots
                    WHERE match_id LIKE ?
                    ORDER BY generated_at DESC LIMIT 1""",
-                (MATCH_ID + "%",),
+                (match_id + "%",),
             ).fetchone()
 
         home_name = match["home_name"]
@@ -174,17 +177,34 @@ Rules:
 - Output in Chinese, approximately 400 characters"""
 
 
-async def main():
-    key, model, base = load_env()
+async def main(match_id: str | None = None, db_path: str | None = None, model_override: str | None = None):
+    import argparse as _argparse  # avoid collision with module-level if any
+    # Parse CLI args if not passed programmatically
+    if match_id is None:
+        parser = _argparse.ArgumentParser(description="DeepSeek AI pre-match analysis")
+        parser.add_argument("--match-id", default=MATCH_ID_DEFAULT,
+                            help=f"Match UUID (default: {MATCH_ID_DEFAULT[:12]}...)")
+        parser.add_argument("--db-path", default=str(DB_PATH_DEFAULT),
+                            help=f"SQLite database path (default: {DB_PATH_DEFAULT})")
+        parser.add_argument("--model", default=None,
+                            help="Model override (default: from .env LLM_MODEL or deepseek-v4-pro)")
+        _args = parser.parse_args()
+        match_id = _args.match_id
+        db_path = _args.db_path
+        model_override = _args.model
+
+    key, model, base = load_env(model_override=model_override)
 
     if not key:
         print("ERROR: LLM_API_KEY not configured")
         return
 
     print(f"DeepSeek: model={model}")
+    print(f"Match ID: {match_id}")
+    print(f"DB Path: {db_path}")
     print()
 
-    match_data = read_match_data()
+    match_data = read_match_data(match_id, db_path)
     if not match_data:
         print("ERROR: Match not found")
         return
