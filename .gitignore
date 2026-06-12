@@ -99,3 +99,6 @@ backend/artifacts/calibrator.json
 
 # Cheat-on-content article drafts
 scripts/2026-06-*
+
+# Local cleanup archive
+_archive/

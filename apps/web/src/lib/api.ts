@@ -253,13 +253,18 @@ export async function fetchPendingArticles(token: string): Promise<PendingArticl
   );
 }
 
-export async function reviewSignal(token: string, signalId: string, status: "approved" | "rejected") {
+export async function reviewSignal(
+  token: string,
+  signalId: string,
+  status: "approved" | "rejected",
+  reviewedBy = "admin",
+) {
   return withMockFallback(
     () =>
       request(`/api/admin/signals/${signalId}/review`, z.object({ status: z.string(), detail: z.string().optional() }), {
         method: "PATCH",
         headers: authHeaders(token),
-        body: JSON.stringify({ status, enters_model: status === "approved" }),
+        body: JSON.stringify({ status, enters_model: status === "approved", reviewed_by: reviewedBy }),
       }),
     { status: "ok" },
   );

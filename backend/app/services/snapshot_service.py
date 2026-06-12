@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
+import re
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +107,23 @@ def save_pre_match_snapshot(
 
     snapshot_id = str(uuid.uuid4())
     freeze_dt = datetime.now(timezone.utc).isoformat()
+    if not _is_uuid_like(match_id):
+        resolved = _resolve_match_id_best_effort(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            kickoff_at=kickoff_at,
+        )
+        if resolved:
+            match_id = resolved
+        else:
+            logger.warning(
+                "PreMatchSnapshot not saved for %s vs %s: missing or invalid match_id=%r",
+                home_team,
+                away_team,
+                match_id,
+            )
+            return None
 
     # ── Compute input_hash for tamper-evidence / dedup ──
     input_payload = json.dumps({
@@ -250,6 +268,36 @@ def _json_dump(obj: Any) -> str | None:
     try:
         return json.dumps(obj, ensure_ascii=False, default=str)
     except (TypeError, ValueError):
+        return None
+
+
+def _is_uuid_like(value: str) -> bool:
+    """Accept UUIDs stored either dashed or as 32 hex chars."""
+    clean = str(value or "").replace("-", "").strip()
+    return bool(re.fullmatch(r"[0-9a-fA-F]{32}", clean))
+
+
+def _resolve_match_id_best_effort(
+    *,
+    home_team: str,
+    away_team: str,
+    competition: str,
+    kickoff_at: str,
+) -> str | None:
+    """Resolve match_id without letting resolver failures block prediction."""
+    try:
+        from app.services.match_resolver import resolve_match_id
+
+        resolved = resolve_match_id(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            kickoff_at=kickoff_at,
+            db_path=DB_PATH,
+        )
+        return resolved.match_id if resolved else None
+    except Exception:
+        logger.debug("match_id resolver skipped for PreMatchSnapshot", exc_info=True)
         return None
 
 

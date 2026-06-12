@@ -1,5 +1,39 @@
 # Changelog
 
+## V3.5测试版 gpt5.5 — 闭环门禁 + 数据绑定 + 回测基线 + 仓库清理 (2026-06-13)
+
+Focus:
+
+- **独立赛果验证** — `user_provided` 只做人工备注，不再和单一来源组成自动学习 consensus
+- **快照契约收紧** — 标准化 prediction snapshot 字段；无真实 `match_id` 不进入复盘和学习
+- **match resolver / backfill** — 新增保守比赛解析器和历史快照回填脚本
+- **proper scoring 指标** — 新增 log loss、Brier、RPS 统一评估工具
+- **walk-forward scaffold** — 支持 current fusion、DC、Elo、Pi、Weibull、tabular、market、uniform baseline 对比
+- **闭环审计** — 新增 closed-loop integrity audit，暴露快照、赔率、学习日志的可追溯缺口
+- **WC26 绑定** — 小组赛 72/72 场已绑定内部 team id；淘汰赛保持动态 TBD
+- **仓库大扫除** — 删除可再生成缓存、依赖目录、构建产物和重复旧库；非核心素材归档到 `_archive/`
+- **README 重写** — GitHub 首页改为 V3.5 测试版状态，明确当前不是完整闭环/自进化系统
+
+Files:
+
+- MOD: `backend/app/version.py` (3.5.0-test-gpt5.5)
+- MOD: `backend/app/services/result_verification.py`, `snapshot_store.py`, `snapshot_service.py`, `learning_engine.py`, `prediction_result.py`
+- NEW: `backend/app/services/evaluation_metrics.py`, `match_resolver.py`
+- NEW: `backend/scripts/audit_closed_loop_integrity.py`, `backfill_match_ids.py`, `bind_wc26_group_slots.py`, `walk_forward_backtest.py`
+- MOD: `backend/scripts/audit_data_freshness.py`
+- NEW: `backend/tests/test_evaluation_metrics.py`, `test_match_resolver.py`, `test_snapshot_store_contract.py`
+- MOD: `apps/web/src/lib/api.ts`
+- MOD: `README.md`, `docs/CURRENT_STATUS.md`, `scripts/start_dashboard.ps1`
+
+Notes:
+
+- Backend validation before dependency cleanup: 184 passed
+- Frontend production build before dependency cleanup: passed
+- Local dependency directories are intentionally not committed; run `pip install -r backend/requirements.txt` and `npm ci` after clone
+- Remaining data debt is explicit: legacy snapshots without `match_id`, sparse odds binding, and incomplete xG provenance
+
+---
+
 ## V2.9 — Conservative: Brier 标准化 + 保守权重 + Phase 0 审计修复 (2026-06-08)
 
 Focus:

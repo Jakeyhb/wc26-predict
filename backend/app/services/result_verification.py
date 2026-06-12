@@ -1,8 +1,8 @@
-"""ResultVerificationService — verify match scores via multi-source consensus.
+"""ResultVerificationService — verify match scores via independent consensus.
 
 Pattern:
 1. Callers add source claims via add_source_result()
-2. build_consensus() groups by (home_goals, away_goals), checks for 2+ agreement
+2. build_consensus() groups by score and requires 2+ trusted independent sources
 3. is_verified() returns whether a verified consensus exists for the match
 
 Usage:
@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -29,6 +30,20 @@ logger = logging.getLogger(__name__)
 # Match statuses considered "finished" for verification purposes
 _FINISHED_STATUSES = frozenset({"FT", "Finished", "Final", "full_time", "finished"})
 
+# Source names in this list are useful as audit notes, but they are not
+# independent external evidence and must never help verify a result.
+_UNTRUSTED_SOURCE_FAMILIES = frozenset(
+    {
+        "userprovided",
+        "userinput",
+        "manual",
+        "manualinput",
+        "manualinject",
+        "humanprovided",
+        "claudecodewebsearch",
+    }
+)
+
 
 # ── source tier constants ──────────────────────────────────────────────
 
@@ -40,6 +55,31 @@ class SourceTier:
     REPUTABLE_MEDIA = 4         # ESPN, BBC, Sky Sports
     AGGREGATOR = 5              # FlashScore, LiveScore
     OTHER = 6                   # Claude Code Web Search, user input
+
+
+def _source_family(source_name: str) -> str:
+    """Normalize a source name into a coarse independence family."""
+    return re.sub(r"[^a-z0-9]", "", source_name.lower())
+
+
+def _is_trusted_independent_source(row: MatchResultVerification) -> bool:
+    """Return whether a source row can count toward verified consensus."""
+    if row.source_tier >= SourceTier.OTHER:
+        return False
+    return _source_family(row.source_name) not in _UNTRUSTED_SOURCE_FAMILIES
+
+
+def _independent_trusted_rows(
+    rows: list[MatchResultVerification],
+) -> list[MatchResultVerification]:
+    """Deduplicate trusted source rows by independence family."""
+    selected: dict[str, MatchResultVerification] = {}
+    for row in sorted(rows, key=lambda r: (r.source_tier, r.source_name)):
+        if not _is_trusted_independent_source(row):
+            continue
+        family = _source_family(row.source_name)
+        selected.setdefault(family, row)
+    return list(selected.values())
 
 
 # ── dataclass ───────────────────────────────────────────────────────────
@@ -128,8 +168,9 @@ class ResultVerificationService:
     ) -> ConsensusResult | None:
         """Build consensus from all non-consensus source rows for this match.
 
-        Groups source rows by (home_goals, away_goals).  If 2+ sources agree
-        on the same score, creates a consensus row and links source rows to it.
+        Groups source rows by (home_goals, away_goals).  If 2+ trusted,
+        independent source families agree on the same score, creates a
+        consensus row and links the contributing trusted source rows to it.
 
         Args:
             db: Active async database session.
@@ -137,7 +178,7 @@ class ResultVerificationService:
 
         Returns:
             ConsensusResult if at least one source row exists, else None.
-            is_verified=True only when 2+ sources agree.
+            is_verified=True only when 2+ trusted independent sources agree.
         """
         # Read all non-consensus source rows for this match
         result = await db.execute(
@@ -160,16 +201,22 @@ class ResultVerificationService:
             key = (row.home_goals, row.away_goals)
             groups.setdefault(key, []).append(row)
 
-        # Find the group with the most sources
-        best_group = max(groups.values(), key=len)
+        # Find the score group with the most trusted independent evidence.
+        # User-provided and other tier-6 rows remain visible in the audit trail
+        # but cannot help a result enter the learning loop.
+        best_group = max(
+            groups.values(),
+            key=lambda group: (len(_independent_trusted_rows(group)), len(group)),
+        )
         best_score = (best_group[0].home_goals, best_group[0].away_goals)
-        source_count = len(best_group)
+        trusted_group = _independent_trusted_rows(best_group)
+        source_count = len(trusted_group)
 
-        # Verified requires 2+ independent sources
+        # Verified requires 2+ trusted independent source families
         is_verified = source_count >= 2
 
         if not is_verified:
-            source_names = sorted({r.source_name for r in best_group})
+            source_names = sorted({r.source_name for r in trusted_group or best_group})
             return ConsensusResult(
                 match_id=match_id,
                 home_goals=best_score[0],
@@ -180,22 +227,25 @@ class ResultVerificationService:
             )
 
         # Create consensus row
-        source_names = sorted({r.source_name for r in best_group})
+        source_names = sorted({r.source_name for r in trusted_group})
         consensus = MatchResultVerification(
             match_id=match_id,
             home_goals=best_score[0],
             away_goals=best_score[1],
             source_name="|".join(source_names),
-            source_tier=min(r.source_tier for r in best_group),
+            source_tier=min(r.source_tier for r in trusted_group),
             match_status_at_source="FT",
             is_consensus=True,
-            notes=f"Consensus from {source_count} sources: {', '.join(source_names)}",
+            notes=(
+                f"Consensus from {source_count} trusted independent sources: "
+                f"{', '.join(source_names)}"
+            ),
         )
         db.add(consensus)
         await db.flush()
 
         # Link source rows to the consensus row
-        for row in best_group:
+        for row in trusted_group:
             row.consensus_for_id = consensus.id
 
         await db.flush()
@@ -235,11 +285,18 @@ class ResultVerificationService:
                     MatchResultVerification.match_id == match_id,
                     MatchResultVerification.is_consensus == True,  # noqa: E712
                 )
-            ).limit(1)
+            )
         )
-        row = result.scalar_one_or_none()
-        if row is not None:
-            return (True, row.id)
+        consensus_rows = list(result.scalars().all())
+        for row in consensus_rows:
+            source_result = await db.execute(
+                select(MatchResultVerification).where(
+                    MatchResultVerification.consensus_for_id == row.id
+                )
+            )
+            linked_sources = list(source_result.scalars().all())
+            if len(_independent_trusted_rows(linked_sources)) >= 2:
+                return (True, row.id)
         return (False, None)
 
     @staticmethod

@@ -39,7 +39,6 @@ class _IntegrationFixture:
         self.match_id = uuid.uuid4()
 
     async def setup(self):
-        await self.engine.connect()
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
@@ -281,6 +280,56 @@ class TestResultVerificationIntegration:
                     assert consensus.home_goals == 3
                     assert consensus.away_goals == 0
                     assert consensus.verification_id is not None
+            finally:
+                await fix.teardown()
+        _run_async(_test())
+
+    def test_user_provided_does_not_verify_with_one_trusted_source(self):
+        async def _test():
+            fix = _IntegrationFixture()
+            await fix.setup()
+            try:
+                async with fix.session() as db:
+                    await fix.service.add_source_result(
+                        db, fix.match_id, 2, 0, "match_results_import", SourceTier.REPUTABLE_DATA_PROVIDER, "FT"
+                    )
+                    await fix.service.add_source_result(
+                        db, fix.match_id, 2, 0, "user_provided", SourceTier.OTHER, "Finished"
+                    )
+                    await db.commit()
+
+                    consensus = await fix.service.build_consensus(db, fix.match_id)
+                    assert consensus is not None
+                    assert consensus.is_verified is False
+                    assert consensus.source_count == 1
+                    assert consensus.verification_id is None
+
+                    verified, vid = await fix.service.is_verified(db, fix.match_id)
+                    assert verified is False
+                    assert vid is None
+            finally:
+                await fix.teardown()
+        _run_async(_test())
+
+    def test_duplicate_source_family_does_not_verify(self):
+        async def _test():
+            fix = _IntegrationFixture()
+            await fix.setup()
+            try:
+                async with fix.session() as db:
+                    await fix.service.add_source_result(
+                        db, fix.match_id, 1, 1, "FIFA", SourceTier.OFFICIAL_COMPETITION, "FT"
+                    )
+                    await fix.service.add_source_result(
+                        db, fix.match_id, 1, 1, "fifa", SourceTier.OFFICIAL_COMPETITION, "Finished"
+                    )
+                    await db.commit()
+
+                    consensus = await fix.service.build_consensus(db, fix.match_id)
+                    assert consensus is not None
+                    assert consensus.is_verified is False
+                    assert consensus.source_count == 1
+                    assert consensus.source_names == ["FIFA"]
             finally:
                 await fix.teardown()
         _run_async(_test())

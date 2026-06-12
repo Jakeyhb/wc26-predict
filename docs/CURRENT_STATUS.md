@@ -1,115 +1,91 @@
 # WC26 Predict — 当前项目状态
 
-> 这是项目唯一权威状态文件。所有其他文档如与本文档冲突，以本文档为准。
-> 最后更新：2026-06-09 | 当前发布：V2.9 Conservative
-
----
+> 这是项目的状态总览。若 README、CHANGELOG 与本文档冲突，以 `backend/app/version.py` 和最新 CHANGELOG 为准。
+> 最后更新：2026-06-13 | 当前发布：V3.5测试版 gpt5.5
 
 ## 发布信息
 
 | 字段 | 值 |
 |---|---|
-| Version | 2.9.0-conservative |
-| Tag | v2.9-conservative |
-| Build Name | V2.9 Conservative — Brier标准化 + FRIENDLY_V4 保守权重 + 版本统一 |
-| 定位 | 本地 AI 增强分析工作台 — 模型预测 + 市场赔率 + 天气 + DeepSeek 内容生成 |
-| 测试 | 146 passed |
+| Version | `3.5.0-test-gpt5.5` |
+| Tag | `v3.5-test-gpt5.5` |
+| Build Name | `V3.5测试版 gpt5.5 — 闭环门禁 + match_id绑定 + walk-forward评估 + 仓库清理` |
+| 当前阶段 | Phase 0B：闭环数据链路修复 |
+| 后端验证 | 184 passed（仓库清理前完整运行） |
+| 前端验证 | production build passed（仓库清理前完整运行） |
+| 当前定位 | 可审计的世界杯概率预测研究系统，不是博彩工具 |
 
-## 包含范围
+## 当前阶段判断
 
-- 4 模型融合预测引擎（DC + Enhancer + κ-Elo + Pi-Rating）
-- FusionGraph 顺序融合（DC → Enhancer → Elo → Pi → normalize）
-- **市场赔率接入**（apifootball.com + The Odds API）
-- **实时天气**（Open-Meteo 免费 API，13 个 WC26 场馆）
-- **DeepSeek V4 Pro AI 分析**（赛前分析文章 + 视频口播脚本 + 社媒文案）
-- Artifact 推理架构（离线训练 → 本地加载 → 纯数学计算）
-- 48 队硬事实校验 + 104 场 WC26 赛程
-- Monte Carlo 赛事模拟器
-- Streamlit Dashboard（8 页面全中文）
-- 赛后复盘引擎（Brier / LogLoss / RPS / 方向准确率 / 比分命中）
-- 自进化引擎（per-match error attribution + signal tracking + market divergence log）
-- 统一检查脚本 `scripts/run_checks.ps1`
+系统已经具备闭环门禁雏形，但还不是完整闭环，也不能称为可信自进化系统。
 
-## Phase 0 修复历史（V2.7 → V2.9）
+已完成：
 
-> **状态**: 全部已 commit 并推送至 `phase-0-baseline` 分支。PR #1 待合并至 master。
+- 独立赛果验证收紧：至少两个可信独立来源一致才进入自动学习。
+- `user_provided` 降级为人工备注，不参与 consensus。
+- 快照字段标准化，新增 `match_id` 强约束。
+- 无真实 `match_id` 的预测不允许进入复盘和学习。
+- 新增 proper scoring 指标：log loss、Brier、RPS。
+- 新增 walk-forward 回测脚手架。
+- 新增闭环完整性审计脚本。
+- WC26 小组赛 72/72 场绑定内部 team id。
+- 完成仓库清理，删除可再生成依赖、缓存、构建产物和重复旧库。
 
-| 编号 | 版本 | 问题 | 修复 | 文件 |
-|------|------|------|------|------|
-| C3 | V2.9 | Brier Score 计算错误 — 所有评估值被除以 3 | 移除 `/3` 除法，重校评级阈值 (C: <0.67, D: <1.05, F: ≥1.05) | `dixon_coles.py`, `postmatch.py`, `learning_engine.py`, `workers/tasks.py`, `seed_predictions.py` |
-| C1 | V2.9 | V2.8 权重基于单场 BEL-TUN 过拟合（Enhancer 57% 降幅，Elo 12× 增幅） | 回滚到 V2.9 保守权重 (FRIENDLY_ADJUSTED_V4: dc=0.35, enhancer=0.25, elo=0.15, pi=0.15) | `weights.py` |
-| C4 | V2.9 | 版本号在 3 处硬编码（"1.0.0", "2.0.0", "1.5"）与 version.py 脱节 | 全部改为读取 `app.version.VERSION` | `main.py`, `snapshot_store.py`, `prediction_result.py` |
-| H1 | V2.9 | 12 处 `except Exception: pass` 静默吞错误 | 替换为 `logger.warning("...", exc_info=True)` | `prediction_pipeline.py`, `prediction_orchestrator.py`, `elo_ratings.py`, `learning_engine.py`, `database.py` 等 |
-| — | V2.9 | Shin 公式错误（线性近似） | 替换为 Shin (1993) 正确公式 | `market/probability.py` |
-| — | V2.9 | asyncio.run() 在已存在事件循环中崩溃 | 添加事件循环检测 + degraded 标记 | `prediction_enhanced.py`, `sync_provider.py`, `weather_service.py` |
-| — | V2.9 | Tournament 模拟器冠军计数器 bug | `team` → `champion` 变量修复 | `tournament_simulator.py` |
-| — | V2.9 | predictions 路由内存泄漏 + 竞态条件 | asyncio.Lock + 过期 job 自动清理 | `routers/predictions.py` |
-| — | V2.9 | analysis 路由阻塞事件循环 | sync sqlite3 → asyncio.to_thread() | `routers/analysis.py` |
+仍未完成：
 
-### V2.7 — 友谊赛自进化（已 commit: `6929591`）
+- 大量历史 `pre_match_snapshots`、`prediction_snapshots` 仍缺少 `match_id`。
+- 赔率数据大部分尚未绑定真实比赛。
+- xG 大量依赖 fallback 或缺少可信 provenance。
+- Phase 1 评估工具已存在，但 champion/challenger 决策门尚未真正落地。
+- 自学习只能生成候选方向，不能自动覆盖线上模型。
 
-- 基于 3 场友谊赛赛后数据，自动调整 FRIENDLY 权重
-- Enhancer 在友谊赛中权重偏高（0.42），倾向弱队过高
+## 当前数据审计结论
 
-### V2.8 — BEL-TUN 单场适应（已 commit: `f0012ab`）
+最近一次本地审计显示：
 
-- 受 Belgium 5-0 Tunisia 比赛强烈影响
-- Enhancer 从 0.42 → 0.18（-57%），Elo 从 0.02 → 0.24（×12）
-- **结论：样本量不足（n=1 主导），已由 V2.9 取代**
+| 项目 | 状态 |
+|---|---|
+| WC26 小组赛绑定 | 72/72 |
+| WC26 全赛程绑定 | 72/104，淘汰赛 TBD |
+| prediction snapshots 缺 `match_id` | 25 |
+| pre-match snapshots 缺 `match_id` | 213 |
+| 赔率绑定 | 仅少量样本绑定真实比赛 |
+| active learning traceability | 仍需补 `prediction_run_id` / `match_id` 链路 |
 
-## Phase 0 agent 基础设施（新，未 commit）
+这些问题不会阻塞代码开发，但会阻塞“系统已经更准”的结论。
 
-| Ticket | 内容 | 文件 |
-|--------|------|------|
-| 0.1A | CLAUDE.md 重写 — Claude Code ticket 执行规则 | `CLAUDE.md` |
-| 0.1B | AGENTS.md 整理 — 所有 agent 通用项目规则 | `AGENTS.md` |
-| 0.2 | 统一检查脚本 `run_checks.ps1`（FailFast + ReportOnly） | `scripts/run_checks.ps1` |
+## 当前优先级
 
-## 当前已知问题
+1. 回填和强制 `match_id` 绑定。
+2. 补齐 WC26 赛程、球队、比赛映射。
+3. 扩展 walk-forward baseline 对比。
+4. 统一预测入口到 `PredictionPipeline`。
+5. 接入真实 xG、阵容、伤停、赔率快照。
+6. 修 tabular 泄漏并重建校准。
+7. 做 champion/challenger 发布门。
+8. 做自动复盘和候选学习报告。
 
-| 编号 | 问题 | 状态 |
-|------|------|------|
-| H2 | 7 文件绕过 ORM 直连 SQLite（`prediction_core.py`, `elo_ratings.py`, `weights.py`, `skellam.py`, `tournament_simulator.py`, `routers/analysis.py`, `learning_engine.py`） | 推迟 — Phase 2 |
-| C2 | 5 个活跃 API Key 明文存储在 `.env` 文件 | 需用户自行轮换 |
-| C5 | ADMIN_TOKEN = "change-me" 未更改 | 需用户自行操作 |
-| M1-M7 | Dashboard 直连 service、PUBLIC_SAFE 过阻、Pi-Rating 启发式常量、PostgreSQL 密码硬编码、Celery SQLite broker、pickle 缓存过期、analysis.py 重复实现 DeepSeek | 推迟 |
+## 验收命令
 
-### 已修复（Phase 0+ 完整审计修复）
+```powershell
+cd backend
+python -m pytest tests/ -q
+python scripts/audit_data_freshness.py
+python scripts/audit_closed_loop_integrity.py
+python scripts/walk_forward_backtest.py --min-sample 5
+```
 
-| 编号 | 问题 | 修复 |
-|------|------|------|
-| H4 | Shin Vig 去除公式 `(1-z)/odds` 数学错误 | ✅ 替换为 Shin (1993) 正确公式 |
-| H3 | 3 处 `asyncio.run()` 事件循环冲突 | ✅ 事件循环检测 + degraded flag |
-| — | 73 个 `print()` 散布在 13 个 service 文件 | ✅ 全部迁移为 `logger.info/warning` |
-| — | 14 处 `except: pass` 静默吞错 | ✅ 全部替换为 `logger.warning/logging.debug` |
-| — | 6 项文档版本漂移 | ✅ README/CHANGELOG/CURRENT_STATUS/AGENTS/PRD/banner 同步至 V2.9 |
-| — | Tournament 模拟器冠军计数器 bug | ✅ `team` → `champion` 变量修复 |
-| — | predictions 路由内存泄漏 + 竞态 | ✅ `asyncio.Lock` + 过期 job 清理 |
-| — | analysis 路由阻塞事件循环 | ✅ sync sqlite3 → `asyncio.to_thread()` |
-
-## Next Planned
-
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| **Phase 0** | 建立可验证基线 | ✅ 完成 — 0.1A, 0.1B, 0.2, 0.3 全部完成 |
-| **Phase 0+** | 审计修复 (H4 Shin, H3 asyncio, print→logger, 静默异常) | ✅ 完成 — 全部修复并 commit |
-| **Phase 1** | 预测入口盘点 + pipeline contract | ✅ 完成 — Ticket 1.1 + 1.2 |
-| **Phase 2** | data_sources/ 模块 + pre_match_snapshot | **未执行** |
-| **Phase 3** | match_fact + 富赛后复盘 | **未执行** |
-| **Phase 4** | 学习闭环 + replay harness | **未执行** |
-| **Phase 5** | LLM 报告层重构 | **未执行** |
+```powershell
+npm ci
+npm run build
+```
 
 ## 版本历史
 
-| 版本 | 核心突破 | 测试数 |
+| 版本 | 核心突破 | 状态 |
 |---|---|---|
-| V1.8 | WC26 数据结构 + CI 扩展 | 33 |
-| V1.91 | 硬事实层 + 管线接口 | 42 |
-| V2.0 | Artifact 推理 (937× 提速) | 42 |
-| V2.2 | FusionGraph + 回测 + 模拟器 | 84 |
-| V2.4 | Streamlit Dashboard + prediction_core | 91 |
-| V2.5 | Local Demo Release — 收口冻结 | 91 |
-| V2.6 | Enhanced — 实时数据 + LLM 分析 | 118 |
-| V2.7 | 友谊赛自进化 (3 场) | 118 |
-| V2.8 | BEL-TUN 单场适应 (已回滚) | 118 |
-| **V2.9** | **Conservative — Brier标准化 + FRIENDLY_V4 + 版本统一** | **118** |
+| V3.5测试版 gpt5.5 | 闭环门禁、match_id 绑定、proper scoring、walk-forward scaffold、仓库清理 | 当前主版本 |
+| V2.9 | Brier 标准化、FRIENDLY_V4 保守权重、版本统一 | 已取代 |
+| V2.8 | BEL-TUN 单场适应 | 已回滚，单场过拟合 |
+| V2.7 | 友谊赛自进化雏形 | 已收敛到保守门禁 |
+| V2.6 | 实时数据 + LLM 分析 | 基础能力保留 |

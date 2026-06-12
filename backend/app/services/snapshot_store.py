@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import uuid as _uuid
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
@@ -33,12 +34,14 @@ async def save_prediction_snapshot(
     Also writes a PredictionRun record so the RPS optimizer (optimize_weights.py)
     and Celery postmatch_eval tasks can find this prediction via prediction_runs.
     """
+    result = _normalize_prediction_result(result)
     m = result["meta"]
     p = result["prediction"]
     e = result["elo"]
+    match_id_raw = _resolve_or_require_match_id(m)
 
     # Determine confidence level
-    missing_count = len(result.get("missing_data", []))
+    missing_count = len(result.get("missing_inputs", []))
     if missing_count <= 1:
         confidence = "medium"
     elif missing_count <= 3:
@@ -54,7 +57,7 @@ async def save_prediction_snapshot(
         conf_score = 0.65
 
     snapshot = PredictionSnapshot(
-        match_id=m.get("match_id", ""),
+        match_id=match_id_raw,
         run_type=run_type,
         model_version=VERSION,
         home_team=m["home_team"],
@@ -87,9 +90,7 @@ async def save_prediction_snapshot(
             "k_factor": e["k_factor"],
         },
         active_event_ids=[],
-        missing_inputs=[
-            item["item"] for item in result.get("missing_data", [])
-        ],
+        missing_inputs=[str(item) for item in result.get("missing_inputs", [])],
         confidence=confidence,
         calibration_monitor=p.get("calibration_monitor"),
         pipeline_params={
@@ -133,8 +134,10 @@ async def _sync_to_prediction_runs(
     adjustment_log = adj.get("log", [])
 
     # Normalize match_id to UUID format (add dashes if missing)
-    match_id_raw = m.get("match_id", "")
+    match_id_raw = _resolve_or_require_match_id(m)
     match_uuid = _normalize_uuid(match_id_raw)
+    if match_uuid is None:
+        raise ValueError(f"Cannot sync prediction run with invalid match_id={match_id_raw!r}")
 
     # Map run_type string to PredictionRunType enum value
     run_type_map = {
@@ -182,7 +185,7 @@ async def _sync_to_prediction_runs(
                 ),
                 {
                     "id": pred_run_id,
-                    "match_id": match_uuid if match_uuid else pred_run_id,
+                    "match_id": match_uuid,
                     "run_type": prt_value,
                     "model_version": VERSION,
                     "as_of_time": now_ts,
@@ -218,6 +221,67 @@ def _normalize_uuid(raw: str) -> str | None:
     if len(clean) != 32:
         return None
     return f"{clean[:8]}-{clean[8:12]}-{clean[12:16]}-{clean[16:20]}-{clean[20:]}"
+
+
+def _require_match_id(raw: Any) -> str:
+    """Return a non-empty UUID-like match id or raise before saving."""
+    match_id = str(raw or "").strip()
+    if not match_id:
+        raise ValueError("Prediction snapshots require a real match_id")
+    if _normalize_uuid(match_id) is None:
+        raise ValueError(f"Prediction snapshots require a UUID-like match_id, got {match_id!r}")
+    return match_id
+
+
+def _resolve_or_require_match_id(meta: dict[str, Any]) -> str:
+    """Resolve match id from metadata before enforcing the closed-loop gate."""
+    raw = str(meta.get("match_id") or "").strip()
+    if _normalize_uuid(raw) is not None:
+        return raw
+    try:
+        from app.services.match_resolver import resolve_match_id
+
+        resolved = resolve_match_id(
+            home_team=str(meta.get("home_team") or ""),
+            away_team=str(meta.get("away_team") or ""),
+            competition=str(meta.get("competition") or ""),
+            kickoff_at=str(meta.get("match_date") or ""),
+            stage=str(meta.get("stage") or ""),
+        )
+        if resolved:
+            return resolved.match_id
+    except Exception:
+        logging.getLogger(__name__).debug("match_id resolver skipped", exc_info=True)
+    return _require_match_id(raw)
+
+
+def _normalize_prediction_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Normalize legacy/canonical result keys at the persistence boundary."""
+    normalized = deepcopy(result)
+    prediction = normalized.setdefault("prediction", {})
+    elo = normalized.setdefault("elo", {})
+
+    if "top3_scores" not in prediction and "top_scores" in prediction:
+        prediction["top3_scores"] = prediction.get("top_scores") or []
+    if "top_scores" not in prediction and "top3_scores" in prediction:
+        prediction["top_scores"] = prediction.get("top3_scores") or []
+
+    if "rating_gap" not in elo and "elo_gap" in elo:
+        elo["rating_gap"] = elo.get("elo_gap")
+    if "k_factor" not in elo:
+        detail = elo.get("detail") or {}
+        elo["k_factor"] = detail.get("k_factor", 0.0)
+
+    missing_inputs = normalized.get("missing_inputs")
+    if missing_inputs is None:
+        missing_inputs = []
+        for item in normalized.get("missing_data", []):
+            if isinstance(item, dict):
+                missing_inputs.append(str(item.get("item", item)))
+            else:
+                missing_inputs.append(str(item))
+    normalized["missing_inputs"] = missing_inputs
+    return normalized
 
 
 def _build_score_matrix(home_xg: float, away_xg: float, max_goals: int = 5) -> list[list[float]]:

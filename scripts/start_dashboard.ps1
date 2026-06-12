@@ -7,7 +7,8 @@ param(
     [string]$Address = "localhost"
 )
 
-$ProjectRoot = "D:\hermes agent\2026世界杯分析\backend"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..\backend")).Path
 
 # Check project root exists
 if (-not (Test-Path $ProjectRoot)) {
@@ -36,7 +37,7 @@ $env:PYTHONIOENCODING = "utf-8"
 Set-Location $ProjectRoot
 
 Write-Host "============================================="
-Write-Host "  WC26 Predict Local Studio v2.9"
+Write-Host "  WC26 Predict Local Studio V3.5 test"
 Write-Host "============================================="
 Write-Host "  Port:     $Port"
 Write-Host "  URL:      http://${Address}:${Port}"

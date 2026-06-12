@@ -15,10 +15,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.prediction_snapshot import PredictionSnapshot
+from app.models.prediction_run import PredictionRun
 from app.models.prediction_learning_log import PredictionLearningLog
 from app.models.signal_track_record import SignalTrackRecord
 from app.models.context_performance_matrix import ContextPerformanceMatrix
@@ -45,6 +47,26 @@ def _result_index(home_goals: int, away_goals: int) -> int:
     return 2
 
 
+def _is_uuid_like(value: str | None) -> bool:
+    """Accept UUIDs stored either dashed or as 32 hex chars."""
+    if not value:
+        return False
+    try:
+        UUID(str(value))
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _coerce_probs(probs: dict[str, Any]) -> dict[str, float]:
+    """Normalize component probability field names."""
+    return {
+        "home": float(probs.get("home", probs.get("home_win_prob", 0.33))),
+        "draw": float(probs.get("draw", probs.get("draw_prob", 0.33))),
+        "away": float(probs.get("away", probs.get("away_win_prob", 0.33))),
+    }
+
+
 class LearningEngine:
     """Per-match learning: error attribution, signal tracking, context updates."""
 
@@ -69,6 +91,12 @@ class LearningEngine:
 
         Returns the created PredictionLearningLog record.
         """
+        if not _is_uuid_like(snapshot.match_id):
+            raise ValueError(
+                f"Learning requires a UUID-like match_id; snapshot={snapshot.id} "
+                f"has match_id={snapshot.match_id!r}"
+            )
+
         actual_index = _result_index(home_goals, away_goals)
 
         # 1. Error attribution
@@ -111,19 +139,26 @@ class LearningEngine:
 
         component = snapshot.component_probs or {}
         components = {}
-        for key in ["dc", "enhancer", "elo"]:
+        for key in ["dc", "enhancer", "elo", "pi", "pi_rating", "weibull", "market", "signals"]:
             probs = component.get(key, {})
             if probs:
-                components[key] = {
-                    "home": probs.get("home", 0.33),
-                    "draw": probs.get("draw", 0.33),
-                    "away": probs.get("away", 0.33),
-                }
+                components[key] = _coerce_probs(probs)
+        if snapshot.market_probs:
+            components.setdefault("market", _coerce_probs(snapshot.market_probs))
 
         # Weights from unified config source
         from app.services.weights import get_weight_config
         wc = get_weight_config("FIFA World Cup 2026")
-        weights = {"dc": wc.dc, "enhancer": wc.enhancer, "elo": wc.elo}
+        weights = {
+            "dc": wc.dc,
+            "enhancer": wc.enhancer,
+            "elo": wc.elo,
+            "pi": wc.pi,
+            "pi_rating": wc.pi,
+            "weibull": wc.weibull,
+            "market": wc.market_max,
+            "signals": 0.0,
+        }
 
         # Leave-one-out marginal contributions
         dc_marginal = None
@@ -148,6 +183,14 @@ class LearningEngine:
             if without_elo:
                 elo_marginal = _brier(without_elo, actual_index) - final_brier
 
+            without_market = self._fuse_without(components, weights, exclude="market")
+            if without_market and "market" in components:
+                market_marginal = _brier(without_market, actual_index) - final_brier
+
+            without_signal = self._fuse_without(components, weights, exclude="signals")
+            if without_signal and "signals" in components:
+                signal_marginal = _brier(without_signal, actual_index) - final_brier
+
         # Old proportional fields — keep for backward compat, set to None
         dc_contrib = None
         enhancer_contrib = None
@@ -169,6 +212,7 @@ class LearningEngine:
 
         # Resolve learning status from verification state
         learning_status = await self._resolve_learning_status(db, verified_result_id)
+        prediction_run_id = await self._resolve_prediction_run_id(snapshot, db)
 
         # Delete any previous log for this snapshot (idempotent)
         if snapshot.id:
@@ -180,6 +224,7 @@ class LearningEngine:
 
         log = PredictionLearningLog(
             match_id=snapshot.match_id or None,
+            prediction_run_id=prediction_run_id,
             snapshot_id=snapshot.id or None,
             status=learning_status,
             error_magnitude=final_brier,
@@ -243,6 +288,24 @@ class LearningEngine:
             verified_result_id,
         )
         return "pending_review"
+
+    async def _resolve_prediction_run_id(
+        self,
+        snapshot: PredictionSnapshot,
+        db: AsyncSession,
+    ) -> str | None:
+        """Best-effort link from a script snapshot to the canonical prediction run."""
+        if not _is_uuid_like(snapshot.match_id):
+            return None
+        match_uuid = UUID(str(snapshot.match_id))
+        result = await db.execute(
+            select(PredictionRun)
+            .where(PredictionRun.match_id == match_uuid)
+            .order_by(PredictionRun.created_at.desc())
+            .limit(1)
+        )
+        run = result.scalar_one_or_none()
+        return str(run.id) if run is not None else None
 
     @staticmethod
     def _fuse_without(

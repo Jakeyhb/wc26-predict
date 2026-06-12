@@ -64,6 +64,7 @@ class PredictionResult:
     home_team: str
     away_team: str
     competition: str
+    match_id: str = ""
     is_neutral: bool = False
     match_date: str = ""  # ISO format date string
     stage: str = ""
@@ -157,6 +158,7 @@ class PredictionResult:
         wc = self.weight_config
         return {
             "meta": {
+                "match_id": self.match_id,
                 "home_team": self.home_team,
                 "away_team": self.away_team,
                 "competition": self.competition,
@@ -223,6 +225,7 @@ class PredictionResult:
 
         return cls(
             home_team=str(meta.get("home_team", "")),
+            match_id=str(meta.get("match_id", "")),
             away_team=str(meta.get("away_team", "")),
             competition=str(meta.get("competition", "")),
             is_neutral=bool(meta.get("is_neutral", False)),

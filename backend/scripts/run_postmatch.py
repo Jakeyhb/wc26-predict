@@ -129,7 +129,8 @@ async def run_postmatch(
         )
         print("  + Source 1: match_results_import (tier 3)")
 
-        # Source 2: MUST be independent — either URL-verified or user-attested
+        # Source 2: MUST be independent. User-provided rows are audit notes only
+        # and do not count toward verified consensus.
         second_source_added = False
         if verify_url:
             # Actually fetch the URL and extract the score for true independence

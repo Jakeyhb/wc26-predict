@@ -82,6 +82,22 @@ def main():
     total_ps = c.fetchone()[0]
     print(f"  Total snapshots: {total_ps}")
 
+    c.execute("SELECT COUNT(*) FROM prediction_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
+    empty_ps_match_id = c.fetchone()[0]
+    print(f"  Prediction snapshots without match_id: {empty_ps_match_id}")
+
+    try:
+        c.execute("SELECT COUNT(*) FROM pre_match_snapshots")
+        total_pre = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM pre_match_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
+        empty_pre_match_id = c.fetchone()[0]
+        print(f"  Pre-match snapshots: {total_pre}")
+        print(f"  Pre-match snapshots without match_id: {empty_pre_match_id}")
+        if empty_pre_match_id:
+            issues.append(f"CRITICAL: {empty_pre_match_id}/{total_pre} pre_match_snapshots have no match_id — cannot enter closed-loop learning")
+    except Exception as e:
+        print(f"  Pre-match snapshot audit skipped: {e}")
+
     c.execute("""
         SELECT COUNT(*) FROM prediction_snapshots ps
         JOIN matches m ON ps.match_id = REPLACE(m.id, '-', '')
@@ -94,6 +110,9 @@ def main():
         issues.append(f"Only {wc26_ps}/72 WC26 group matches have predictions")
     else:
         ok.append("All 72 WC26 group matches have prediction snapshots")
+
+    if empty_ps_match_id:
+        issues.append(f"CRITICAL: {empty_ps_match_id} prediction_snapshots have no match_id — cannot be traced to a match")
 
     if latest_ps:
         ps_dt = datetime.fromisoformat(str(latest_ps).replace("T", " ").split(".")[0])
@@ -150,6 +169,8 @@ def main():
 
     if mo_count == 0:
         issues.append("market_odds is empty — no market data for calibration")
+    elif mo_matches <= 1:
+        issues.append(f"CRITICAL: market_odds has {mo_count} rows but only {mo_matches} linked match(es)")
     else:
         ok.append(f"market_odds has {mo_count} records from {len(providers)} providers")
 
@@ -197,6 +218,52 @@ def main():
         print(f"  standings: error ({e})")
         st_count = 0
 
+    # 7b. WC26 schedule binding
+    print("\n--- 7b. WC26 Schedule Binding ---")
+    try:
+        c.execute("SELECT COUNT(*) FROM wc26_schedule")
+        wc26_schedule_total = c.fetchone()[0]
+        c.execute("""
+            SELECT COUNT(*)
+            FROM wc26_schedule
+            WHERE COALESCE(TRIM(home_team), '') <> ''
+              AND COALESCE(TRIM(away_team), '') <> ''
+        """)
+        wc26_schedule_bound = c.fetchone()[0]
+        print(f"  Bound fixtures: {wc26_schedule_bound}/{wc26_schedule_total}")
+
+        c.execute("SELECT COUNT(*) FROM wc26_schedule WHERE stage = 'Group Stage'")
+        wc26_group_total = c.fetchone()[0]
+        c.execute("""
+            SELECT COUNT(*)
+            FROM wc26_schedule
+            WHERE stage = 'Group Stage'
+              AND COALESCE(TRIM(home_team), '') <> ''
+              AND COALESCE(TRIM(away_team), '') <> ''
+        """)
+        wc26_group_bound = c.fetchone()[0]
+        print(f"  Bound group-stage fixtures: {wc26_group_bound}/{wc26_group_total}")
+
+        c.execute("""
+            SELECT COUNT(*)
+            FROM wc26_groups
+            WHERE COALESCE(TRIM(team_name), '') <> ''
+        """)
+        wc26_group_slots_bound = c.fetchone()[0]
+        print(f"  Bound group slots: {wc26_group_slots_bound}/48")
+
+        if wc26_group_total and wc26_group_bound < wc26_group_total:
+            issues.append(
+                f"CRITICAL: WC26 group schedule has only {wc26_group_bound}/{wc26_group_total} fixtures with both teams bound"
+            )
+        elif wc26_group_total:
+            ok.append(f"WC26 group schedule has {wc26_group_bound}/{wc26_group_total} bound fixtures")
+
+        if wc26_group_slots_bound < 48:
+            issues.append(f"CRITICAL: WC26 groups have only {wc26_group_slots_bound}/48 team slots bound")
+    except Exception as e:
+        print(f"  wc26_schedule audit skipped: {e}")
+
     # 8. Players / squad data
     print("\n--- 8. Player Data ---")
     c.execute("SELECT COUNT(*) FROM players")
@@ -220,7 +287,7 @@ def main():
     critical = any("CRITICAL" in i for i in issues)
     if critical:
         print(f"\n  [CRITICAL] CRITICAL ISSUES DETECTED — must fix before World Cup")
-        print(f"     news_signals=0 is the highest priority gap.")
+        print(f"     Closed-loop data binding and verification gates need attention before learning/promoting models.")
     else:
         print(f"\n  No critical data freshness issues.")
 

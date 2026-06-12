@@ -121,7 +121,8 @@ async def run_complete_postmatch(
         )
         print("  + Source 1: match_results_import (tier 3)")
 
-        # Source 2: URL verification (tier 4) or user-provided (tier 6)
+        # Source 2: URL verification (tier 4) or user-provided audit note (tier 6).
+        # Tier-6 rows do not count toward verified consensus.
         second_source_added = False
         if verify_url:
             print(f"  → Fetching verification URL: {verify_url}")

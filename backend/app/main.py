@@ -86,8 +86,18 @@ async def _check_redis_startup() -> None:
         logger.warning("Redis unavailable on startup; continuing in degraded mode: %s", exc)
 
 
+def _enforce_startup_security() -> None:
+    """Fail closed for unsafe runtime secrets before serving requests."""
+    if settings.admin_token == "change-me":
+        raise RuntimeError(
+            "Refusing to start with ADMIN_TOKEN='change-me'. "
+            "Set ADMIN_TOKEN to a generated secret in backend/.env or .env."
+        )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    _enforce_startup_security()
     await _wait_for_database()
     await _check_redis_startup()
     yield
