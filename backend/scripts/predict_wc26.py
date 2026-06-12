@@ -302,6 +302,8 @@ def _render_markdown(snapshot_dict: dict[str, Any]) -> str:
         lines.append("| 层级 | 主胜 | 平局 | 客胜 |")
         lines.append("|---|---:|---:|---:|")
         for layer, probs in comp_probs.items():
+            if probs is None:
+                continue
             lines.append(
                 f"| {layer} | {probs.get('home', 0) * 100:.1f}% "
                 f"| {probs.get('draw', 0) * 100:.1f}% "
@@ -361,6 +363,23 @@ async def main(home: str, away: str, competition: str, neutral: bool) -> str:
     snapshot_dict = result.to_dict()
     # Inject match_id into metadata (PredictionResult doesn't know DB ID)
     snapshot_dict["meta"]["match_id"] = match_id or ""
+    # save_prediction_snapshot() reads elo.rating_gap, to_dict() writes elo.elo_gap
+    if "elo" in snapshot_dict:
+        snapshot_dict["elo"]["rating_gap"] = snapshot_dict["elo"].get("elo_gap", 0.0)
+        snapshot_dict["elo"]["k_factor"] = snapshot_dict["elo"].get("detail", {}).get("k_factor", 32.0)
+    # save_prediction_snapshot() reads missing_data with item-key, to_dict() writes missing_inputs
+    snapshot_dict["missing_data"] = [
+        {"item": item} for item in snapshot_dict.get("missing_inputs", [])
+    ]
+    # save_prediction_snapshot() reads pipeline params at top level
+    snapshot_dict["pipeline"] = snapshot_dict.get("pipeline_params", {})
+    # save_prediction_snapshot() reads p.top3_scores, to_dict() writes prediction.top_scores
+    pred = snapshot_dict.get("prediction", {})
+    if "top_scores" in pred and "top3_scores" not in pred:
+        pred["top3_scores"] = pred["top_scores"]
+    # save_prediction_snapshot() reads p.calibration_monitor, to_dict() writes it at top level
+    if "calibration_monitor" in snapshot_dict:
+        pred["calibration_monitor"] = snapshot_dict["calibration_monitor"]
 
     # ── Save to DB ──
     try:
