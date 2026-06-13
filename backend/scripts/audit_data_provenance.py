@@ -253,6 +253,88 @@ def audit_market_odds(conn: sqlite3.Connection) -> Check:
     )
 
 
+def audit_postmatch_stats(conn: sqlite3.Connection) -> Check:
+    if not _table_exists(conn, "postmatch_team_stats"):
+        return Check(
+            name="postmatch_stats_provenance",
+            status=STATUS_WARN,
+            message="postmatch_team_stats table is missing; extended real stats are not yet stored",
+            metrics={},
+        )
+
+    columns = _columns(conn, "postmatch_team_stats")
+    total = _count(conn, "SELECT COUNT(*) FROM postmatch_team_stats")
+    distinct_matches = _count(
+        conn,
+        "SELECT COUNT(DISTINCT match_id) FROM postmatch_team_stats WHERE match_id IS NOT NULL AND TRIM(match_id) <> ''",
+    )
+
+    def count_complete(*fields: str) -> int:
+        missing = [field for field in fields if field not in columns]
+        if missing:
+            return 0
+        condition = " AND ".join(f"{field} IS NOT NULL" for field in fields)
+        return _count(conn, f"SELECT COUNT(*) FROM postmatch_team_stats WHERE {condition}")
+
+    with_xg = count_complete("home_xg", "away_xg")
+    with_shots = count_complete("home_shots", "away_shots")
+    with_sot = count_complete("home_shots_on_target", "away_shots_on_target")
+    with_cards = count_complete("home_yellow_cards", "away_yellow_cards", "home_red_cards", "away_red_cards")
+    with_source_time = 0
+    with_available_at = 0
+    provider_count = 0
+    if "source_time" in columns:
+        with_source_time = _count(
+            conn,
+            "SELECT COUNT(*) FROM postmatch_team_stats WHERE source_time IS NOT NULL AND TRIM(source_time) <> ''",
+        )
+    if "available_at" in columns:
+        with_available_at = _count(
+            conn,
+            "SELECT COUNT(*) FROM postmatch_team_stats WHERE available_at IS NOT NULL AND TRIM(available_at) <> ''",
+        )
+    if "provider" in columns:
+        provider_count = _count(
+            conn,
+            "SELECT COUNT(DISTINCT provider) FROM postmatch_team_stats WHERE provider IS NOT NULL AND TRIM(provider) <> ''",
+        )
+
+    match_result_total = _count(conn, "SELECT COUNT(*) FROM match_results") if _table_exists(conn, "match_results") else 0
+    coverage = (distinct_matches / match_result_total) if match_result_total else 0.0
+
+    if total == 0:
+        status = STATUS_WARN
+        message = "postmatch_team_stats is empty; extended real stats are not yet available"
+    elif with_source_time < total or with_available_at < total:
+        status = STATUS_WARN
+        message = "postmatch stats exist but some rows lack source_time or available_at"
+    elif with_xg == 0 or with_shots == 0 or with_sot == 0:
+        status = STATUS_WARN
+        message = "postmatch stats exist but core xG/shot fields are incomplete"
+    else:
+        status = STATUS_OK
+        message = f"postmatch stats have provenance for {distinct_matches} match(es)"
+
+    return Check(
+        name="postmatch_stats_provenance",
+        status=status,
+        message=message,
+        metrics={
+            "total": total,
+            "distinct_matches": distinct_matches,
+            "match_results_total": match_result_total,
+            "coverage": coverage,
+            "rows_with_xg": with_xg,
+            "rows_with_shots": with_shots,
+            "rows_with_shots_on_target": with_sot,
+            "rows_with_cards": with_cards,
+            "rows_with_source_time": with_source_time,
+            "rows_with_available_at": with_available_at,
+            "provider_count": provider_count,
+        },
+    )
+
+
 def audit_pre_match_provenance(conn: sqlite3.Connection) -> Check:
     if not _table_exists(conn, "pre_match_snapshots"):
         return Check(
@@ -504,6 +586,7 @@ def build_report(
     conn.row_factory = sqlite3.Row
     checks = [
         audit_real_xg(conn, min_xg_coverage=min_xg_coverage),
+        audit_postmatch_stats(conn),
         audit_market_odds(conn),
         audit_pre_match_provenance(conn),
         audit_injury_provenance(injuries_path),

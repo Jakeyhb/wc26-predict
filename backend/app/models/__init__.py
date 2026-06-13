@@ -9,6 +9,7 @@ from app.models.news_signal import NewsSignal
 from app.models.player import Player
 from app.models.postmatch_eval import PostmatchEval
 from app.models.postmatch_signal_eval import PostmatchSignalEval
+from app.models.postmatch_team_stats import PostmatchTeamStats
 from app.models.prediction_run import PredictionRun
 from app.models.prediction_snapshot import PredictionSnapshot
 from app.models.source_registry import SourceRegistry
@@ -41,6 +42,7 @@ __all__ = [
     "Player",
     "PostmatchEval",
     "PostmatchSignalEval",
+    "PostmatchTeamStats",
     "PredictionRun",
     "PredictionSnapshot",
     "SourceRegistry",

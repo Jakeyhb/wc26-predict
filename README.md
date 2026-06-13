@@ -3,9 +3,9 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.6.0_data_provenance-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_2A_provenance-orange?style=flat-square" alt="phase">
-  <img src="https://img.shields.io/badge/backend_tests-211_passed-success?style=flat-square" alt="backend tests">
+  <img src="https://img.shields.io/badge/version-V3.6.1_postmatch_stats-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-Phase_2A_postmatch_stats-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/backend_tests-215_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/frontend-React_+_Vite-informational?style=flat-square" alt="frontend">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
@@ -13,9 +13,9 @@
 
 ## 当前结论
 
-WC26 Predict 现在处在 **Phase 2A：数据 provenance 与覆盖审计阶段**，不是“盲目堆模型”的阶段。
+WC26 Predict 现在处在 **Phase 2A：真实赛后统计与 provenance 阶段**，不是“盲目堆模型”的阶段。
 
-已经完成的 V3.6.0 重点：
+已经完成的 V3.6.1 重点：
 
 - 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
 - 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
@@ -38,6 +38,9 @@ WC26 Predict 现在处在 **Phase 2A：数据 provenance 与覆盖审计阶段**
 - 新增 `audit_data_provenance.py`，统一审计真实 xG、赔率、赛前快照、伤停、阵容探针、manual/news signal 的覆盖与来源。
 - active 未绑定赔率仍是 critical；已隔离 legacy 赔率不再伪装成有效 market benchmark。
 - `pre_match_snapshots` 的 input availability、payload、`source_timestamps`、snapshot id 已纳入 warning 级审计。
+- 新增 `postmatch_team_stats`，用独立表保存真实 xG、射门、射正、角球、红黄牌与 `source_time` / `available_at`。
+- 新增 StatsBomb open-data 回填脚本，默认 dry-run，只有精确 `external_id` 或日期+主客队唯一匹配才允许写入。
+- `audit_data_provenance.py` 已纳入 `postmatch_stats_provenance`，能检查扩展赛后统计的 provenance 覆盖。
 - WC26 小组赛 72 场赛程已绑定到内部 team id；淘汰赛仍需在晋级结果确定后动态绑定。
 - 完成一次仓库大扫除：删除可再生成缓存、依赖目录、构建产物和重复旧库，非核心素材归档到 `_archive/` 并从 Git 跟踪中排除。
 
@@ -45,7 +48,7 @@ WC26 Predict 现在处在 **Phase 2A：数据 provenance 与覆盖审计阶段**
 
 - 系统还不是完整自动闭环。
 - 系统还不能称为可信自进化，只能说“可控自进化基础已开始搭建”。
-- 当前不应该直接上线新权重；V3.6.0 只建立数据 provenance 审计门，不改变模型权重，也不宣称更准。
+- 当前不应该直接上线新权重；V3.6.1 只建立真实赛后统计导入层，不改变模型权重，也不宣称更准。
 - `snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化，并且没有超过 `dc_only`。
 - 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足；新的 provenance 审计会把这些缺口显式输出。
 
@@ -158,6 +161,13 @@ cd backend
 python scripts/audit_data_provenance.py
 ```
 
+StatsBomb 赛后统计回填预览：
+
+```powershell
+cd backend
+python scripts/backfill_statsbomb_postmatch_stats.py --seasons 2018,2022
+```
+
 match_id 回填预览与执行：
 
 ```powershell
@@ -256,6 +266,7 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 ### Phase 2：高价值赛前数据
 
 - 已完成 V3.6.0：先建立 `audit_data_provenance.py`，把真实 xG、赔率、阵容、伤停和赛前快照来源缺口显式化。
+- 已完成 V3.6.1：新增 `postmatch_team_stats` 与 StatsBomb open-data 回填路径，先补真实赛后统计链路。
 - 接入真实 xG、阵容、伤停、赔率、天气、休息与旅途。
 - 所有训练和预测按 `as_of_time` 读取数据。
 - 验收：训练不会偷看赛后信息。
@@ -283,12 +294,12 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.6.0 Data Provenance**
+当前主版本：**V3.6.1 Postmatch Stats**
 
-- Version: `3.6.0-data-provenance`
-- Tag: `v3.6.0-data-provenance`
+- Version: `3.6.1-postmatch-stats`
+- Tag: `v3.6.1-postmatch-stats`
 - Branch target: `master`
-- 状态：测试版，重点是数据 provenance 和覆盖审计，不是最终预测精度版本。
+- 状态：测试版，重点是真实赛后统计导入与 provenance，不是最终预测精度版本。
 
 ## 贡献
 

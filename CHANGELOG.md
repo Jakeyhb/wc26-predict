@@ -1,5 +1,26 @@
 # Changelog
 
+## V3.6.1 Postmatch Stats — StatsBomb 真实赛后统计层 (2026-06-13)
+
+Focus:
+
+- **赛后统计扩展表** — 新增 `postmatch_team_stats`，保存真实 xG、射门、射正、角球、红黄牌和 provenance，不再把扩展统计硬塞进 `match_results`
+- **StatsBomb open-data 解析** — 新增 `postmatch_stats.py`，从 StatsBomb event feed 提取 team-level xG / shots / shots on target / cards / corners
+- **安全回填脚本** — 新增 dry-run 默认的 `backfill_statsbomb_postmatch_stats.py`；只接受 `external_id=statsbomb:<id>` 或日期+主客队唯一匹配，`--apply` 前备份 DB
+- **xG 兼容同步** — 写入 `postmatch_team_stats` 时同步 `match_results.home_xg/away_xg`，保持既有模型和审计兼容
+- **provenance 审计扩展** — `audit_data_provenance.py` 新增 `postmatch_stats_provenance` 检查，审计 `source_time`、`available_at`、provider、xG/射门/射正覆盖
+- **测试覆盖** — 新增 StatsBomb 事件解析、upsert、dry-run、apply 单元测试
+- **版本同步** — README、CURRENT_STATUS、version.py 更新为 V3.6.1
+
+Notes:
+
+- 本版接入的是可复用的导入路径和表结构；不提交本地 DB，也不把当前模型权重改成新 champion。
+- StatsBomb event feed 不提供官方控球率百分比，本版不会用事件数占比伪造 possession，相关字段保持 nullable。
+- 当前真实 xG 总覆盖仍未达到发布门阈值；V3.6.1 是补数据链路的第一步，不宣称模型更准。
+- 下一步是对历史 World Cup / 可授权赛事执行 dry-run/apply，并继续补赔率快照、阵容、伤停。
+
+---
+
 ## V3.6.0 Data Provenance — 数据覆盖与来源审计基线 (2026-06-13)
 
 Focus:
