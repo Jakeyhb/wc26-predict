@@ -3,8 +3,8 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.5_test_gpt5.5-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_0B_closed_loop_foundation-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/version-V3.5.1_closed_loop-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-Phase_0B_active_trace_clean-orange?style=flat-square" alt="phase">
   <img src="https://img.shields.io/badge/backend_tests-184_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/frontend-React_+_Vite-informational?style=flat-square" alt="frontend">
@@ -15,11 +15,14 @@
 
 WC26 Predict 现在处在 **Phase 0B：闭环数据链路修复阶段**，不是“盲目堆模型”的阶段。
 
-已经完成的 V3.5 测试版重点：
+已经完成的 V3.5.1 重点：
 
 - 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
 - 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
 - 无真实 `match_id` 的预测不允许进入复盘和学习链路。
+- 新增 `closed_loop_resolution_ledger`，把旧数据分成 `resolved`、`ambiguous`、`unresolvable_legacy`。
+- active 闭环追溯缺口清零；旧快照、旧赔率和旧学习日志被隔离，不再混入学习。
+- `postmatch_eval` 已修复到 `48/48` 可追溯。
 - 新增 proper scoring 指标：log loss、Brier、RPS。
 - 新增 walk-forward 回测脚手架，用于比较 DC、Elo、Pi、Weibull、tabular、market、current fusion、uniform baseline。
 - 新增闭环完整性审计脚本，能暴露 prediction snapshot、pre-match snapshot、赔率、学习日志的追溯缺口。
@@ -31,7 +34,7 @@ WC26 Predict 现在处在 **Phase 0B：闭环数据链路修复阶段**，不是
 - 系统还不是完整自动闭环。
 - 系统还不能称为可信自进化，只能说“可控自进化基础已开始搭建”。
 - 当前不应该直接上线新权重；存量 walk-forward 评估曾显示 `current_fusion` 差于 `uniform_baseline`，必须先修数据绑定和回测门。
-- 本地审计仍显示大量旧快照缺少 `match_id`，赔率也只有少量样本完成比赛绑定。
+- 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足。
 
 ## 系统目标
 
@@ -77,7 +80,7 @@ scripts/                     根目录运维脚本
 
 ## 快速开始
 
-> V3.5 清理后不提交本地依赖目录。首次运行请重新安装依赖。
+> V3.5.1 清理后不提交本地依赖目录。首次运行请重新安装依赖。
 
 ```powershell
 git clone https://github.com/AndyDu0921/wc26-predict.git
@@ -239,10 +242,10 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.5测试版 gpt5.5**
+当前主版本：**V3.5.1 闭环追溯修复版**
 
-- Version: `3.5.0-test-gpt5.5`
-- Tag: `v3.5-test-gpt5.5`
+- Version: `3.5.1-closed-loop`
+- Tag: `v3.5.1-closed-loop`
 - Branch target: `master`
 - 状态：测试版，重点是闭环可信度和数据链路，不是最终预测精度版本。
 

@@ -25,6 +25,48 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
+from app.services.closed_loop_resolution import QUARANTINE_STATUSES, has_resolution_ledger  # noqa: E402
+
+
+def _quarantined_count(conn, table: str) -> int:
+    if not has_resolution_ledger(conn):
+        return 0
+    placeholders = ",".join("?" for _ in QUARANTINE_STATUSES)
+    return int(
+        conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM closed_loop_resolution_ledger
+            WHERE entity_table = ?
+              AND status IN ({placeholders})
+            """,
+            (table, *QUARANTINE_STATUSES),
+        ).fetchone()[0]
+    )
+
+
+def _active_missing_count(conn, table: str, condition: str) -> int:
+    if not has_resolution_ledger(conn):
+        return int(conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {condition}").fetchone()[0])
+    placeholders = ",".join("?" for _ in QUARANTINE_STATUSES)
+    return int(
+        conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM {table} t
+            WHERE ({condition})
+              AND NOT EXISTS (
+                SELECT 1
+                FROM closed_loop_resolution_ledger l
+                WHERE l.entity_table = ?
+                  AND l.entity_id = CAST(t.id AS TEXT)
+                  AND l.status IN ({placeholders})
+              )
+            """,
+            (table, *QUARANTINE_STATUSES),
+        ).fetchone()[0]
+    )
+
 
 def main():
     print("=" * 70)
@@ -84,7 +126,12 @@ def main():
 
     c.execute("SELECT COUNT(*) FROM prediction_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
     empty_ps_match_id = c.fetchone()[0]
-    print(f"  Prediction snapshots without match_id: {empty_ps_match_id}")
+    quarantined_ps = _quarantined_count(conn, "prediction_snapshots")
+    active_empty_ps = _active_missing_count(conn, "prediction_snapshots", "match_id IS NULL OR TRIM(match_id) = ''")
+    print(
+        f"  Prediction snapshots without match_id: active={active_empty_ps} "
+        f"total={empty_ps_match_id} quarantined={quarantined_ps}"
+    )
 
     try:
         c.execute("SELECT COUNT(*) FROM pre_match_snapshots")
@@ -92,9 +139,17 @@ def main():
         c.execute("SELECT COUNT(*) FROM pre_match_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
         empty_pre_match_id = c.fetchone()[0]
         print(f"  Pre-match snapshots: {total_pre}")
-        print(f"  Pre-match snapshots without match_id: {empty_pre_match_id}")
-        if empty_pre_match_id:
-            issues.append(f"CRITICAL: {empty_pre_match_id}/{total_pre} pre_match_snapshots have no match_id — cannot enter closed-loop learning")
+        quarantined_pre = _quarantined_count(conn, "pre_match_snapshots")
+        active_empty_pre = _active_missing_count(conn, "pre_match_snapshots", "match_id IS NULL OR TRIM(match_id) = ''")
+        print(
+            f"  Pre-match snapshots without match_id: active={active_empty_pre} "
+            f"total={empty_pre_match_id} quarantined={quarantined_pre}"
+        )
+        if active_empty_pre:
+            issues.append(
+                f"CRITICAL: {active_empty_pre}/{total_pre} active pre_match_snapshots have no match_id "
+                f"({quarantined_pre} quarantined legacy)"
+            )
     except Exception as e:
         print(f"  Pre-match snapshot audit skipped: {e}")
 
@@ -111,8 +166,11 @@ def main():
     else:
         ok.append("All 72 WC26 group matches have prediction snapshots")
 
-    if empty_ps_match_id:
-        issues.append(f"CRITICAL: {empty_ps_match_id} prediction_snapshots have no match_id — cannot be traced to a match")
+    if active_empty_ps:
+        issues.append(
+            f"CRITICAL: {active_empty_ps} active prediction_snapshots have no match_id "
+            f"({quarantined_ps} quarantined legacy)"
+        )
 
     if latest_ps:
         ps_dt = datetime.fromisoformat(str(latest_ps).replace("T", " ").split(".")[0])
@@ -160,7 +218,15 @@ def main():
 
     c.execute("SELECT COUNT(DISTINCT match_id) FROM market_odds")
     mo_matches = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM market_odds WHERE match_id IS NULL OR TRIM(match_id) = ''")
+    mo_unlinked_total = c.fetchone()[0]
+    mo_unlinked_quarantined = _quarantined_count(conn, "market_odds")
+    mo_unlinked_active = _active_missing_count(conn, "market_odds", "match_id IS NULL OR TRIM(match_id) = ''")
     print(f"  Unique matches with odds: {mo_matches}")
+    print(
+        f"  Unlinked odds rows: active={mo_unlinked_active} "
+        f"total={mo_unlinked_total} quarantined={mo_unlinked_quarantined}"
+    )
 
     c.execute("SELECT provider, COUNT(*) FROM market_odds GROUP BY provider")
     providers = c.fetchall()
@@ -169,8 +235,16 @@ def main():
 
     if mo_count == 0:
         issues.append("market_odds is empty — no market data for calibration")
+    elif mo_unlinked_active:
+        issues.append(
+            f"CRITICAL: market_odds has {mo_unlinked_active} active unlinked rows "
+            f"({mo_unlinked_quarantined} quarantined legacy)"
+        )
     elif mo_matches <= 1:
-        issues.append(f"CRITICAL: market_odds has {mo_count} rows but only {mo_matches} linked match(es)")
+        issues.append(
+            f"market_odds has {mo_count} rows but only {mo_matches} linked match(es); "
+            "legacy unlinked rows are quarantined, but market benchmark coverage is still sparse"
+        )
     else:
         ok.append(f"market_odds has {mo_count} records from {len(providers)} providers")
 

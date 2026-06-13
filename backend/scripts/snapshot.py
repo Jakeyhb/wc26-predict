@@ -415,7 +415,7 @@ async def run_snapshot(
         # ── Persist market odds to DB for audit trail ──
         if market_probs:
             await _save_market_odds(
-                home_team, away_team, competition,
+                home_team, away_team, competition, match_id,
                 market_probs, market_result.get("divergence")
             )
             # ── Save consensus candidate for backtesting ──
@@ -610,7 +610,7 @@ def _recent_form(df: pd.DataFrame, team: str, n: int = 5) -> list[dict[str, Any]
 #  Market odds persistence
 # ═══════════════════════════════════════════════════════════
 async def _save_market_odds(
-    home_team: str, away_team: str, competition: str,
+    home_team: str, away_team: str, competition: str, match_id: str | None,
     market_probs: dict, divergence: float | None,
 ) -> None:
     """Persist fetched market implied probabilities to market_odds table."""
@@ -621,11 +621,12 @@ async def _save_market_odds(
             await mkt_db.execute(
             text(
                 "INSERT INTO market_odds "
-                "(home_implied_prob, draw_implied_prob, away_implied_prob, "
+                "(match_id, home_implied_prob, draw_implied_prob, away_implied_prob, "
                 " vig_removed, vig_amount, sample_bookmakers, provider, fetched_at, id) "
-                "VALUES (:hp, :dp, :ap, 1, NULL, 1, :src, :ts, :id)"
+                "VALUES (:mid, :hp, :dp, :ap, 1, NULL, 1, :src, :ts, :id)"
             ),
             {
+                "mid": match_id,
                 "hp": round(market_probs["home_prob"], 6),
                 "dp": round(market_probs["draw_prob"], 6),
                 "ap": round(market_probs["away_prob"], 6),

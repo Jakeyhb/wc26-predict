@@ -1,5 +1,33 @@
 # Changelog
 
+## V3.5.1 闭环追溯修复版 — resolution ledger + legacy 隔离 (2026-06-13)
+
+Focus:
+
+- **Resolution ledger** — 新增 `closed_loop_resolution_ledger`，记录旧数据能否安全绑定到 `match_id` / `prediction_run_id`
+- **Backfill 扩展** — `backfill_match_ids.py` 覆盖 `prediction_snapshots`、`pre_match_snapshots`、`prediction_learning_log`、`postmatch_eval`、`market_odds`
+- **Legacy 隔离** — 无法唯一解析的旧快照/旧赔率不再阻塞 active 闭环，但明确标记为 `unresolvable_legacy` / `ambiguous`
+- **Postmatch 修复** — 修复 1 条 `postmatch_eval` 的旧伪 `prediction_run_id`，闭环审计达到 `48/48` traceable
+- **未来赔率止血** — `scripts/snapshot.py` 保存 `market_odds` 时写入真实 `match_id`
+- **审计口径升级** — 审计脚本区分 active 缺口、total 缺口和 quarantined legacy
+
+Files:
+
+- NEW: `backend/app/models/closed_loop_resolution.py`
+- NEW: `backend/app/services/closed_loop_resolution.py`
+- NEW: `backend/alembic/versions/a8b9c0d1e2f3_add_closed_loop_resolution_ledger.py`
+- MOD: `backend/scripts/backfill_match_ids.py`, `audit_closed_loop_integrity.py`, `audit_data_freshness.py`, `snapshot.py`
+- NEW/MOD: `backend/tests/test_closed_loop_resolution.py`, `test_backfill_match_ids.py`
+- MOD: `backend/app/version.py`, `README.md`, `docs/CURRENT_STATUS.md`
+
+Notes:
+
+- Local DB backfill applied after backup: `local_stage2_pre_v351_closed_loop_20260613_082356.db`
+- Closed-loop audit after apply: active missing snapshot/learning/odds defects = 0, `postmatch_eval_traceable=48/48`
+- Remaining blocker: real xG coverage is still only `62/16691`
+
+---
+
 ## V3.5测试版 gpt5.5 — 闭环门禁 + 数据绑定 + 回测基线 + 仓库清理 (2026-06-13)
 
 Focus:

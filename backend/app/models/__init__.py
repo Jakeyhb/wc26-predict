@@ -26,6 +26,7 @@ from app.models.context_performance_matrix import ContextPerformanceMatrix
 from app.models.model_weight_config import ModelWeightConfig
 from app.models.match_result_verification import MatchResultVerification
 from app.models.pre_match_snapshot import PreMatchSnapshot
+from app.models.closed_loop_resolution import ClosedLoopResolution
 
 __all__ = [
     "Base",
@@ -57,4 +58,5 @@ __all__ = [
     "MatchResultVerification",
     "ModelWeightConfig",
     "PreMatchSnapshot",
+    "ClosedLoopResolution",
 ]
