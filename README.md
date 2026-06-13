@@ -3,9 +3,9 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.5.2_champion_gate-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_1_gate_active-orange?style=flat-square" alt="phase">
-  <img src="https://img.shields.io/badge/backend_tests-184_passed-success?style=flat-square" alt="backend tests">
+  <img src="https://img.shields.io/badge/version-V3.5.3_paired_benchmark-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-Phase_1B_paired_gate-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/backend_tests-197_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/frontend-React_+_Vite-informational?style=flat-square" alt="frontend">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
@@ -13,9 +13,9 @@
 
 ## 当前结论
 
-WC26 Predict 现在处在 **Phase 1：walk-forward 发布门阶段**，不是“盲目堆模型”的阶段。
+WC26 Predict 现在处在 **Phase 1B：paired benchmark 发布门阶段**，不是“盲目堆模型”的阶段。
 
-已经完成的 V3.5.2 重点：
+已经完成的 V3.5.3 重点：
 
 - 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
 - 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
@@ -26,6 +26,10 @@ WC26 Predict 现在处在 **Phase 1：walk-forward 发布门阶段**，不是“
 - 新增 proper scoring 指标：log loss、Brier、RPS。
 - walk-forward 回测升级为 champion gate，可比较 DC、Elo、Pi、Weibull、tabular、market、current fusion、uniform baseline。
 - 新增 `--enforce-gate`；当前 champion 不合格时返回非零，阻止发布。
+- 新增 paired evaluation example，只在同一场、同一预测时点、同一条样本内比较候选与基线。
+- 新增 `--enforce-paired-gate`；默认 paired champion 为 `snapshot_adjusted`，默认 paired baselines 为 uniform、DC、Elo、Pi、tabular、market、Weibull。
+- `market_only`、`weibull_only` 等样本不足 baseline 会输出 `insufficient_samples`，不会被伪造为通过或失败。
+- 非配对 leaderboard 已明确标记为 exploratory，不能再被当作模型优劣结论。
 - 每次回测生成 JSON + Markdown 报告到 ignored `backend/reports/`。
 - 新增闭环完整性审计脚本，能暴露 prediction snapshot、pre-match snapshot、赔率、学习日志的追溯缺口。
 - WC26 小组赛 72 场赛程已绑定到内部 team id；淘汰赛仍需在晋级结果确定后动态绑定。
@@ -35,7 +39,8 @@ WC26 Predict 现在处在 **Phase 1：walk-forward 发布门阶段**，不是“
 
 - 系统还不是完整自动闭环。
 - 系统还不能称为可信自进化，只能说“可控自进化基础已开始搭建”。
-- 当前不应该直接上线新权重；V3.5.2 gate 明确拒绝 `current_fusion`，因为它差于 `uniform_baseline`。
+- 当前不应该直接上线新权重；V3.5.3 中 production gate 拒绝 `current_fusion`，paired gate 也拒绝 `snapshot_adjusted`。
+- `snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化，并且没有超过 `dc_only`。
 - 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足。
 
 ## 系统目标
@@ -82,7 +87,7 @@ scripts/                     根目录运维脚本
 
 ## 快速开始
 
-> V3.5.1 清理后不提交本地依赖目录。首次运行请重新安装依赖。
+> V3.5 清理后不提交本地依赖目录。首次运行请重新安装依赖。
 
 ```powershell
 git clone https://github.com/AndyDu0921/wc26-predict.git
@@ -162,9 +167,10 @@ walk-forward 回测：
 cd backend
 python scripts/walk_forward_backtest.py --min-sample 5
 python scripts/walk_forward_backtest.py --min-sample 5 --enforce-gate
+python scripts/walk_forward_backtest.py --min-sample 5 --enforce-paired-gate
 ```
 
-`--enforce-gate` 当前预期失败；这是正确行为，说明当前 champion 还不能发布。
+`--enforce-gate` 和 `--enforce-paired-gate` 当前都预期失败；这是正确行为，说明当前 champion / paired champion 还不能发布。
 
 本地 Dashboard：
 
@@ -182,6 +188,7 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 - accuracy 只作为辅助指标。
 - 每个版本保留输入 hash、数据时间戳、模型版本、权重版本、校准版本。
 - 新模型至少在两个 proper scoring 指标上超过 champion，并且关键分组不明显退化。
+- 配对比较必须优先于非配对 leaderboard；只有同一 evaluation example 内同时存在 candidate 和 baseline 时才允许比较。
 
 ## 数据优先级
 
@@ -216,7 +223,14 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 - 模型分开评估：DC-only、Elo-only、Pi-only、Weibull、tabular、market-only、current fusion。
 - 按 horizon 和比赛类型分组。
+- 已新增 paired gate，避免把不同表、不同样本集的 leaderboard 当成模型优劣结论。
 - 验收：能明确回答 champion 是否优于 uniform / DC-only / Elo-only / market baseline。
+
+### Phase 1C：统一评估样本输出
+
+- 收敛 CLI / API / 脚本分叉到 `PredictionPipeline`。
+- 让 `current_fusion`、组件模型、市场基准在同一条 prediction artifact 中输出。
+- 为 stacking / meta-learner 准备 walk-forward out-of-fold 训练样本。
 
 ### Phase 2：高价值赛前数据
 
@@ -247,10 +261,10 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.5.2 Champion Gate**
+当前主版本：**V3.5.3 Paired Benchmark**
 
-- Version: `3.5.2-champion-gate`
-- Tag: `v3.5.2-champion-gate`
+- Version: `3.5.3-paired-benchmark`
+- Tag: `v3.5.3-paired-benchmark`
 - Branch target: `master`
 - 状态：测试版，重点是闭环可信度和数据链路，不是最终预测精度版本。
 

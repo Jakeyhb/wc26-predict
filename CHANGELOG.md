@@ -1,5 +1,26 @@
 # Changelog
 
+## V3.5.3 Paired Benchmark — 同样本配对回测门 (2026-06-13)
+
+Focus:
+
+- **配对评估层** — `walk_forward_backtest.py` 现在把每条预测保存为同一条 evaluation example，只在同一场、同一预测时点、同一条样本内比较候选与基线
+- **paired gate** — 新增 `--enforce-paired-gate`，默认检验 `snapshot_adjusted` vs `uniform_baseline`
+- **样本不足显式标记** — `market_only`、`weibull_only` 等无足够配对样本时输出 `insufficient_samples`，不伪造通过/失败结论
+- **非配对榜单隔离** — V3.5.2 的 `current_fusion` gate 保留；leaderboard 明确标记为 exploratory / unpaired
+- **结构化报告扩展** — JSON 新增 `paired.cohorts`、`paired.comparisons`、`paired.gate`、`paired.insufficient_baselines`
+- **测试覆盖** — 新增同样本配对、缺失候选/基线、输给 uniform、非配对假优势、样本不足等 paired benchmark 单元测试
+- **版本同步** — README、CURRENT_STATUS、version.py 更新为 V3.5.3
+
+Notes:
+
+- 当前 `current_fusion` production gate 仍然 FAIL，不能上线新权重。
+- 当前 paired gate 也 FAIL：`snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化。
+- 当前 paired comparison 显示 `snapshot_adjusted` 没有超过 `dc_only`，所以不能把“更准”作为结论。
+- 结论：V3.5.3 只提升评估可信度，不改变线上权重，不宣称预测精度提升。
+
+---
+
 ## V3.5.2 Champion Gate — walk-forward 发布门 (2026-06-13)
 
 Focus:

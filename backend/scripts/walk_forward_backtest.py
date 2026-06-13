@@ -84,6 +84,20 @@ class GateConfig:
     max_group_regression: float
 
 
+@dataclass
+class EvaluationExample:
+    example_id: str
+    source: str
+    prediction_id: str
+    match_id: str
+    as_of_time: str
+    horizon: str
+    competition: str
+    run_type: str
+    model_version: str
+    scores: dict[str, ThreeWayMetrics]
+
+
 def _parse_time(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -281,6 +295,223 @@ def _find_group_regressions(
     return regressions
 
 
+def _parse_label_list(raw: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(raw, str):
+        labels = raw.split(",")
+    else:
+        labels = list(raw)
+    return [label.strip() for label in labels if label and label.strip()]
+
+
+def _example_group_value(example: EvaluationExample, group_name: str) -> str:
+    if group_name == "horizon":
+        return example.horizon
+    if group_name == "competition":
+        return example.competition
+    if group_name == "run_type":
+        return example.run_type
+    raise ValueError(f"unsupported paired group: {group_name}")
+
+
+def _aggregate_metrics(metrics: list[ThreeWayMetrics]) -> Aggregate:
+    aggregate = Aggregate()
+    for item in metrics:
+        aggregate.add_metrics(item)
+    return aggregate
+
+
+def _paired_examples_for_labels(
+    examples: list[EvaluationExample],
+    candidate_label: str,
+    baseline_label: str,
+) -> list[EvaluationExample]:
+    return [
+        example
+        for example in examples
+        if candidate_label in example.scores and baseline_label in example.scores
+    ]
+
+
+def _cohort_counts(examples: list[EvaluationExample]) -> dict[str, Any]:
+    by_source: dict[str, int] = defaultdict(int)
+    by_label: dict[str, int] = defaultdict(int)
+    by_source_label: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for example in examples:
+        by_source[example.source] += 1
+        for label in example.scores:
+            by_label[label] += 1
+            by_source_label[example.source][label] += 1
+    return {
+        "total_examples": len(examples),
+        "by_source": dict(sorted(by_source.items())),
+        "by_label": dict(sorted(by_label.items())),
+        "by_source_label": {
+            source: dict(sorted(labels.items()))
+            for source, labels in sorted(by_source_label.items())
+        },
+    }
+
+
+def _paired_comparison(
+    examples: list[EvaluationExample],
+    *,
+    candidate_label: str,
+    baseline_label: str,
+    min_sample: int,
+) -> dict[str, Any]:
+    paired_examples = _paired_examples_for_labels(examples, candidate_label, baseline_label)
+    by_source: dict[str, int] = defaultdict(int)
+    for example in paired_examples:
+        by_source[example.source] += 1
+
+    if len(paired_examples) < min_sample:
+        return {
+            "status": "insufficient_samples",
+            "candidate_label": candidate_label,
+            "baseline_label": baseline_label,
+            "available_n": len(paired_examples),
+            "min_sample": min_sample,
+            "by_source": dict(sorted(by_source.items())),
+        }
+
+    candidate = _aggregate_metrics([example.scores[candidate_label] for example in paired_examples]).averages()
+    baseline = _aggregate_metrics([example.scores[baseline_label] for example in paired_examples]).averages()
+    return {
+        "status": "evaluated",
+        "candidate_label": candidate_label,
+        "baseline_label": baseline_label,
+        "n": len(paired_examples),
+        "candidate": candidate,
+        "baseline": baseline,
+        "deltas": _metric_delta(candidate, baseline),
+        "better_metric_count": _better_metric_count(candidate, baseline),
+        "by_source": dict(sorted(by_source.items())),
+    }
+
+
+def _find_paired_group_regressions(
+    examples: list[EvaluationExample],
+    *,
+    group_name: str,
+    candidate_label: str,
+    baseline_label: str,
+    group_min_sample: int,
+    max_group_regression: float,
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[EvaluationExample]] = defaultdict(list)
+    for example in _paired_examples_for_labels(examples, candidate_label, baseline_label):
+        grouped[_example_group_value(example, group_name)].append(example)
+
+    regressions: list[dict[str, Any]] = []
+    for group_value, paired_examples in sorted(grouped.items()):
+        if len(paired_examples) < group_min_sample:
+            continue
+        candidate = _aggregate_metrics([example.scores[candidate_label] for example in paired_examples]).averages()
+        baseline = _aggregate_metrics([example.scores[baseline_label] for example in paired_examples]).averages()
+        deltas = _metric_delta(candidate, baseline)
+        bad_metrics = {
+            metric: delta
+            for metric, delta in deltas.items()
+            if metric in {"log_loss", "brier"} and delta > max_group_regression
+        }
+        if bad_metrics:
+            regressions.append(
+                {
+                    "group_type": group_name,
+                    "group": group_value,
+                    "n": len(paired_examples),
+                    "candidate": candidate,
+                    "baseline": baseline,
+                    "deltas": deltas,
+                    "bad_metrics": bad_metrics,
+                }
+            )
+    return regressions
+
+
+def build_paired_report(
+    examples: list[EvaluationExample],
+    *,
+    paired_champion_label: str,
+    paired_baselines: list[str],
+    min_sample: int,
+    group_min_sample: int,
+    max_group_regression: float,
+) -> dict[str, Any]:
+    comparisons: dict[str, Any] = {}
+    insufficient: dict[str, Any] = {}
+    for baseline_label in paired_baselines:
+        if baseline_label == paired_champion_label:
+            continue
+        comparison = _paired_comparison(
+            examples,
+            candidate_label=paired_champion_label,
+            baseline_label=baseline_label,
+            min_sample=min_sample,
+        )
+        comparisons[baseline_label] = comparison
+        if comparison["status"] == "insufficient_samples":
+            insufficient[baseline_label] = comparison
+
+    reasons: list[str] = []
+    warnings: list[str] = []
+    uniform = comparisons.get("uniform_baseline")
+    if uniform is None:
+        reasons.append("uniform_baseline is missing from paired baselines")
+    elif uniform["status"] == "insufficient_samples":
+        reasons.append("uniform_baseline has insufficient paired samples for required gate comparison")
+    else:
+        champion = uniform["candidate"]
+        baseline = uniform["baseline"]
+        if float(champion["log_loss"]) >= float(baseline["log_loss"]):
+            reasons.append("paired champion log_loss is not better than uniform_baseline")
+        if float(champion["brier"]) >= float(baseline["brier"]):
+            reasons.append("paired champion brier is not better than uniform_baseline")
+        if int(uniform["better_metric_count"]) < 2:
+            reasons.append("paired champion does not beat uniform_baseline on at least two proper scoring metrics")
+
+    for baseline_label, item in insufficient.items():
+        if baseline_label != "uniform_baseline":
+            warnings.append(
+                f"{baseline_label} has only {item['available_n']} paired samples; "
+                f"need {item['min_sample']}"
+            )
+
+    group_regressions: list[dict[str, Any]] = []
+    if uniform is not None and uniform["status"] == "evaluated":
+        for group_name in ["horizon", "competition", "run_type"]:
+            group_regressions.extend(
+                _find_paired_group_regressions(
+                    examples,
+                    group_name=group_name,
+                    candidate_label=paired_champion_label,
+                    baseline_label="uniform_baseline",
+                    group_min_sample=group_min_sample,
+                    max_group_regression=max_group_regression,
+                )
+            )
+    if group_regressions:
+        reasons.append(f"paired champion has {len(group_regressions)} critical group regression(s) vs uniform_baseline")
+
+    return {
+        "cohorts": _cohort_counts(examples),
+        "comparisons": comparisons,
+        "insufficient_baselines": insufficient,
+        "gate": {
+            "status": "pass" if not reasons else "fail",
+            "champion_label": paired_champion_label,
+            "baseline_labels": paired_baselines,
+            "min_sample": min_sample,
+            "group_min_sample": group_min_sample,
+            "max_group_regression": max_group_regression,
+            "required_baseline": "uniform_baseline",
+            "group_regressions": group_regressions,
+            "reasons": reasons,
+            "warnings": warnings,
+        },
+    }
+
+
 def decide_champion_gate(
     *,
     leaderboard: dict[str, Aggregate],
@@ -417,6 +648,42 @@ def _add_prediction_metrics(
     return metrics
 
 
+def _make_example(row: sqlite3.Row, *, horizon: str) -> EvaluationExample:
+    return EvaluationExample(
+        example_id=f"{row['source']}:{row['id']}",
+        source=str(row["source"]),
+        prediction_id=str(row["id"]),
+        match_id=str(row["match_id"]),
+        as_of_time=str(row["as_of_time"]),
+        horizon=horizon,
+        competition=str(row["competition"]),
+        run_type=str(row["run_type"]),
+        model_version=str(row["model_version"]),
+        scores={},
+    )
+
+
+def _add_example_score(
+    example: EvaluationExample,
+    *,
+    label: str,
+    home_prob: float,
+    draw_prob: float,
+    away_prob: float,
+    home_goals: int,
+    away_goals: int,
+) -> ThreeWayMetrics:
+    metrics = evaluate_three_way(
+        home_prob=home_prob,
+        draw_prob=draw_prob,
+        away_prob=away_prob,
+        home_goals=home_goals,
+        away_goals=away_goals,
+    )
+    example.scores[label] = metrics
+    return metrics
+
+
 def build_walk_forward_report(
     *,
     conn: sqlite3.Connection,
@@ -426,6 +693,8 @@ def build_walk_forward_report(
     group_min_sample: int,
     max_group_regression: float,
     champion_label: str,
+    paired_champion_label: str,
+    paired_baselines: list[str],
 ) -> dict[str, Any]:
     run_rows = _load_prediction_run_rows(conn, limit)
     snapshot_rows = _load_snapshot_rows(conn, limit)
@@ -435,6 +704,7 @@ def build_walk_forward_report(
     by_run_type: dict[str, Aggregate] = defaultdict(Aggregate)
     by_competition: dict[str, Aggregate] = defaultdict(Aggregate)
     by_horizon: dict[str, Aggregate] = defaultdict(Aggregate)
+    paired_examples: list[EvaluationExample] = []
     skipped_after_kickoff = 0
     skipped_bad_time = 0
 
@@ -448,6 +718,7 @@ def build_walk_forward_report(
             skipped_after_kickoff += 1
             continue
         horizon = _horizon(as_of_time, kickoff)
+        example = _make_example(row, horizon=horizon)
 
         current_metrics = _add_prediction_metrics(
             by_baseline,
@@ -468,6 +739,7 @@ def build_walk_forward_report(
             by_competition=by_competition,
             by_horizon=by_horizon,
         )
+        example.scores["current_fusion"] = current_metrics
 
         uniform_metrics = _add_prediction_metrics(
             by_baseline,
@@ -488,6 +760,8 @@ def build_walk_forward_report(
             by_competition=by_competition,
             by_horizon=by_horizon,
         )
+        example.scores["uniform_baseline"] = uniform_metrics
+        paired_examples.append(example)
 
     for row in snapshot_rows:
         as_of_time = _parse_time(row["as_of_time"])
@@ -499,6 +773,16 @@ def build_walk_forward_report(
             skipped_after_kickoff += 1
             continue
         horizon = _horizon(as_of_time, kickoff)
+        example = _make_example(row, horizon=horizon)
+        _add_example_score(
+            example,
+            label="uniform_baseline",
+            home_prob=1 / 3,
+            draw_prob=1 / 3,
+            away_prob=1 / 3,
+            home_goals=row["home_goals"],
+            away_goals=row["away_goals"],
+        )
 
         candidates: list[tuple[str, tuple[float, float, float]]] = []
         for label, raw in [
@@ -536,6 +820,8 @@ def build_walk_forward_report(
                 by_competition=by_competition,
                 by_horizon=by_horizon,
             )
+            example.scores[label] = metrics
+        paired_examples.append(example)
 
     gate = decide_champion_gate(
         leaderboard=by_baseline,
@@ -549,6 +835,14 @@ def build_walk_forward_report(
             max_group_regression=max_group_regression,
         ),
     )
+    paired = build_paired_report(
+        paired_examples,
+        paired_champion_label=paired_champion_label,
+        paired_baselines=paired_baselines,
+        min_sample=min_sample,
+        group_min_sample=group_min_sample,
+        max_group_regression=max_group_regression,
+    )
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -560,6 +854,7 @@ def build_walk_forward_report(
             "prediction_runs": len(run_rows),
             "prediction_snapshots": len(snapshot_rows),
             "current_fusion_evaluated": by_baseline["current_fusion"].n,
+            "paired_examples": len(paired_examples),
             "skipped_after_kickoff": skipped_after_kickoff,
             "skipped_bad_timestamps": skipped_bad_time,
         },
@@ -571,6 +866,7 @@ def build_walk_forward_report(
             "horizon": _summary_map(by_horizon),
         },
         "gate": gate,
+        "paired": paired,
     }
 
 
@@ -589,10 +885,11 @@ def _print_summary(report: dict[str, Any], *, min_sample: int) -> None:
     print(f"PredictionRun rows loaded: {report['loaded']['prediction_runs']}")
     print(f"PredictionSnapshot rows loaded: {report['loaded']['prediction_snapshots']}")
     print(f"Current fusion rows evaluated: {report['loaded']['current_fusion_evaluated']}")
+    print(f"Paired evaluation examples: {report['loaded']['paired_examples']}")
     print(f"Skipped after kickoff: {report['loaded']['skipped_after_kickoff']}")
     print(f"Skipped bad timestamps: {report['loaded']['skipped_bad_timestamps']}")
 
-    print("\n--- model / baseline leaderboard ---")
+    print("\n--- exploratory unpaired model / baseline leaderboard ---")
     for label, row in _sorted_items(report["leaderboard"], min_sample):
         print(
             f"{label:42} n={int(row['n']):4d} "
@@ -636,6 +933,37 @@ def _print_summary(report: dict[str, Any], *, min_sample: int) -> None:
         for warning in gate["warnings"]:
             print(f"  - {warning}")
 
+    paired = report["paired"]
+    paired_gate = paired["gate"]
+    print("\n--- paired benchmark gate ---")
+    print(f"status: {paired_gate['status'].upper()}")
+    print(f"paired champion: {paired_gate['champion_label']}")
+    print(f"paired examples: {paired['cohorts']['total_examples']}")
+    print("comparisons:")
+    for baseline_label, comparison in sorted(paired["comparisons"].items()):
+        if comparison["status"] == "insufficient_samples":
+            print(
+                f"  - {baseline_label:20} insufficient_samples "
+                f"available={comparison['available_n']} min={comparison['min_sample']}"
+            )
+            continue
+        deltas = comparison["deltas"]
+        print(
+            f"  - {baseline_label:20} n={comparison['n']:4d} "
+            f"d_log_loss={deltas['log_loss']:+.4f} "
+            f"d_brier={deltas['brier']:+.4f} "
+            f"d_rps={deltas['rps']:+.4f} "
+            f"better={comparison['better_metric_count']}/3"
+        )
+    if paired_gate["reasons"]:
+        print("paired gate reasons:")
+        for reason in paired_gate["reasons"]:
+            print(f"  - {reason}")
+    if paired_gate["warnings"]:
+        print("paired warnings:")
+        for warning in paired_gate["warnings"]:
+            print(f"  - {warning}")
+
 
 def _markdown_table(rows: list[tuple[str, dict[str, Any]]]) -> str:
     lines = ["| Label | n | log loss | Brier | RPS | Accuracy |", "|---|---:|---:|---:|---:|---:|"]
@@ -647,19 +975,48 @@ def _markdown_table(rows: list[tuple[str, dict[str, Any]]]) -> str:
     return "\n".join(lines)
 
 
+def _paired_comparison_table(comparisons: dict[str, dict[str, Any]]) -> str:
+    lines = [
+        "| Baseline | Status | n | Candidate log loss | Baseline log loss | Δ log loss | Candidate Brier | Baseline Brier | Δ Brier | Better metrics |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for baseline_label, item in sorted(comparisons.items()):
+        if item["status"] == "insufficient_samples":
+            lines.append(
+                f"| {baseline_label} | insufficient_samples | {int(item['available_n'])} | "
+                "|  |  |  |  |  |  |  |"
+            )
+            continue
+        candidate = item["candidate"]
+        baseline = item["baseline"]
+        deltas = item["deltas"]
+        lines.append(
+            f"| {baseline_label} | evaluated | {int(item['n'])} | "
+            f"{float(candidate['log_loss']):.4f} | {float(baseline['log_loss']):.4f} | {float(deltas['log_loss']):+.4f} | "
+            f"{float(candidate['brier']):.4f} | {float(baseline['brier']):.4f} | {float(deltas['brier']):+.4f} | "
+            f"{int(item['better_metric_count'])}/3 |"
+        )
+    return "\n".join(lines)
+
+
 def _render_markdown(report: dict[str, Any], *, min_sample: int) -> str:
     gate = report["gate"]
+    paired = report["paired"]
+    paired_gate = paired["gate"]
     lines = [
         "# Walk-forward Champion Gate Report",
         "",
         f"- Generated at: `{report['generated_at']}`",
         f"- DB: `{report['db_path']}`",
-        f"- Gate status: **{gate['status'].upper()}**",
-        f"- Champion: `{gate['champion_label']}`",
-        f"- Leader: `{gate['leader_label']}`",
+        f"- Unpaired gate status: **{gate['status'].upper()}**",
+        f"- Paired gate status: **{paired_gate['status'].upper()}**",
+        f"- Production champion candidate: `{gate['champion_label']}`",
+        f"- Paired champion candidate: `{paired_gate['champion_label']}`",
+        f"- Exploratory unpaired leader: `{gate['leader_label']}`",
         f"- Current fusion rows: `{report['loaded']['current_fusion_evaluated']}`",
+        f"- Paired evaluation examples: `{report['loaded']['paired_examples']}`",
         "",
-        "## Gate Reasons",
+        "## Unpaired Gate Reasons",
     ]
     if gate["reasons"]:
         lines.extend(f"- {reason}" for reason in gate["reasons"])
@@ -668,12 +1025,43 @@ def _render_markdown(report: dict[str, Any], *, min_sample: int) -> str:
     if gate["warnings"]:
         lines.extend(["", "## Warnings"])
         lines.extend(f"- {warning}" for warning in gate["warnings"])
-    lines.extend(["", "## Leaderboard", _markdown_table(_sorted_items(report["leaderboard"], min_sample))])
+    lines.extend(
+        [
+            "",
+            "## Paired Gate Reasons",
+        ]
+    )
+    if paired_gate["reasons"]:
+        lines.extend(f"- {reason}" for reason in paired_gate["reasons"])
+    else:
+        lines.append("- None")
+    if paired_gate["warnings"]:
+        lines.extend(["", "## Paired Warnings"])
+        lines.extend(f"- {warning}" for warning in paired_gate["warnings"])
+    lines.extend(
+        [
+            "",
+            "## Paired Comparisons",
+            _paired_comparison_table(paired["comparisons"]),
+            "",
+            "## Exploratory Unpaired Leaderboard",
+            "",
+            "This leaderboard is exploratory because labels may come from different source tables and sample sets. Use the paired gate before discussing weight candidates.",
+            "",
+            _markdown_table(_sorted_items(report["leaderboard"], min_sample)),
+        ]
+    )
     if gate["group_regressions"]:
         lines.extend(["", "## Group Regressions"])
         for item in gate["group_regressions"]:
             lines.append(
                 f"- `{item['group_type']}` `{item['group']}`: bad_metrics={item['bad_metrics']}"
+            )
+    if paired_gate["group_regressions"]:
+        lines.extend(["", "## Paired Group Regressions"])
+        for item in paired_gate["group_regressions"]:
+            lines.append(
+                f"- `{item['group_type']}` `{item['group']}` n={item['n']}: bad_metrics={item['bad_metrics']}"
             )
     return "\n".join(lines) + "\n"
 
@@ -705,11 +1093,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--group-min-sample", type=int, default=5)
     parser.add_argument("--max-group-regression", type=float, default=0.02)
     parser.add_argument("--champion-label", default="current_fusion")
+    parser.add_argument("--paired-champion-label", default="snapshot_adjusted")
+    parser.add_argument(
+        "--paired-baselines",
+        default="uniform_baseline,dc_only,elo_only,tabular_only,pi_only,market_only,weibull_only",
+        help="Comma-separated paired baselines. Comparisons are made only inside the same evaluation example.",
+    )
     parser.add_argument("--enforce-gate", action="store_true", help="Exit non-zero when the champion gate fails.")
+    parser.add_argument(
+        "--enforce-paired-gate",
+        action="store_true",
+        help="Exit non-zero when the paired champion gate fails.",
+    )
     parser.add_argument("--report-dir", default=str(PROJECT_ROOT / "reports"))
     parser.add_argument("--json-out", default=None)
     parser.add_argument("--markdown-out", default=None)
     args = parser.parse_args(argv)
+    paired_baselines = _parse_label_list(args.paired_baselines)
 
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -722,6 +1122,8 @@ def main(argv: list[str] | None = None) -> int:
             group_min_sample=args.group_min_sample,
             max_group_regression=args.max_group_regression,
             champion_label=args.champion_label,
+            paired_champion_label=args.paired_champion_label,
+            paired_baselines=paired_baselines,
         )
     finally:
         conn.close()
@@ -745,6 +1147,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.enforce_gate and report["gate"]["status"] != "pass":
         print("\nFAIL: champion gate rejected current champion.")
+        return 2
+    if args.enforce_paired_gate and report["paired"]["gate"]["status"] != "pass":
+        print("\nFAIL: paired gate rejected paired champion.")
         return 2
     print("\nOK: walk-forward report generated.")
     return 0
