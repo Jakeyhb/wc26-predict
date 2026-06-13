@@ -4,7 +4,6 @@ Replaces the ad-hoc dict returned by snapshot.py/run_snapshot().
 Provides backward-compatible .to_dict() for existing consumers.
 """
 from __future__ import annotations
-import logging
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -12,6 +11,7 @@ from typing import Any, Literal
 
 from app.version import VERSION
 
+from app.services.evaluation_sample import evaluation_sample_from_prediction_dict
 from app.services.weights import WeightConfig
 
 
@@ -156,7 +156,7 @@ class PredictionResult:
         consumers: save_prediction_snapshot(), render_markdown(), etc.
         """
         wc = self.weight_config
-        return {
+        payload = {
             "meta": {
                 "match_id": self.match_id,
                 "home_team": self.home_team,
@@ -211,6 +211,8 @@ class PredictionResult:
             "sources": self.sources,
             "degraded_reasons": [dr.to_dict() for dr in self.degraded_reasons],
         }
+        payload["evaluation_sample"] = evaluation_sample_from_prediction_dict(payload)
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PredictionResult":

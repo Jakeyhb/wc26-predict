@@ -5,13 +5,13 @@ Ticket 1.2: prediction_pipeline contract strengthening.
 from __future__ import annotations
 
 import asyncio
-import inspect
 
 import pytest
 
 from app.services.prediction_pipeline import PredictionPipeline
 from app.services.prediction_result import DegradedReason, PredictionResult
 from app.services.run_quality import RunQuality
+from app.services.evaluation_sample import EVALUATION_CANDIDATE_LABELS
 
 
 class TestPredictionPipeline:
@@ -25,6 +25,52 @@ class TestPredictionPipeline:
 
     def test_predict_is_async_callable(self) -> None:
         assert asyncio.iscoroutinefunction(PredictionPipeline.predict)
+
+
+class TestEvaluationSampleContract:
+    """Verify V3.5.4 evaluation_sample output."""
+
+    def test_to_dict_includes_stable_evaluation_sample(self) -> None:
+        result = PredictionResult(
+            home_team="Argentina",
+            away_team="Brazil",
+            competition="FIFA World Cup 2026",
+            match_id="12345678-1234-5678-1234-567812345678",
+            home_win_prob=0.50,
+            draw_prob=0.25,
+            away_win_prob=0.25,
+            dc_probs={"home": 0.45, "draw": 0.30, "away": 0.25},
+            enhancer_probs={"home": 0.48, "draw": 0.27, "away": 0.25},
+            elo_probs={"home": 0.40, "draw": 0.30, "away": 0.30},
+            pi_probs={"home": 0.42, "draw": 0.29, "away": 0.29},
+            weibull_probs={"home": 0.46, "draw": 0.28, "away": 0.26},
+            market_probs={"home_prob": 0.44, "draw_prob": 0.31, "away_prob": 0.25},
+            calibration_monitor={"baseline_probs": {"home": 0.47, "draw": 0.28, "away": 0.25}},
+            as_of="2026-06-01T00:00:00Z",
+            generated_at="2026-06-01T00:00:01Z",
+        )
+
+        sample = result.to_dict()["evaluation_sample"]
+
+        assert sample["schema_version"] == "v1"
+        assert sample["match_id"] == "12345678-1234-5678-1234-567812345678"
+        assert set(sample["candidate_status"]) == set(EVALUATION_CANDIDATE_LABELS)
+        assert sample["candidate_probs"]["current_fusion"] == {"home": 0.5, "draw": 0.25, "away": 0.25}
+        assert sample["candidate_probs"]["snapshot_baseline"]["home"] == pytest.approx(0.47)
+        assert sample["candidate_probs"]["market_only"]["draw"] == pytest.approx(0.31)
+
+    def test_invalid_market_probs_are_marked_missing(self) -> None:
+        result = PredictionResult(
+            home_team="Argentina",
+            away_team="Brazil",
+            competition="FIFA World Cup 2026",
+            market_probs={"home_prob": 0.44, "draw_prob": None, "away_prob": 0.25},
+        )
+
+        sample = result.to_dict()["evaluation_sample"]
+
+        assert "market_only" not in sample["candidate_probs"]
+        assert sample["candidate_status"]["market_only"]["status"] == "missing"
 
 
 class TestRunQuality:

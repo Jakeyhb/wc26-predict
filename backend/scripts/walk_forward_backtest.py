@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.services.evaluation_metrics import ThreeWayMetrics, evaluate_three_way
+from app.services.evaluation_sample import normalize_1x2_payload
 
 
 PROPER_METRICS = ("log_loss", "brier", "rps")
@@ -95,6 +96,7 @@ class EvaluationExample:
     competition: str
     run_type: str
     model_version: str
+    schema_version: str
     scores: dict[str, ThreeWayMetrics]
 
 
@@ -139,6 +141,7 @@ def _load_prediction_run_rows(conn: sqlite3.Connection, limit: int | None) -> li
             pr.home_win_prob,
             pr.draw_prob,
             pr.away_win_prob,
+            pr.input_feature_snapshot,
             m.match_date,
             m.competition,
             COALESCE(m.stage, '') AS stage,
@@ -173,6 +176,7 @@ def _load_snapshot_rows(conn: sqlite3.Connection, limit: int | None) -> list[sql
             ps.adjusted_probs,
             ps.component_probs,
             ps.market_probs,
+            ps.pipeline_params,
             m.match_date,
             m.competition,
             COALESCE(m.stage, '') AS stage,
@@ -334,16 +338,19 @@ def _paired_examples_for_labels(
 
 def _cohort_counts(examples: list[EvaluationExample]) -> dict[str, Any]:
     by_source: dict[str, int] = defaultdict(int)
+    by_schema_version: dict[str, int] = defaultdict(int)
     by_label: dict[str, int] = defaultdict(int)
     by_source_label: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for example in examples:
         by_source[example.source] += 1
+        by_schema_version[example.schema_version] += 1
         for label in example.scores:
             by_label[label] += 1
             by_source_label[example.source][label] += 1
     return {
         "total_examples": len(examples),
         "by_source": dict(sorted(by_source.items())),
+        "by_schema_version": dict(sorted(by_schema_version.items())),
         "by_label": dict(sorted(by_label.items())),
         "by_source_label": {
             source: dict(sorted(labels.items()))
@@ -648,7 +655,7 @@ def _add_prediction_metrics(
     return metrics
 
 
-def _make_example(row: sqlite3.Row, *, horizon: str) -> EvaluationExample:
+def _make_example(row: sqlite3.Row, *, horizon: str, schema_version: str = "legacy_fallback") -> EvaluationExample:
     return EvaluationExample(
         example_id=f"{row['source']}:{row['id']}",
         source=str(row["source"]),
@@ -659,6 +666,7 @@ def _make_example(row: sqlite3.Row, *, horizon: str) -> EvaluationExample:
         competition=str(row["competition"]),
         run_type=str(row["run_type"]),
         model_version=str(row["model_version"]),
+        schema_version=schema_version,
         scores={},
     )
 
@@ -684,6 +692,67 @@ def _add_example_score(
     return metrics
 
 
+def _evaluation_candidates_from_container(raw: object) -> tuple[str, dict[str, dict[str, float]]] | None:
+    container = _json_obj(raw)
+    sample = container.get("evaluation_sample")
+    if not isinstance(sample, dict):
+        return None
+    raw_candidates = sample.get("candidate_probs")
+    if not isinstance(raw_candidates, dict):
+        return None
+    candidates: dict[str, dict[str, float]] = {}
+    for label, payload in raw_candidates.items():
+        probs = normalize_1x2_payload(payload)
+        if probs:
+            candidates[str(label)] = probs
+    if not candidates:
+        return None
+    return str(sample.get("schema_version") or "unknown"), candidates
+
+
+def _record_candidate(
+    *,
+    row: sqlite3.Row,
+    example: EvaluationExample,
+    label: str,
+    probs: dict[str, float] | tuple[float, float, float],
+    home_goals: int,
+    away_goals: int,
+    horizon: str,
+    by_baseline: dict[str, Aggregate],
+    by_model: dict[str, Aggregate],
+    by_run_type: dict[str, Aggregate],
+    by_competition: dict[str, Aggregate],
+    by_horizon: dict[str, Aggregate],
+) -> None:
+    if isinstance(probs, tuple):
+        home_prob, draw_prob, away_prob = probs
+    else:
+        home_prob = probs["home"]
+        draw_prob = probs["draw"]
+        away_prob = probs["away"]
+    metrics = _add_prediction_metrics(
+        by_baseline,
+        label=label,
+        home_prob=home_prob,
+        draw_prob=draw_prob,
+        away_prob=away_prob,
+        home_goals=home_goals,
+        away_goals=away_goals,
+    )
+    _record_context(
+        row=row,
+        metrics_label=label,
+        metrics=metrics,
+        horizon=horizon,
+        by_model=by_model,
+        by_run_type=by_run_type,
+        by_competition=by_competition,
+        by_horizon=by_horizon,
+    )
+    example.scores[label] = metrics
+
+
 def build_walk_forward_report(
     *,
     conn: sqlite3.Connection,
@@ -705,6 +774,7 @@ def build_walk_forward_report(
     by_competition: dict[str, Aggregate] = defaultdict(Aggregate)
     by_horizon: dict[str, Aggregate] = defaultdict(Aggregate)
     paired_examples: list[EvaluationExample] = []
+    pipeline_evaluation_examples = 0
     skipped_after_kickoff = 0
     skipped_bad_time = 0
 
@@ -718,6 +788,29 @@ def build_walk_forward_report(
             skipped_after_kickoff += 1
             continue
         horizon = _horizon(as_of_time, kickoff)
+        sample_candidates = _evaluation_candidates_from_container(row["input_feature_snapshot"])
+        if sample_candidates:
+            schema_version, candidates = sample_candidates
+            example = _make_example(row, horizon=horizon, schema_version=schema_version)
+            for label, probs in candidates.items():
+                _record_candidate(
+                    row=row,
+                    example=example,
+                    label=label,
+                    probs=probs,
+                    home_goals=row["home_goals"],
+                    away_goals=row["away_goals"],
+                    horizon=horizon,
+                    by_baseline=by_baseline,
+                    by_model=by_model,
+                    by_run_type=by_run_type,
+                    by_competition=by_competition,
+                    by_horizon=by_horizon,
+                )
+            paired_examples.append(example)
+            pipeline_evaluation_examples += 1
+            continue
+
         example = _make_example(row, horizon=horizon)
 
         current_metrics = _add_prediction_metrics(
@@ -773,6 +866,29 @@ def build_walk_forward_report(
             skipped_after_kickoff += 1
             continue
         horizon = _horizon(as_of_time, kickoff)
+        sample_candidates = _evaluation_candidates_from_container(row["pipeline_params"])
+        if sample_candidates:
+            schema_version, candidates = sample_candidates
+            example = _make_example(row, horizon=horizon, schema_version=schema_version)
+            for label, probs in candidates.items():
+                _record_candidate(
+                    row=row,
+                    example=example,
+                    label=label,
+                    probs=probs,
+                    home_goals=row["home_goals"],
+                    away_goals=row["away_goals"],
+                    horizon=horizon,
+                    by_baseline=by_baseline,
+                    by_model=by_model,
+                    by_run_type=by_run_type,
+                    by_competition=by_competition,
+                    by_horizon=by_horizon,
+                )
+            paired_examples.append(example)
+            pipeline_evaluation_examples += 1
+            continue
+
         example = _make_example(row, horizon=horizon)
         _add_example_score(
             example,
@@ -855,6 +971,7 @@ def build_walk_forward_report(
             "prediction_snapshots": len(snapshot_rows),
             "current_fusion_evaluated": by_baseline["current_fusion"].n,
             "paired_examples": len(paired_examples),
+            "pipeline_evaluation_examples": pipeline_evaluation_examples,
             "skipped_after_kickoff": skipped_after_kickoff,
             "skipped_bad_timestamps": skipped_bad_time,
         },
@@ -886,6 +1003,7 @@ def _print_summary(report: dict[str, Any], *, min_sample: int) -> None:
     print(f"PredictionSnapshot rows loaded: {report['loaded']['prediction_snapshots']}")
     print(f"Current fusion rows evaluated: {report['loaded']['current_fusion_evaluated']}")
     print(f"Paired evaluation examples: {report['loaded']['paired_examples']}")
+    print(f"Pipeline evaluation examples: {report['loaded']['pipeline_evaluation_examples']}")
     print(f"Skipped after kickoff: {report['loaded']['skipped_after_kickoff']}")
     print(f"Skipped bad timestamps: {report['loaded']['skipped_bad_timestamps']}")
 
@@ -1015,6 +1133,7 @@ def _render_markdown(report: dict[str, Any], *, min_sample: int) -> str:
         f"- Exploratory unpaired leader: `{gate['leader_label']}`",
         f"- Current fusion rows: `{report['loaded']['current_fusion_evaluated']}`",
         f"- Paired evaluation examples: `{report['loaded']['paired_examples']}`",
+        f"- Pipeline evaluation examples: `{report['loaded']['pipeline_evaluation_examples']}`",
         "",
         "## Unpaired Gate Reasons",
     ]

@@ -18,9 +18,8 @@ import logging
 
 from app.database import AsyncSessionLocal
 from app.models.prediction_snapshot import PredictionSnapshot
-from app.models.prediction_run import PredictionRun
 from app.version import VERSION
-from app.models.enums import PredictionRunType
+from app.services.evaluation_sample import evaluation_sample_from_prediction_dict, normalize_1x2_payload
 
 
 async def save_prediction_snapshot(
@@ -39,6 +38,11 @@ async def save_prediction_snapshot(
     p = result["prediction"]
     e = result["elo"]
     match_id_raw = _resolve_or_require_match_id(m)
+    m["match_id"] = match_id_raw
+    result["evaluation_sample"] = evaluation_sample_from_prediction_dict(result)
+    evaluation_sample = result["evaluation_sample"]
+    candidate_probs = evaluation_sample.get("candidate_probs", {})
+    pipeline = result.get("pipeline") or result.get("pipeline_params") or {}
 
     # Determine confidence level
     missing_count = len(result.get("missing_inputs", []))
@@ -52,9 +56,11 @@ async def save_prediction_snapshot(
     # Rebuild score matrix from xG for prediction_runs compatibility
     score_matrix = _build_score_matrix(p["home_xg"], p["away_xg"])
     conf_score = 0.55
-    cal_monitor = p.get("calibration_monitor", {})
+    cal_monitor = result.get("calibration_monitor", {})
     if cal_monitor and cal_monitor.get("baseline_probs"):
         conf_score = 0.65
+    baseline_probs = candidate_probs.get("snapshot_baseline") or candidate_probs.get("current_fusion")
+    adjusted_probs = candidate_probs.get("snapshot_adjusted") or candidate_probs.get("current_fusion")
 
     snapshot = PredictionSnapshot(
         match_id=match_id_raw,
@@ -64,20 +70,10 @@ async def save_prediction_snapshot(
         away_team=m["away_team"],
         competition=m["competition"],
         match_time=m.get("match_date", None),
-        baseline_probs={
-            "home": p["home_win_prob"],
-            "draw": p["draw_prob"],
-            "away": p["away_win_prob"],
-        },
+        baseline_probs=baseline_probs,
         component_probs=result.get("component_probs"),
-        market_probs=result.get("market_divergence", {}).get("applied") and {
-            "home": result["market_divergence"].get("market_home_prob"),
-        } or None,
-        adjusted_probs={
-            "home": p["home_win_prob"],
-            "draw": p["draw_prob"],
-            "away": p["away_win_prob"],
-        },
+        market_probs=_extract_market_probs(result),
+        adjusted_probs=adjusted_probs,
         expected_goals={
             "home": p["home_xg"],
             "away": p["away_xg"],
@@ -92,16 +88,8 @@ async def save_prediction_snapshot(
         active_event_ids=[],
         missing_inputs=[str(item) for item in result.get("missing_inputs", [])],
         confidence=confidence,
-        calibration_monitor=p.get("calibration_monitor"),
-        pipeline_params={
-            "dc_converged": result["pipeline"].get("dc_converged"),
-            "dc_nll": result["pipeline"].get("dc_nll"),
-            "enhancer_algorithm": result["pipeline"].get("enhancer_algorithm"),
-            "enhancer_rows": result["pipeline"].get("enhancer_rows"),
-            "enhancer_features": result["pipeline"].get("enhancer_features"),
-            "elo_matches": result["pipeline"].get("elo_matches"),
-            "training_rows": m.get("training_rows"),
-        },
+        calibration_monitor=cal_monitor,
+        pipeline_params=_build_snapshot_pipeline_params(pipeline, m, evaluation_sample),
         report_path=report_path,
         report_markdown=report_markdown,
     )
@@ -130,7 +118,7 @@ async def _sync_to_prediction_runs(
     m = result["meta"]
     p = result["prediction"]
     adj = result.get("adjustment", {})
-    risk_tags = adj.get("risk_tags", [])
+    risk_tags = adj.get("risk_tags") or p.get("risk_tags", [])
     adjustment_log = adj.get("log", [])
 
     # Normalize match_id to UUID format (add dashes if missing)
@@ -149,21 +137,11 @@ async def _sync_to_prediction_runs(
     }
     prt_value = run_type_map.get(run_type, "MANUAL")
 
-    # Build feature snapshot for audit trail
-    feature_snapshot = {
-        "training_rows": m.get("training_rows"),
-        "match_context": {
-            "home_team_name": m["home_team"],
-            "away_team_name": m["away_team"],
-            "competition": m["competition"],
-            "is_neutral": m.get("is_neutral", False),
-        },
-        "adjustment_log": adjustment_log,
-        "prediction_mode": "script_snapshot",
-        "source": "snapshot.py -> save_prediction_snapshot()",
-    }
+    evaluation_sample = result.get("evaluation_sample") or evaluation_sample_from_prediction_dict(result)
+    feature_snapshot = _build_prediction_run_feature_snapshot(result, adjustment_log, evaluation_sample)
 
     now_ts = datetime.now(timezone.utc).isoformat()
+    as_of_ts = str(m.get("as_of") or m.get("generated_at") or now_ts)
     pred_run_id = str(_uuid.uuid4())
 
     try:
@@ -188,7 +166,7 @@ async def _sync_to_prediction_runs(
                     "match_id": match_uuid,
                     "run_type": prt_value,
                     "model_version": VERSION,
-                    "as_of_time": now_ts,
+                    "as_of_time": as_of_ts,
                     "home_win_prob": round(float(p["home_win_prob"]), 6),
                     "draw_prob": round(float(p["draw_prob"]), 6),
                     "away_win_prob": round(float(p["away_win_prob"]), 6),
@@ -206,7 +184,6 @@ async def _sync_to_prediction_runs(
             await db.commit()
     except Exception as exc:
         # prediction_runs sync is best-effort; never break the main pipeline
-        import logging
         logging.getLogger(__name__).warning(
             "_sync_to_prediction_runs failed for %s vs %s: %s",
             m.get("home_team", "?"), m.get("away_team", "?"), exc
@@ -281,7 +258,58 @@ def _normalize_prediction_result(result: dict[str, Any]) -> dict[str, Any]:
             else:
                 missing_inputs.append(str(item))
     normalized["missing_inputs"] = missing_inputs
+    normalized["evaluation_sample"] = evaluation_sample_from_prediction_dict(normalized)
     return normalized
+
+
+def _extract_market_probs(result: dict[str, Any]) -> dict[str, float] | None:
+    """Persist market only when all three probabilities are present."""
+    evaluation_sample = result.get("evaluation_sample") or {}
+    candidate_probs = evaluation_sample.get("candidate_probs") or {}
+    market_from_sample = normalize_1x2_payload(candidate_probs.get("market_only"))
+    if market_from_sample:
+        return market_from_sample
+    component_market = (result.get("component_probs") or {}).get("market")
+    return normalize_1x2_payload(component_market)
+
+
+def _build_snapshot_pipeline_params(
+    pipeline: dict[str, Any],
+    meta: dict[str, Any],
+    evaluation_sample: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "dc_converged": pipeline.get("dc_converged"),
+        "dc_nll": pipeline.get("dc_nll"),
+        "enhancer_algorithm": pipeline.get("enhancer_algorithm"),
+        "enhancer_rows": pipeline.get("enhancer_rows"),
+        "enhancer_features": pipeline.get("enhancer_features"),
+        "elo_matches": pipeline.get("elo_matches"),
+        "training_rows": pipeline.get("training_rows", meta.get("training_rows")),
+        "evaluation_sample": evaluation_sample,
+    }
+
+
+def _build_prediction_run_feature_snapshot(
+    result: dict[str, Any],
+    adjustment_log: list[dict[str, Any]],
+    evaluation_sample: dict[str, Any],
+) -> dict[str, Any]:
+    meta = result["meta"]
+    pipeline = result.get("pipeline") or result.get("pipeline_params") or {}
+    return {
+        "training_rows": pipeline.get("training_rows", meta.get("training_rows")),
+        "match_context": {
+            "home_team_name": meta["home_team"],
+            "away_team_name": meta["away_team"],
+            "competition": meta["competition"],
+            "is_neutral": meta.get("is_neutral", False),
+        },
+        "adjustment_log": adjustment_log,
+        "prediction_mode": "script_snapshot",
+        "source": "snapshot.py -> save_prediction_snapshot()",
+        "evaluation_sample": evaluation_sample,
+    }
 
 
 def _build_score_matrix(home_xg: float, away_xg: float, max_goals: int = 5) -> list[list[float]]:

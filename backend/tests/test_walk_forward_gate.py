@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from collections import defaultdict
 
 from app.services.evaluation_metrics import ThreeWayMetrics
@@ -8,6 +10,7 @@ from scripts.walk_forward_backtest import (
     EvaluationExample,
     GateConfig,
     build_paired_report,
+    build_walk_forward_report,
     decide_champion_gate,
 )
 
@@ -53,6 +56,7 @@ def _example(
         competition=competition,
         run_type=run_type,
         model_version="test",
+        schema_version="test",
         scores=scores,
     )
 
@@ -216,3 +220,141 @@ def test_paired_gate_marks_non_required_baseline_insufficient_without_failing_on
     assert report["comparisons"]["dc_only"]["status"] == "insufficient_samples"
     assert report["insufficient_baselines"]["dc_only"]["available_n"] == 1
     assert report["gate"]["status"] == "pass"
+
+
+def _minimal_backtest_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE matches (
+            id TEXT PRIMARY KEY,
+            match_date TEXT,
+            competition TEXT,
+            stage TEXT,
+            is_neutral_venue INTEGER
+        );
+        CREATE TABLE match_results (
+            match_id TEXT,
+            home_goals INTEGER,
+            away_goals INTEGER
+        );
+        CREATE TABLE prediction_runs (
+            id TEXT PRIMARY KEY,
+            match_id TEXT,
+            run_type TEXT,
+            model_version TEXT,
+            as_of_time TEXT,
+            home_win_prob REAL,
+            draw_prob REAL,
+            away_win_prob REAL,
+            input_feature_snapshot TEXT
+        );
+        CREATE TABLE prediction_snapshots (
+            id TEXT PRIMARY KEY,
+            match_id TEXT,
+            run_type TEXT,
+            model_version TEXT,
+            generated_at TEXT,
+            baseline_probs TEXT,
+            adjusted_probs TEXT,
+            component_probs TEXT,
+            market_probs TEXT,
+            pipeline_params TEXT
+        );
+        """
+    )
+    conn.execute(
+        "INSERT INTO matches VALUES (?, ?, ?, ?, ?)",
+        ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "2026-06-02T00:00:00", "FIFA World Cup 2026", "Group Stage", 1),
+    )
+    conn.execute(
+        "INSERT INTO match_results VALUES (?, ?, ?)",
+        ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 0),
+    )
+    return conn
+
+
+def test_walk_forward_prefers_prediction_run_evaluation_sample():
+    conn = _minimal_backtest_db()
+    feature_snapshot = {
+        "evaluation_sample": {
+            "schema_version": "v1",
+            "candidate_probs": {
+                "current_fusion": {"home": 0.9, "draw": 0.05, "away": 0.05},
+                "dc_only": {"home": 0.8, "draw": 0.1, "away": 0.1},
+                "uniform_baseline": {"home": 1 / 3, "draw": 1 / 3, "away": 1 / 3},
+            },
+        }
+    }
+    conn.execute(
+        """
+        INSERT INTO prediction_runs
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "run1",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "MANUAL",
+            "test",
+            "2026-06-01T00:00:00",
+            0.01,
+            0.49,
+            0.50,
+            json.dumps(feature_snapshot),
+        ),
+    )
+
+    report = build_walk_forward_report(
+        conn=conn,
+        db_path=":memory:",
+        limit=None,
+        min_sample=1,
+        group_min_sample=1,
+        max_group_regression=0.02,
+        champion_label="current_fusion",
+        paired_champion_label="current_fusion",
+        paired_baselines=["uniform_baseline", "dc_only"],
+    )
+
+    assert report["loaded"]["pipeline_evaluation_examples"] == 1
+    assert report["paired"]["cohorts"]["by_schema_version"]["v1"] == 1
+    assert report["leaderboard"]["current_fusion"]["log_loss"] < 0.2
+
+
+def test_walk_forward_legacy_snapshot_fallback_still_works():
+    conn = _minimal_backtest_db()
+    conn.execute(
+        """
+        INSERT INTO prediction_snapshots
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "snap1",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "manual",
+            "legacy",
+            "2026-06-01T00:00:00",
+            json.dumps({"home": 0.7, "draw": 0.2, "away": 0.1}),
+            json.dumps({"home": 0.8, "draw": 0.1, "away": 0.1}),
+            json.dumps({"dc": {"home": 0.75, "draw": 0.15, "away": 0.1}}),
+            None,
+            "{}",
+        ),
+    )
+
+    report = build_walk_forward_report(
+        conn=conn,
+        db_path=":memory:",
+        limit=None,
+        min_sample=1,
+        group_min_sample=1,
+        max_group_regression=0.02,
+        champion_label="snapshot_adjusted",
+        paired_champion_label="snapshot_adjusted",
+        paired_baselines=["uniform_baseline", "dc_only"],
+    )
+
+    assert report["loaded"]["pipeline_evaluation_examples"] == 0
+    assert report["paired"]["cohorts"]["by_schema_version"]["legacy_fallback"] == 1
+    assert "snapshot_adjusted" in report["leaderboard"]

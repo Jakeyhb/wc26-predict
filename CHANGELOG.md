@@ -1,5 +1,26 @@
 # Changelog
 
+## V3.5.4 Pipeline Eval Samples — PredictionPipeline 同源评估样本 (2026-06-13)
+
+Focus:
+
+- **统一评估样本** — `PredictionResult.to_dict()` 输出顶层 `evaluation_sample`
+- **同源候选概率** — evaluation sample 固定记录 current fusion、snapshot adjusted/baseline、DC、tabular、Elo、Pi、Weibull、market、uniform 的可用状态
+- **持久化边界统一** — `prediction_snapshots.pipeline_params.evaluation_sample` 与 `prediction_runs.input_feature_snapshot.evaluation_sample` 写入同一份样本
+- **market 保存修复** — market 只有完整 `{home, draw, away}` 三路概率时才进入评估，避免单字段伪样本
+- **回测优先读取新样本** — walk-forward 报告优先使用 pipeline evaluation sample，没有时 fallback 到 V3.5.3 legacy 字段
+- **安全回填脚本** — 新增 dry-run 默认的 `backfill_evaluation_samples.py`，只使用同一行已有数据构造样本
+- **版本同步** — README、CURRENT_STATUS、version.py 更新为 V3.5.4
+
+Notes:
+
+- 本版不接入真实 xG / 阵容 / 伤停 / 新赔率源。
+- 本版不改模型权重，不发布 champion，不宣称预测更准。
+- 回填脚本默认不写库；`--apply` 会先备份本地 SQLite。
+- 下一步是 V3.6 数据补强：真实 xG、阵容、伤停、赔率快照、天气与休息旅途数据。
+
+---
+
 ## V3.5.3 Paired Benchmark — 同样本配对回测门 (2026-06-13)
 
 Focus:
