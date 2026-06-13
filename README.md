@@ -3,8 +3,8 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.5.1_closed_loop-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_0B_active_trace_clean-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/version-V3.5.2_champion_gate-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-Phase_1_gate_active-orange?style=flat-square" alt="phase">
   <img src="https://img.shields.io/badge/backend_tests-184_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/frontend-React_+_Vite-informational?style=flat-square" alt="frontend">
@@ -13,9 +13,9 @@
 
 ## 当前结论
 
-WC26 Predict 现在处在 **Phase 0B：闭环数据链路修复阶段**，不是“盲目堆模型”的阶段。
+WC26 Predict 现在处在 **Phase 1：walk-forward 发布门阶段**，不是“盲目堆模型”的阶段。
 
-已经完成的 V3.5.1 重点：
+已经完成的 V3.5.2 重点：
 
 - 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
 - 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
@@ -24,7 +24,9 @@ WC26 Predict 现在处在 **Phase 0B：闭环数据链路修复阶段**，不是
 - active 闭环追溯缺口清零；旧快照、旧赔率和旧学习日志被隔离，不再混入学习。
 - `postmatch_eval` 已修复到 `48/48` 可追溯。
 - 新增 proper scoring 指标：log loss、Brier、RPS。
-- 新增 walk-forward 回测脚手架，用于比较 DC、Elo、Pi、Weibull、tabular、market、current fusion、uniform baseline。
+- walk-forward 回测升级为 champion gate，可比较 DC、Elo、Pi、Weibull、tabular、market、current fusion、uniform baseline。
+- 新增 `--enforce-gate`；当前 champion 不合格时返回非零，阻止发布。
+- 每次回测生成 JSON + Markdown 报告到 ignored `backend/reports/`。
 - 新增闭环完整性审计脚本，能暴露 prediction snapshot、pre-match snapshot、赔率、学习日志的追溯缺口。
 - WC26 小组赛 72 场赛程已绑定到内部 team id；淘汰赛仍需在晋级结果确定后动态绑定。
 - 完成一次仓库大扫除：删除可再生成缓存、依赖目录、构建产物和重复旧库，非核心素材归档到 `_archive/` 并从 Git 跟踪中排除。
@@ -33,7 +35,7 @@ WC26 Predict 现在处在 **Phase 0B：闭环数据链路修复阶段**，不是
 
 - 系统还不是完整自动闭环。
 - 系统还不能称为可信自进化，只能说“可控自进化基础已开始搭建”。
-- 当前不应该直接上线新权重；存量 walk-forward 评估曾显示 `current_fusion` 差于 `uniform_baseline`，必须先修数据绑定和回测门。
+- 当前不应该直接上线新权重；V3.5.2 gate 明确拒绝 `current_fusion`，因为它差于 `uniform_baseline`。
 - 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足。
 
 ## 系统目标
@@ -159,7 +161,10 @@ walk-forward 回测：
 ```powershell
 cd backend
 python scripts/walk_forward_backtest.py --min-sample 5
+python scripts/walk_forward_backtest.py --min-sample 5 --enforce-gate
 ```
+
+`--enforce-gate` 当前预期失败；这是正确行为，说明当前 champion 还不能发布。
 
 本地 Dashboard：
 
@@ -242,10 +247,10 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.5.1 闭环追溯修复版**
+当前主版本：**V3.5.2 Champion Gate**
 
-- Version: `3.5.1-closed-loop`
-- Tag: `v3.5.1-closed-loop`
+- Version: `3.5.2-champion-gate`
+- Tag: `v3.5.2-champion-gate`
 - Branch target: `master`
 - 状态：测试版，重点是闭环可信度和数据链路，不是最终预测精度版本。
 

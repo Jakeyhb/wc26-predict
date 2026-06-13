@@ -1,5 +1,25 @@
 # Changelog
 
+## V3.5.2 Champion Gate — walk-forward 发布门 (2026-06-13)
+
+Focus:
+
+- **正式发布门** — `walk_forward_backtest.py` 输出 champion/challenger gate decision
+- **结构化报告** — 每次回测生成 JSON + Markdown 报告到 ignored `backend/reports/`
+- **强制门禁** — 新增 `--enforce-gate`，当前 champion 不合格时返回非零
+- **分组退化检查** — 按 horizon、competition、run_type 对比 `current_fusion` vs `uniform_baseline`
+- **基线对比** — leaderboard 覆盖 uniform、DC、Elo、Pi、tabular、market、Weibull 可用样本
+- **版本同步** — README、CURRENT_STATUS、version.py 更新为 V3.5.2
+
+Notes:
+
+- 当前 gate 结果：FAIL
+- 失败原因：`current_fusion` 不是 log loss leader，且 log loss / Brier 未超过 `uniform_baseline`
+- 当前 leader：`dc_only`（非配对 benchmark，仍需 Phase 1B 做 paired/out-of-fold 对比）
+- 结论：发布门已落地，但不能上线新权重；下一步是数据补强与配对回测
+
+---
+
 ## V3.5.1 闭环追溯修复版 — resolution ledger + legacy 隔离 (2026-06-13)
 
 Focus:

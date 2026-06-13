@@ -37,7 +37,7 @@ $env:PYTHONIOENCODING = "utf-8"
 Set-Location $ProjectRoot
 
 Write-Host "============================================="
-Write-Host "  WC26 Predict Local Studio V3.5.1"
+Write-Host "  WC26 Predict Local Studio V3.5.2"
 Write-Host "============================================="
 Write-Host "  Port:     $Port"
 Write-Host "  URL:      http://${Address}:${Port}"
