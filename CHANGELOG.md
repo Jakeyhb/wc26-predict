@@ -1,5 +1,26 @@
 # Changelog
 
+## V3.6.0 Data Provenance — 数据覆盖与来源审计基线 (2026-06-13)
+
+Focus:
+
+- **V3.6 数据补强先验门** — 新增只读 `audit_data_provenance.py`，在接入新数据前先审计真实 xG、赔率、赛前快照、伤停、阵容、情报信号的覆盖与来源
+- **真实 xG 覆盖门** — 将 `match_results.home_xg/away_xg` 覆盖不足标为 critical，避免把进球 fallback 误当真实 xG 学习
+- **赔率 provenance 门** — 区分 active 未绑定赔率和已 quarantine 的 legacy 赔率；active 未绑定赔率继续阻断，legacy 隔离不伪装成 benchmark 覆盖
+- **赛前状态 provenance** — 审计 `pre_match_snapshots` 的 availability flags、payload、`source_timestamps` 和 snapshot id，缺失先标 warning
+- **阵容/伤停/情报信号覆盖** — 审计 `lineup_probe_logs`、`lineup_available`、`injuries.json` 的 source / last_updated，以及 manual/news signal 表
+- **测试覆盖** — 新增数据 provenance 单元测试：低 xG 覆盖、未绑定赔率、隔离旧赔率、缺 source timestamp、最小可追溯样例
+- **版本同步** — README、CURRENT_STATUS、version.py 更新为 V3.6.0
+
+Notes:
+
+- 本版仍不接入新的 xG / 阵容 / 伤停 / 赔率 API。
+- 本版不改模型权重，不发布 champion，不宣称预测更准。
+- `audit_data_provenance.py` 对当前本地库预期会失败，核心 blocker 仍是真实 xG 覆盖不足。
+- 下一步是 V3.6.1：优先补真实 xG / 射门 / 射正 / 红黄牌等可追溯赛后统计，并记录 `source_time` / `available_at`。
+
+---
+
 ## V3.5.4 Pipeline Eval Samples — PredictionPipeline 同源评估样本 (2026-06-13)
 
 Focus:
