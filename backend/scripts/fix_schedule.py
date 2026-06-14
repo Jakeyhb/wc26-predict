@@ -368,7 +368,8 @@ def fix_wc26_schedule(conn: sqlite3.Connection, dry_run: bool = False) -> int:
 
         if not row:
             row = conn.execute(
-                """SELECT id, match_date, kickoff_time, home_team, away_team
+                """SELECT id, match_date, kickoff_time, home_team, away_team,
+                          home_slot, away_slot
                    FROM wc26_schedule
                    WHERE home_team = ? AND away_team = ?
                      AND stage = 'Group Stage'""",
@@ -376,15 +377,31 @@ def fix_wc26_schedule(conn: sqlite3.Connection, dry_run: bool = False) -> int:
             ).fetchone()
 
         if row:
+            current_home = row["home_team"]
             if dry_run:
-                if row["match_date"] != date_part:
-                    print(f"  [DRY] sched {home}-{away}: "
-                          f"{row['match_date']} {row['kickoff_time']} -> {date_part} {time_part}")
+                if row["match_date"] != date_part or current_home != home:
+                    print(f"  [DRY] sched {current_home}-{row['away_team']}: "
+                          f"{row['match_date']} {row['kickoff_time']} -> {date_part} {time_part}"
+                          f"{' [SWAP home/away]' if current_home != home else ''}")
             else:
-                conn.execute(
-                    "UPDATE wc26_schedule SET match_date=?, kickoff_time=? WHERE id=?",
-                    (date_part, time_part, row["id"]),
-                )
+                if current_home != home:
+                    # Swap home_team/away_team and home_slot/away_slot to match spec
+                    conn.execute(
+                        """UPDATE wc26_schedule
+                           SET match_date=?, kickoff_time=?,
+                               home_team=?, away_team=?,
+                               home_slot=?, away_slot=?
+                           WHERE id=?""",
+                        (date_part, time_part,
+                         home, away,
+                         row["away_slot"], row["home_slot"],
+                         row["id"]),
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE wc26_schedule SET match_date=?, kickoff_time=? WHERE id=?",
+                        (date_part, time_part, row["id"]),
+                    )
             updated += 1
 
     # -- Knockout (M73-M104): match by match_number --
