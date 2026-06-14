@@ -59,7 +59,8 @@ class PredictionLearningLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
     # Values: "active" (verified, in-use), "pending_review" (awaiting verification),
-    #         "invalidated" (wrong result later corrected), "superseded" (replaced by newer verified record)
+    #         "invalidated" (wrong result later corrected), "superseded" (replaced by newer verified record),
+    #         "legacy_untraceable" / "legacy_ambiguous" (old rows excluded from active learning)
 
     # Context
     context_tags: Mapped[dict | None] = mapped_column(JSONVariant)

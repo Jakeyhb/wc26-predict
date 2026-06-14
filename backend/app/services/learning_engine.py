@@ -58,12 +58,33 @@ def _is_uuid_like(value: str | None) -> bool:
         return False
 
 
+def _coerce_probability(value: Any, fallback: float) -> float:
+    """Convert one probability value, tolerating legacy null/bad fields."""
+    if value is None:
+        return fallback
+    try:
+        coerced = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if coerced < 0:
+        return fallback
+    return coerced
+
+
 def _coerce_probs(probs: dict[str, Any]) -> dict[str, float]:
-    """Normalize component probability field names."""
+    """Normalize component probability field names and legacy partial payloads."""
+    if not isinstance(probs, dict):
+        return {"home": 1 / 3, "draw": 1 / 3, "away": 1 / 3}
+    home = _coerce_probability(probs.get("home", probs.get("home_win_prob")), 0.33)
+    draw = _coerce_probability(probs.get("draw", probs.get("draw_prob")), 0.33)
+    away = _coerce_probability(probs.get("away", probs.get("away_win_prob")), 0.33)
+    total = home + draw + away
+    if total <= 0:
+        return {"home": 0.33, "draw": 0.33, "away": 0.33}
     return {
-        "home": float(probs.get("home", probs.get("home_win_prob", 0.33))),
-        "draw": float(probs.get("draw", probs.get("draw_prob", 0.33))),
-        "away": float(probs.get("away", probs.get("away_win_prob", 0.33))),
+        "home": home / total,
+        "draw": draw / total,
+        "away": away / total,
     }
 
 

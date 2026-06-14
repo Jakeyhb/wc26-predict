@@ -1,16 +1,15 @@
-"""prediction_enhanced.py — Enhanced prediction orchestrator for V2.6.
+"""prediction_enhanced.py — Dashboard/Creator compatibility orchestrator.
 
-Wraps prediction_core (artifact pipeline) with real-time data:
-- Market odds (apifootball.com / The Odds API)
+Wraps PredictionPipeline with optional presentation-layer enrichment:
+- Market odds telemetry through the pipeline shadow-mode path
 - Weather (Open-Meteo, free)
 - DeepSeek V4 Pro AI analysis
 
 Design principles:
-1. prediction_core.py is NOT modified — enhanced wraps it
+1. PredictionPipeline owns artifact inference and market policy
 2. Every real-time data source has graceful degradation
-3. Market blend is capped at 25% (MAX_MARKET_BLEND)
-4. LLM analysis is optional and non-blocking
-5. All functions are synchronous (for Streamlit compatibility)
+3. Weather and LLM enrichment stay optional and non-blocking
+4. All functions are synchronous (for Streamlit compatibility)
 """
 
 from __future__ import annotations
@@ -59,6 +58,7 @@ class EnhancedPredictionResult:
     market_weight_used: float = 0.0
     market_divergence: float | None = None
     market_divergence_triggered: bool = False
+    source_status: dict[str, Any] = field(default_factory=dict)
 
     # ── Weather ──
     weather: dict[str, Any] | None = None
@@ -102,21 +102,19 @@ def run_enhanced_prediction(
     enable_weather: bool = True,
     enable_llm: bool = True,
     market_blend_max: float = MAX_MARKET_BLEND,
+    match_id: str | None = None,
+    match_date: str | datetime | None = None,
+    venue: str | None = None,
+    save_snapshot: bool = False,
+    require_full_context: bool = False,
 ) -> EnhancedPredictionResult:
-    """[DEPRECATED since V3.1] Run enhanced prediction with real-time data enrichment.
-
-    **Migration:** Use ``PredictionPipeline.from_artifacts(mode=mode)`` then
-    ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``.
-    Market/weather/LLM enrichment will be available as pipeline plugins in Ticket 8a.
-
-    This function will be removed in V3.3.
+    """Run Dashboard/Creator prediction with optional enrichment.
 
     Flow:
-    1. Base artifact prediction (prediction_core)
-    2. Market odds fetch (optional)
-    3. Market-model blend (if odds available)
-    4. Weather fetch (optional)
-    5. LLM analysis generation (optional)
+    1. PredictionPipeline artifact prediction
+    2. Market odds telemetry through pipeline shadow-mode (optional)
+    3. Weather fetch (optional)
+    4. LLM analysis generation (optional)
 
     All optional steps degrade gracefully — failure in any step
     does not prevent the overall prediction from completing.
@@ -127,25 +125,24 @@ def run_enhanced_prediction(
         competition: Competition name.
         is_neutral: Neutral venue flag.
         mode: Prediction mode (baseline/standard/full/research-full).
-        enable_market: Fetch and blend market odds.
+        enable_market: Fetch market odds through PredictionPipeline shadow-mode.
         enable_weather: Fetch weather data.
         enable_llm: Generate AI analysis via DeepSeek.
-        market_blend_max: Max market blend fraction (default 0.25).
+        market_blend_max: Legacy compatibility parameter; market policy is
+            owned by PredictionPipeline.
+        match_id: Optional real match identifier for closed-loop traceability.
+        match_date: Optional kickoff timestamp for weather/leakage metadata.
+        venue: Optional venue name.
+        save_snapshot: Persist a prediction snapshot through PredictionPipeline.
+        require_full_context: Enforce explicit match context and required live sources.
 
     Returns:
         EnhancedPredictionResult with all available data.
     """
-    import warnings
-    warnings.warn(
-        "run_enhanced_prediction is deprecated since V3.1. "
-        "Migrate to PredictionPipeline.from_artifacts(mode=mode).predict_match(...)",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     import time as time_module
 
+    _ = market_blend_max
     t_start = time_module.perf_counter()
-
     result = EnhancedPredictionResult(
         home_team=home_team,
         away_team=away_team,
@@ -154,171 +151,115 @@ def run_enhanced_prediction(
         mode=mode,
     )
 
-    # ── Step 1: Base artifact prediction ────────────────────────────────────
-    logger.info(f"\n{'='*60}")
-    logger.info(f"  WC26 Predict V2.6 Enhanced — {home_team} vs {away_team}")
-    logger.info(f"  {competition} | Neutral: {is_neutral} | Mode: {mode}")
-    logger.info(f"{'='*60}\n")
-    logger.info("  [1/5] Running base artifact pipeline...")
-
     try:
-        from app.services.prediction_core import run_artifact_pipeline
+        from app.services.prediction_pipeline import PredictionPipeline
+        from app.services.run_quality import RunQuality
 
-        base_result, base_quality, timings = run_artifact_pipeline(
-            home_team=home_team,
-            away_team=away_team,
-            competition=competition,
+        pipeline = PredictionPipeline.from_artifacts(mode=mode)
+        pred = pipeline.predict_sync(
+            home_team,
+            away_team,
+            competition,
             is_neutral=is_neutral,
             mode=mode,
+            match_id=match_id or "",
+            match_date=match_date,
+            venue=venue,
+            save_snapshot=save_snapshot,
+            enable_market=enable_market,
+            enable_weather=enable_weather if require_full_context else False,
+            require_full_context=require_full_context,
         )
-        result.base_result = base_result
-        result.base_quality = base_quality
-        result.timings = timings
 
-        # Start with base probabilities
-        result.final_home_prob = base_result["home_win_prob"]
-        result.final_draw_prob = base_result["draw_prob"]
-        result.final_away_prob = base_result["away_win_prob"]
-        result.components_used = list(base_result.get("components_used", []))
-        result.risk_tags = list(base_result.get("risk_tags", []))
+        result.base_result = _prediction_result_to_flat_dict(pred)
+        result.final_home_prob = pred.home_win_prob
+        result.final_draw_prob = pred.draw_prob
+        result.final_away_prob = pred.away_win_prob
+        result.market_probs = pred.market_probs if enable_market else None
+        result.market_blended = pred.market_applied
+        result.market_weight_used = pred.market_weight_used
+        result.market_divergence = pred.divergence
+        result.market_divergence_triggered = pred.divergence > DIVERGENCE_THRESHOLD
+        result.source_status = {
+            key: value.to_dict() if hasattr(value, "to_dict") else value
+            for key, value in pred.source_status.items()
+        }
+        result.components_used = list(pred.components_used)
+        result.risk_tags = list(pred.risk_tags)
+        result.confidence_penalty = pred.confidence_penalty
+
+        quality = RunQuality()
+        quality.pipeline_status = "full"
+        for component in pred.components_used:
+            quality.model_components[component] = "loaded_from_artifact"
+        for degraded in pred.degraded_reasons:
+            quality.mark_degraded(f"{degraded.source}: {degraded.reason}")
+        result.base_quality = quality
 
     except Exception as exc:
-        logger.error(f"Base artifact pipeline failed: {exc}")
+        logger.error("Base enhanced prediction failed: %s", exc)
         result.llm_error = f"Base prediction failed: {exc}"
         result.total_seconds = time_module.perf_counter() - t_start
         return result
 
-    # ── Step 2: Market odds ─────────────────────────────────────────────────
-    if enable_market:
-        logger.info("  [2/5] Fetching market odds...")
-        try:
-            market_probs = _fetch_market(home_team, away_team, competition)
-            if market_probs is not None and not market_probs.get("degraded"):
-                result.market_probs = market_probs
-                logger.info(
-                    f"  [market] {market_probs['provider']}: "
-                    f"H={market_probs['home_prob']:.3f} "
-                    f"D={market_probs['draw_prob']:.3f} "
-                    f"A={market_probs['away_prob']:.3f}"
-                )
-
-                # Persist consensus snapshot (best-effort, non-blocking)
-                _save_market_consensus_to_db(
-                    home_team=home_team, away_team=away_team,
-                    competition=competition, market_probs=market_probs,
-                )
-
-                # Compute divergence
-                mh = market_probs["home_prob"]
-                md = market_probs["draw_prob"]
-                ma = market_probs["away_prob"]
-                div = max(
-                    abs(result.final_home_prob - mh),
-                    abs(result.final_draw_prob - md),
-                    abs(result.final_away_prob - ma),
-                )
-                result.market_divergence = div
-                result.market_divergence_triggered = div > DIVERGENCE_THRESHOLD
-
-                if result.market_divergence_triggered:
-                    tag = f"模型与市场存在显著分歧 ({div*100:.1f}pp)"
-                    result.risk_tags.append(tag)
-                    result.confidence_penalty = min(div * 0.5, 0.15)
-
-                # Blend market into model probabilities
-                result.final_home_prob, result.final_draw_prob, result.final_away_prob = (
-                    _blend_market(
-                        model_home=result.final_home_prob,
-                        model_draw=result.final_draw_prob,
-                        model_away=result.final_away_prob,
-                        market_home=mh,
-                        market_draw=md,
-                        market_away=ma,
-                        max_blend=market_blend_max,
-                    )
-                )
-                result.market_blended = True
-                # Compute blend weight for reporting
-                result.market_weight_used = max(
-                    MIN_MARKET_BLEND,
-                    min(market_blend_max, 0.25),
-                )
-                logger.info(
-                    f"  [blend] After market: "
-                    f"H={result.final_home_prob:.3f} "
-                    f"D={result.final_draw_prob:.3f} "
-                    f"A={result.final_away_prob:.3f}"
-                )
-            else:
-                logger.info("  [market] No odds available — using model-only probabilities")
-        except Exception as exc:
-            logger.warning(f"Market fetch failed, using model-only: {exc}")
-            logger.warning(f"  [market] Failed: {exc} — using model-only probabilities")
-    else:
-        logger.info("  [2/5] Market odds: disabled")
-
-    # ── Step 3: Weather ─────────────────────────────────────────────────────
     if enable_weather:
-        logger.info("  [3/5] Fetching weather...")
-        try:
-            weather = _fetch_weather(home_team, away_team)
-            if weather is not None and weather.get("forecast_available"):
-                result.weather = weather
-                # Get impact tags
+        weather = _fetch_weather(home_team, away_team, venue=venue)
+        if weather and weather.get("forecast_available"):
+            result.weather = weather
+            try:
                 from app.services.weather_service import WeatherService
 
-                ws = WeatherService()
-                result.weather_impact_tags = ws.weather_impact_tags(weather)
-                logger.info(
-                    f"  [weather] {weather.get('weather_description', '?')}, "
-                    f"{weather.get('temperature_c', '?')}°C, "
-                    f"wind {weather.get('wind_speed_kmh', '?')} km/h"
-                )
-                if result.weather_impact_tags:
-                    result.risk_tags.extend(result.weather_impact_tags)
-                    logger.info(f"  [weather] Impact: {', '.join(result.weather_impact_tags)}")
-            else:
-                logger.info("  [weather] No forecast available for this match")
-        except Exception as exc:
-            logger.warning(f"Weather fetch failed: {exc}")
-            logger.warning(f"  [weather] Failed: {exc}")
-    else:
-        logger.info("  [3/5] Weather: disabled")
+                result.weather_impact_tags = WeatherService().weather_impact_tags(weather)
+                result.risk_tags.extend(result.weather_impact_tags)
+            except Exception as exc:
+                logger.warning("Weather impact tagging failed: %s", exc)
 
-    # ── Step 4: LLM Analysis ────────────────────────────────────────────────
     if enable_llm:
-        logger.info("  [4/5] Generating AI analysis via DeepSeek V4 Pro...")
         try:
             llm_result = _generate_llm_analysis(result)
             if llm_result:
-                result.llm_analysis = llm_result.get("analysis")
-                result.llm_video_script = llm_result.get("video_script")
-                result.llm_social_copy = llm_result.get("social_copy")
-                logger.info(
-                    f"  [LLM] Analysis: {len(result.llm_analysis or '')} chars, "
-                    f"Script: {len(result.llm_video_script or '')} chars"
-                )
-            else:
-                logger.info("  [LLM] Generation returned empty — using template fallback")
+                if llm_result.get("degraded"):
+                    result.llm_error = str(llm_result.get("reason", "llm_degraded"))
+                else:
+                    result.llm_analysis = llm_result.get("analysis")
+                    result.llm_video_script = llm_result.get("video_script")
+                    result.llm_social_copy = llm_result.get("social_copy")
         except Exception as exc:
-            logger.warning(f"LLM analysis failed: {exc}")
+            logger.warning("LLM analysis failed: %s", exc)
             result.llm_error = str(exc)
-            logger.warning(f"  [LLM] Failed: {exc}")
-    else:
-        logger.info("  [4/5] LLM analysis: disabled")
 
-    # ── Step 5: Finalize ────────────────────────────────────────────────────
     result.total_seconds = time_module.perf_counter() - t_start
-    logger.info(f"\n  [5/5] Enhanced prediction complete in {result.total_seconds:.1f}s")
-    logger.info(f"  Final: H={result.final_home_prob:.3f} "
-                f"D={result.final_draw_prob:.3f} "
-                f"A={result.final_away_prob:.3f}")
-    logger.info(f"{'='*60}\n")
-
     return result
 
 
 # ── Internal helpers ────────────────────────────────────────────────────────────
+
+
+def _prediction_result_to_flat_dict(pred: Any) -> dict[str, Any]:
+    """Flatten PredictionResult into the legacy Dashboard result shape."""
+    data = pred.to_dict()
+    return {
+        "home_team": pred.home_team,
+        "away_team": pred.away_team,
+        "competition": pred.competition,
+        "is_neutral": pred.is_neutral,
+        "match_id": pred.match_id,
+        "match_date": pred.match_date,
+        "mode": pred.mode,
+        "home_win_prob": pred.home_win_prob,
+        "draw_prob": pred.draw_prob,
+        "away_win_prob": pred.away_win_prob,
+        "home_xg": pred.home_xg,
+        "away_xg": pred.away_xg,
+        "top_scores": pred.top_scores,
+        "components_used": list(pred.components_used),
+        "risk_tags": list(pred.risk_tags),
+        "fusion_graph": data.get("fusion_graph", {}),
+        "component_probs": data.get("component_probs", {}),
+        "source_status": data.get("source_status", {}),
+        "degraded_reasons": data.get("degraded_reasons", []),
+        "missing_inputs": data.get("missing_inputs", []),
+    }
 
 
 def _fetch_market(
@@ -365,6 +306,8 @@ def _save_market_consensus_to_db(
 def _fetch_weather(
     home_team: str,
     away_team: str,
+    *,
+    venue: str | None = None,
 ) -> dict[str, Any] | None:
     """Fetch weather synchronously. Returns None on failure."""
     try:
@@ -372,6 +315,7 @@ def _fetch_weather(
 
         ws = WeatherService()
         return ws.get_weather_for_match_sync(
+            venue=venue,
             home_team=home_team,
             away_team=away_team,
         )
@@ -467,6 +411,7 @@ async def _generate_llm_analysis_async(
             SOCIAL_COPY_USER,
             build_market_section,
             build_market_summary,
+            build_source_status_section,
             build_weather_section,
             build_team_context,
             build_key_points,
@@ -509,6 +454,7 @@ async def _generate_llm_analysis_async(
     try:
         market_section = build_market_section(result.market_probs)
         weather_section = build_weather_section(result.weather)
+        source_status_section = build_source_status_section(result.source_status)
         team_context = build_team_context(home, away)
         user_prompt = MATCH_ANALYSIS_USER.format(
             home_team=home,
@@ -525,6 +471,7 @@ async def _generate_llm_analysis_async(
             disagreement=disagreement_str,
             market_section=market_section,
             weather_section=weather_section,
+            source_status_section=source_status_section,
             team_context=team_context,
         )
         analysis = await client.chat(
@@ -541,6 +488,7 @@ async def _generate_llm_analysis_async(
     try:
         key_points = build_key_points(base, result.market_probs)
         market_summary = build_market_summary(result.market_probs)
+        source_status_section = build_source_status_section(result.source_status)
         script_prompt = VIDEO_SCRIPT_USER.format(
             home_team=home,
             away_team=away,
@@ -554,6 +502,7 @@ async def _generate_llm_analysis_async(
             top_scores=top_scores_str,
             market_summary=market_summary,
             key_points=key_points,
+            source_status_section=source_status_section,
         )
         script = await client.chat(
             system=VIDEO_SCRIPT_SYSTEM,
@@ -617,6 +566,7 @@ def enhanced_result_to_dict(result: EnhancedPredictionResult) -> dict[str, Any]:
         "market_blended": result.market_blended,
         "market_divergence": result.market_divergence,
         "market_divergence_triggered": result.market_divergence_triggered,
+        "source_status": result.source_status,
         "weather": result.weather,
         "weather_impact_tags": result.weather_impact_tags,
         # LLM content

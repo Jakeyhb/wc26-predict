@@ -1,6 +1,6 @@
 # WC26 Predict — 运维手册
 
-> 版本：V2.9.0-conservative | 最后更新：2026-06-09
+> 版本：V3.5 closed-loop foundation | 最后更新：2026-06-14
 > 面向：个人研究使用 | **非生产环境**
 
 ---
@@ -22,7 +22,7 @@
 ```bash
 git clone https://github.com/AndyDu0921/wc26-predict.git
 cd wc26-predict
-git checkout phase-0-baseline   # 当前开发分支
+git checkout master
 ```
 
 ### 2.2 创建 Python 虚拟环境
@@ -73,7 +73,7 @@ python scripts/verify_env.py
 
 # 全量测试
 python -m pytest tests/ -q
-# 预期输出：146 passed
+# 预期输出：187 passed
 
 # 健康检查
 python scripts/health_check.py
@@ -97,22 +97,22 @@ python scripts/train_models.py --team-type national
 
 ```bash
 # 基础预测
-python scripts/predict_match.py \
+python scripts/predict_wc26.py \
   --home "Argentina" --away "Brazil" \
   --competition "FIFA World Cup 2026" \
-  --mode full
+  --neutral
 
 # 友谊赛预测
-python scripts/predict_match.py \
+python scripts/predict_wc26.py \
   --home "China PR" --away "Thailand" \
   --competition "International Friendly" \
-  --mode full
+  --neutral
 
-# JSON 输出（便于程序处理）
-python scripts/predict_match.py \
+# 输出 Markdown 报告并尝试保存快照
+python scripts/predict_wc26.py \
   --home "Spain" --away "Germany" \
   --competition "International Friendly" \
-  --mode full --output json
+  --neutral
 ```
 
 **预测模式说明：**
@@ -224,6 +224,8 @@ docker compose -f docker-compose.prod.yml up -d
 | `Odds API unreachable` | API Key 未配置或无效 | 检查 `.env` 中的 `ODDS_API_KEY` 是否正确 |
 | `LLM API key not configured` | DeepSeek Key 缺失 | 检查 `.env` 中的 `LLM_API_KEY` |
 | `Database unavailable` | SQLite 文件不存在 | 确认 `backend/data/local_stage2.db` 存在 |
+| legacy rows show missing `match_id` | 旧预测缺少可验证比赛上下文 | 运行 `python scripts/audit_closed_loop_integrity.py`，确认已进入 `closed_loop_resolution_ledger`；不要伪造 `match_id` |
+| active learning traceability fails | 学习日志外键缺失或 UUID 格式不一致 | 先 dry-run `python scripts/repair_closed_loop_integrity.py`，确认后再加 `--apply` |
 
 ### 6.3 数据库备份
 
@@ -245,6 +247,44 @@ docker logs wc26-celery-1
 docker logs wc26-backend-1
 ```
 
+### 6.5 闭环完整性
+
+```bash
+cd backend
+
+# 只读审计：检查 prediction -> result -> learning 是否可追溯
+python scripts/audit_closed_loop_integrity.py
+
+# 修复预览：只规范化可证明等价的 prediction_run_id，并隔离旧学习日志
+python scripts/repair_closed_loop_integrity.py
+
+# 执行修复：执行前建议备份 backend/data/local_stage2.db
+python scripts/repair_closed_loop_integrity.py --apply
+```
+
+规则：
+
+- 不为旧样本生成虚假 `match_id`。
+- 无法唯一解析的旧数据必须记录在 `closed_loop_resolution_ledger`。
+- `legacy_untraceable` / `legacy_ambiguous` 学习日志不得参与 active learning。
+- 真实 xG 覆盖不足是数据质量风险，不应用估算值伪装为实测数据。
+
+### 6.6 完整预测契约
+
+Dashboard 单场预测页提供两种实际使用方式：
+
+- 普通增强：尝试实时源，失败时返回降级结果。
+- 严格完整：勾选“严格完整”，并填写 `match_id`、场地、开球时间；系统会强制启用天气与市场数据。
+
+每次预测都应检查 `source_status`：
+
+- `used`：已实际使用或纳入 shadow telemetry。
+- `unavailable`：已尝试，但该场无可用数据。
+- `failed`：已尝试，但调用失败。
+- `skipped`：未尝试，不能在分析里声称使用过。
+
+AI 内容生成只能引用 `status=used` 的数据源。若严格完整模式缺少上下文或关闭实时源，系统会直接拒绝运行。
+
 ---
 
 ## 7. CI/CD
@@ -252,8 +292,8 @@ docker logs wc26-backend-1
 GitHub Actions 在每次 push/PR 到 `master` 时自动运行：
 
 - Python 语法编译检查
-- pytest 146 个测试
-- 审计脚本（权重一致性、公开输出无赔率）
+- pytest 187 个测试
+- 审计脚本（权重一致性、公开输出、闭环完整性）
 - Ruff lint (E, F, W)
 - 依赖完整性检查 (`pip check`)
 - 环境变量验证
@@ -267,11 +307,13 @@ GitHub Actions 在每次 push/PR 到 `master` 时自动运行：
 |------|------|
 | 安装依赖 | `cd backend && pip install -r requirements.txt` |
 | 训练模型 | `cd backend && python scripts/train_models.py --team-type national` |
-| 预测比赛 | `cd backend && python scripts/predict_match.py --home "A" --away "B" --competition "C" --mode full` |
+| 预测比赛 | `cd backend && python scripts/predict_wc26.py --home "A" --away "B" --competition "C" --neutral` |
 | Dashboard | `powershell -File scripts/start_dashboard.ps1` |
 | 全量测试 | `cd backend && python -m pytest tests/ -q` |
 | 健康检查 | `cd backend && python scripts/health_check.py` |
 | 环境验证 | `cd backend && python scripts/verify_env.py` |
+| 闭环审计 | `cd backend && python scripts/audit_closed_loop_integrity.py` |
+| 闭环修复 | `cd backend && python scripts/repair_closed_loop_integrity.py --apply` |
 | 世界杯模拟 | `cd backend && python scripts/simulate_wc26.py --runs 10000` |
 | 赛后复盘 | `cd backend && python scripts/postmatch_review.py --home "A" --away "B" --home-goals X --away-goals Y` |
 

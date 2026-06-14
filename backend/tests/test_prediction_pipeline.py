@@ -9,7 +9,7 @@ import asyncio
 import pytest
 
 from app.services.prediction_pipeline import PredictionPipeline
-from app.services.prediction_result import DegradedReason, PredictionResult
+from app.services.prediction_result import DegradedReason, PredictionResult, SourceStatus
 from app.services.run_quality import RunQuality
 from app.services.evaluation_sample import EVALUATION_CANDIDATE_LABELS
 
@@ -143,6 +143,30 @@ class TestDegradedReasonDataclass:
         assert restored.detail == original.detail
 
 
+class TestSourceStatusDataclass:
+    """Verify SourceStatus structure and serialization."""
+
+    def test_to_dict_roundtrip(self) -> None:
+        original = SourceStatus(
+            status="used",
+            reason="forecast_loaded",
+            detail="clear",
+            attempted=True,
+            required=True,
+        )
+        restored = SourceStatus.from_dict(original.to_dict())
+
+        assert restored.status == "used"
+        assert restored.reason == "forecast_loaded"
+        assert restored.detail == "clear"
+        assert restored.attempted is True
+        assert restored.required is True
+
+    def test_invalid_status_falls_back_to_skipped(self) -> None:
+        restored = SourceStatus.from_dict({"status": "unknown"})
+        assert restored.status == "skipped"
+
+
 class TestPredictionResultDegradedReasons:
     """Verify PredictionResult.degraded_reasons field contract."""
 
@@ -266,6 +290,29 @@ class TestPredictionResultDegradedReasons:
         d = result.to_dict()
         restored = PredictionResult.from_dict(d)
         assert restored.degraded_reasons == []
+
+    def test_source_status_survives_roundtrip(self) -> None:
+        result = PredictionResult(
+            home_team="Argentina",
+            away_team="Brazil",
+            competition="FIFA World Cup 2026",
+            source_status={
+                "weather": SourceStatus(
+                    status="unavailable",
+                    reason="forecast_unavailable",
+                    attempted=True,
+                ),
+                "market": SourceStatus(
+                    status="skipped",
+                    reason="disabled_by_flag",
+                ),
+            },
+        )
+        restored = PredictionResult.from_dict(result.to_dict())
+
+        assert restored.source_status["weather"].status == "unavailable"
+        assert restored.source_status["weather"].attempted is True
+        assert restored.source_status["market"].reason == "disabled_by_flag"
 
     def test_degraded_reasons_structure_is_stable(self) -> None:
         """Every degraded reason must have source, reason, severity keys."""

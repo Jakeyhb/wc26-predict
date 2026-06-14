@@ -25,7 +25,7 @@ from app.services.result_verification import (
     SourceTier,
     get_verification_service,
 )
-from app.services.learning_engine import _brier, _result_index
+from app.services.learning_engine import _brier, _coerce_probs, _result_index
 
 
 # ── integration helpers ──────────────────────────────────────────────
@@ -154,6 +154,23 @@ class TestBrierScore:
         assert _result_index(3, 0) == 0  # home win
         assert _result_index(1, 1) == 1  # draw
         assert _result_index(0, 2) == 2  # away win
+
+    def test_coerce_probs_tolerates_legacy_null_market_payload(self):
+        probs = _coerce_probs({"home": None})
+
+        assert probs["home"] == pytest.approx(1 / 3)
+        assert probs["draw"] == pytest.approx(1 / 3)
+        assert probs["away"] == pytest.approx(1 / 3)
+        assert sum(probs.values()) == pytest.approx(1.0)
+
+    def test_coerce_probs_accepts_alternate_field_names(self):
+        probs = _coerce_probs({
+            "home_win_prob": "0.2",
+            "draw_prob": "0.3",
+            "away_win_prob": "0.5",
+        })
+
+        assert probs == pytest.approx({"home": 0.2, "draw": 0.3, "away": 0.5})
 
 
 # ── integration: verification flow ───────────────────────────────────

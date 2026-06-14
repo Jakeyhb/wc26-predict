@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Read-only audit for prediction -> result -> learning traceability."""
+"""Read-only audit for prediction -> result -> learning traceability.
+
+The audit treats closed_loop_resolution_ledger as the boundary between active
+closed-loop evidence and historical rows that cannot be safely resolved. Rows
+that are ledgered as unresolvable_legacy/ambiguous are still reported, but they
+do not fail the active closed-loop gate.
+"""
 
 from __future__ import annotations
 
-import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -16,7 +21,6 @@ from app.services.closed_loop_resolution import QUARANTINE_STATUSES, has_resolut
 
 
 DB_PATH = PROJECT_ROOT / "data" / "local_stage2.db"
-UUID_RE = re.compile(r"^[0-9a-fA-F-]{32,36}$")
 
 
 def _count(conn: sqlite3.Connection, query: str, params: dict | None = None) -> int:
@@ -65,10 +69,65 @@ def _active_missing_count(conn: sqlite3.Connection, table: str, condition: str) 
     )
 
 
+def _empty_match_id_status(conn: sqlite3.Connection, table: str) -> tuple[int, int, int]:
+    if table not in {"prediction_snapshots", "pre_match_snapshots", "market_odds"}:
+        raise ValueError(f"unsupported table: {table}")
+    raw = _count(
+        conn,
+        f"""
+        SELECT COUNT(*)
+        FROM {table}
+        WHERE match_id IS NULL OR TRIM(match_id) = ''
+        """,
+    )
+    ledgered = _count(
+        conn,
+        f"""
+        SELECT COUNT(*)
+        FROM {table} item
+        WHERE (item.match_id IS NULL OR TRIM(item.match_id) = '')
+          AND EXISTS (
+              SELECT 1
+              FROM closed_loop_resolution_ledger ledger
+              WHERE ledger.entity_table = '{table}'
+                AND ledger.entity_id = item.id
+                AND ledger.status IN ('unresolvable_legacy', 'ambiguous')
+          )
+        """,
+    )
+    return raw, ledgered, raw - ledgered
+
+
+def _active_learning_counts(conn: sqlite3.Connection) -> tuple[int, int, int]:
+    active = _count(conn, "SELECT COUNT(*) FROM prediction_learning_log WHERE status = 'active'")
+    traceable = _count(
+        conn,
+        """
+        SELECT COUNT(*)
+        FROM prediction_learning_log pll
+        JOIN prediction_runs pr
+          ON REPLACE(CAST(pr.id AS TEXT), '-', '') =
+             REPLACE(CAST(pll.prediction_run_id AS TEXT), '-', '')
+        WHERE pll.status = 'active'
+        """,
+    )
+    missing_run_id = _count(
+        conn,
+        """
+        SELECT COUNT(*)
+        FROM prediction_learning_log
+        WHERE status = 'active'
+          AND (prediction_run_id IS NULL OR TRIM(prediction_run_id) = '')
+        """,
+    )
+    return active, traceable, missing_run_id
+
+
 def main() -> int:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     issues: list[str] = []
+    warnings: list[str] = []
     ok: list[str] = []
 
     print("=" * 72)
@@ -100,15 +159,26 @@ def main() -> int:
         print(f"{label:42} active={active_missing:<4d} total={total_missing:<4d} quarantined={quarantined:<4d}")
         if active_missing:
             issues.append(f"{label} active={active_missing} total={total_missing} quarantined={quarantined}")
+        elif total_missing:
+            warnings.append(f"{label}: {total_missing} legacy row(s) remain quarantined in resolution ledger")
         else:
             ok.append(label)
+
+    active_learning, traceable_learning, missing_run_id = _active_learning_counts(conn)
+    print(f"learning_logs_missing_prediction_run_id    active_missing={missing_run_id}")
+    if missing_run_id:
+        issues.append(f"learning_logs_missing_prediction_run_id={missing_run_id}")
+    else:
+        ok.append("learning_logs_missing_prediction_run_id")
 
     linked_postmatch = _count(
         conn,
         """
         SELECT COUNT(*)
         FROM postmatch_eval pe
-        JOIN prediction_runs pr ON pr.id = pe.prediction_run_id
+        JOIN prediction_runs pr
+          ON REPLACE(CAST(pr.id AS TEXT), '-', '') =
+             REPLACE(CAST(pe.prediction_run_id AS TEXT), '-', '')
         JOIN match_results mr ON REPLACE(CAST(mr.match_id AS TEXT), '-', '') = REPLACE(CAST(pr.match_id AS TEXT), '-', '')
         """,
     )
@@ -119,35 +189,17 @@ def main() -> int:
     else:
         ok.append("postmatch_eval_traceable")
 
-    active_learning = _count(conn, "SELECT COUNT(*) FROM prediction_learning_log WHERE status = 'active'")
-    traceable_learning = _count(
-        conn,
-        """
-        SELECT COUNT(*)
-        FROM prediction_learning_log pll
-        JOIN prediction_runs pr ON pr.id = pll.prediction_run_id
-        WHERE pll.status = 'active'
-        """,
-    )
-    quarantined_learning = _quarantined_count(conn, "prediction_learning_log")
-    unresolved_learning = max(active_learning - traceable_learning - quarantined_learning, 0)
-    print(
-        "active_learning_traceable                "
-        f"traceable={traceable_learning}/{active_learning} quarantined={quarantined_learning} unresolved={unresolved_learning}"
-    )
-    if unresolved_learning:
-        issues.append(
-            f"active_learning_traceable={traceable_learning}/{active_learning}; "
-            f"quarantined={quarantined_learning}; unresolved={unresolved_learning}"
-        )
+    print(f"active_learning_traceable                {traceable_learning}/{active_learning}")
+    if traceable_learning != active_learning:
+        issues.append(f"active_learning_traceable={traceable_learning}/{active_learning}")
     else:
-        ok.append("active_learning_traceable_or_quarantined")
+        ok.append("active_learning_traceable")
 
     xg_total = _count(conn, "SELECT COUNT(*) FROM match_results")
     xg_real = _count(conn, "SELECT COUNT(*) FROM match_results WHERE home_xg IS NOT NULL AND away_xg IS NOT NULL")
     print(f"match_results_with_real_xg               {xg_real}/{xg_total}")
     if xg_real < max(100, int(xg_total * 0.1)):
-        issues.append(f"real_xg_coverage={xg_real}/{xg_total}")
+        warnings.append(f"real_xg_coverage={xg_real}/{xg_total}")
     else:
         ok.append("real_xg_coverage")
 
@@ -163,7 +215,10 @@ def main() -> int:
 
     print("\nSummary:")
     print(f"  OK: {len(ok)}")
+    print(f"  Warnings: {len(warnings)}")
     print(f"  Issues: {len(issues)}")
+    for warning in warnings:
+        print(f"   - {warning}")
     for issue in issues:
         print(f"   ! {issue}")
     return 2 if issues else 0

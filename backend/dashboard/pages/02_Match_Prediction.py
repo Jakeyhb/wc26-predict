@@ -64,6 +64,16 @@ with col3b:
     enhanced_mode = st.checkbox("增强模式", value=True, key="pred_enhanced",
                                 help="启用市场赔率融合 + 天气 + AI 分析")
 
+col1c, col2c, col3c, col4c = st.columns([2, 2, 2, 1])
+with col1c:
+    match_id = st.text_input("match_id", value="", key="pred_match_id")
+with col2c:
+    venue = st.text_input("场地", value="", key="pred_venue")
+with col3c:
+    match_date = st.text_input("开球时间 ISO", value="", key="pred_match_date")
+with col4c:
+    strict_full = st.checkbox("严格完整", value=False, key="pred_strict_full")
+
 # ── 校验 ──────────────────────────────────────────────────────────────────────
 can_predict = home_team != away_team
 if not can_predict:
@@ -92,14 +102,24 @@ def _run_enhanced(home_team, away_team, competition, is_neutral, mode):
                 enable_market=True,
                 enable_weather=True,
                 enable_llm=True,
+                match_id=match_id or None,
+                match_date=match_date or None,
+                venue=venue or None,
+                require_full_context=strict_full,
             )
         except Exception as e:
             st.error(f"预测失败: {e}")
             st.stop()
 
-        # Store for Creator Mode
+        # Store a flat result for Creator Mode, with enhanced fields at top level.
         session_dict = enhanced_result_to_dict(enhanced)
-        st.session_state["last_prediction"] = session_dict
+        st.session_state["last_prediction"] = {
+            **session_dict,
+            "result": session_dict,
+            "quality": enhanced.base_quality,
+            "timings": enhanced.timings.to_dict() if enhanced.timings else {},
+            "total_seconds": enhanced.total_seconds,
+        }
         # Also store the enhanced object for direct access
         st.session_state["last_enhanced"] = enhanced
 
@@ -252,6 +272,9 @@ def _run_enhanced(home_team, away_team, competition, is_neutral, mode):
             all_components.append("llm_analysis")
         st.json(all_components)
 
+        st.subheader("数据源状态")
+        _render_source_status(enhanced.source_status)
+
     # ── AI Analysis ──────────────────────────────────────────────────────────
     if enhanced.is_ai_analyzed:
         st.divider()
@@ -281,26 +304,68 @@ def _run_enhanced(home_team, away_team, competition, is_neutral, mode):
         st.warning(f"AI 分析生成失败: {enhanced.llm_error}")
 
 
-# ── Artifact-only mode (legacy behavior) ─────────────────────────────────────
+# ── Artifact-only mode ────────────────────────────────────────────────────────
 
 def _run_artifact_only(home_team, away_team, competition, is_neutral, mode):
-    """Run pure artifact prediction (original behavior)."""
-    from app.services.prediction_core import run_artifact_pipeline
+    """Run artifact prediction via PredictionPipeline (correct entry point)."""
+    from app.services.prediction_pipeline import PredictionPipeline
+    from app.services.run_quality import RunQuality
+    from app.services.prediction_timer import PredictionTimer
 
     with st.spinner("正在运行预测管线..."):
         try:
-            result, quality, timer = run_artifact_pipeline(
-                home_team=home_team,
-                away_team=away_team,
-                competition=competition,
+            pipeline = PredictionPipeline.from_artifacts(mode=mode)
+            result = pipeline.predict_sync(
+                home_team,
+                away_team,
+                competition,
                 is_neutral=is_neutral,
-                mode=mode,
+                match_id=match_id or "",
+                enable_market=False,
+                enable_weather=False,
+                match_date=match_date or None,
+                venue=venue or None,
             )
+            # Compatibility: build flat dict + quality + timer for existing render functions
+            result_dict = result.to_dict()
+            pred = result_dict["prediction"]
+            flat_result = {
+                "home_team": result.home_team,
+                "away_team": result.away_team,
+                "competition": result.competition,
+                "is_neutral": result.is_neutral,
+                "match_id": result.match_id,
+                "match_date": result.match_date,
+                "mode": result.mode,
+                "home_win_prob": pred["home_win_prob"],
+                "draw_prob": pred["draw_prob"],
+                "away_win_prob": pred["away_win_prob"],
+                "home_xg": pred["home_xg"],
+                "away_xg": pred["away_xg"],
+                "top_scores": pred.get("top_scores", []),
+                "components_used": list(result.components_used),
+                "component_probs": result_dict.get("component_probs", {}),
+                "fusion_graph": result_dict.get("fusion_graph", {}),
+                "risk_tags": list(result.risk_tags),
+                "degraded_reasons": result_dict.get("degraded_reasons", []),
+                "missing_inputs": result_dict.get("missing_inputs", []),
+                "source_status": result_dict.get("source_status", {}),
+            }
+            quality = RunQuality()
+            quality.pipeline_status = "full"
+            for c in result.components_used:
+                quality.model_components[c] = "loaded_from_artifact"
+            timer = PredictionTimer()
+            timer._steps = {}
+            timer._start = 0.0
             st.session_state["last_prediction"] = {
-                "result": result,
+                "result": flat_result,
                 "quality": quality,
                 "timings": timer.to_dict(),
-                "total_seconds": round(timer.total(), 3),
+                "total_seconds": 0.0,
+                "is_ai_analyzed": False,
+                "market_probs": result.market_probs,
+                "weather": None,
             }
         except Exception as e:
             st.error(f"预测失败: {e}")
@@ -308,64 +373,97 @@ def _run_artifact_only(home_team, away_team, competition, is_neutral, mode):
 
     st.divider()
     st.markdown("### :large_blue_circle: 基础模型预测")
-    st.caption("首发阵容: 未获取 | 天气: 未查询 | 市场数据: 未查询")
+
+    # Show data completeness status
+    degraded = result_dict.get("degraded_reasons", [])
+    missing = result_dict.get("missing_inputs", [])
+    if degraded or missing:
+        missing_str = ", ".join([d.get("source", "unknown") for d in degraded] + list(missing))
+        st.caption(f"⚠️ 数据不完整: {missing_str}")
+    else:
+        st.caption("首发阵容: 未获取 | 天气: 未查询 | 市场数据: 未查询")
 
     left, right = st.columns([3, 2])
 
     with left:
+        pred = result_dict["prediction"]
         st.subheader("胜平负概率")
         render_probability_gauge(
-            result["home_win_prob"], result["draw_prob"], result["away_win_prob"],
+            pred["home_win_prob"], pred["draw_prob"], pred["away_win_prob"],
             home_team, away_team,
         )
 
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric(f"{home_team} 胜", f"{result['home_win_prob'] * 100:.1f}%")
+            st.metric(f"{home_team} 胜", f"{pred['home_win_prob'] * 100:.1f}%")
         with c2:
-            st.metric("平局", f"{result['draw_prob'] * 100:.1f}%")
+            st.metric("平局", f"{pred['draw_prob'] * 100:.1f}%")
         with c3:
-            st.metric(f"{away_team} 胜", f"{result['away_win_prob'] * 100:.1f}%")
+            st.metric(f"{away_team} 胜", f"{pred['away_win_prob'] * 100:.1f}%")
 
         st.subheader("预期进球 (xG)")
-        render_xg_comparison(result["home_xg"], result["away_xg"], home_team, away_team)
+        render_xg_comparison(pred["home_xg"], pred["away_xg"], home_team, away_team)
 
         st.subheader("最可能比分")
-        render_scoreline_bars(result.get("top_scores", []))
+        render_scoreline_bars(pred.get("top_scores", []))
 
         st.subheader("各模型独立预测")
-        fg_data = result.get("fusion_graph", {})
-        steps = fg_data.get("steps", [])
-        if steps:
-            component_probs = {}
-            name_map = {
-                "dixon_coles": "Dixon-Coles",
-                "enhancer": "XGBoost 增强器",
-                "elo": "Elo 评级",
-                "pi_rating": "Pi 评级",
-                "weibull": "Weibull",
-            }
-            for step in steps:
-                before = step.get("before", {})
-                for comp_name, probs in before.items():
-                    if comp_name not in component_probs and len(probs) == 3:
-                        display = name_map.get(comp_name, comp_name)
-                        component_probs[display] = {"home": probs[0], "draw": probs[1], "away": probs[2]}
-            if component_probs:
-                render_model_breakdown(component_probs)
+        comp = result_dict.get("component_probs", {})
+        component_probs = {}
+        name_map = {
+            "dc": "Dixon-Coles",
+            "enhancer": "XGBoost 增强器",
+            "elo": "Elo 评级",
+            "pi_rating": "Pi 评级",
+            "weibull": "Weibull",
+        }
+        for comp_name, probs in comp.items():
+            if probs and isinstance(probs, dict) and "home" in probs:
+                display = name_map.get(comp_name, comp_name)
+                component_probs[display] = probs
+        if component_probs:
+            render_model_breakdown(component_probs)
 
     with right:
         st.subheader("管线状态")
         render_run_quality(quality)
 
-        st.subheader("性能耗时")
-        render_timings(timer.to_dict(), timer.total())
+        st.subheader("组件详情")
+        st.markdown(f"**活跃组件:** {', '.join(result.components_used)}")
+        if result.risk_tags:
+            st.markdown("**风险标签:**")
+            for tag in result.risk_tags:
+                st.markdown(f"- {tag}")
 
         st.subheader("融合诊断")
+        fg_data = result_dict.get("fusion_graph", {})
         render_fusion_graph(fg_data)
 
         st.subheader("已启用组件")
-        st.json(result.get("components_used", []))
+        st.json(result.components_used)
+
+        st.subheader("数据源状态")
+        _render_source_status(result_dict.get("source_status", {}))
+
+
+def _render_source_status(source_status: dict) -> None:
+    """Render structured data-source status for completeness checks."""
+    if not source_status:
+        st.caption("暂无数据源状态")
+        return
+
+    rows = []
+    for source, item in source_status.items():
+        if not isinstance(item, dict):
+            continue
+        rows.append({
+            "source": source,
+            "status": item.get("status", "unknown"),
+            "attempted": item.get("attempted", False),
+            "required": item.get("required", False),
+            "reason": item.get("reason", ""),
+        })
+    st.dataframe(rows, hide_index=True, use_container_width=True)
 
 
 # ── 运行预测 (placed after function definitions to avoid NameError) ──────────

@@ -26,7 +26,7 @@ from app.services.model_cache_disk import (
     save_enhancer_to_disk,
 )
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
-from app.services.prediction_result import DegradedReason, PredictionResult
+from app.services.prediction_result import DegradedReason, PredictionResult, SourceStatus
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_probabilities
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
@@ -69,25 +69,66 @@ class PredictionPipeline:
     def from_artifacts(cls, mode: str = "full") -> "PredictionPipeline":
         """Create a pipeline wired for artifact-based prediction.
 
-        Uses pre-trained models from backend/artifacts/ (prediction_core style).
-        Synchronous, fast (~1-3 seconds), no DB required.
+        Loads pre-trained models from backend/artifacts/ — NO .fit() calls,
+        NO DB required. Synchronous, ~1-3 seconds.
 
         Args:
             mode: "baseline" (DC only), "standard" (DC+Enhancer+Elo),
                   "full" (DC+Enhancer+Elo+Pi), "research-full" (+Weibull).
 
-        Note:
-            The artifact-based predict_match() variant is coming in Ticket 8a.
-            Currently, use this factory to get a configured pipeline instance,
-            then call predict_match() with the standard callback-injected flow.
+        Usage:
+            pipeline = PredictionPipeline.from_artifacts(mode="full")
+            result = pipeline.predict_sync("Qatar", "Switzerland",
+                                           "FIFA World Cup 2026", is_neutral=True)
         """
+        from app.services.prediction_core import (
+            _load_dc as _load_dc_artifact,
+            _load_enhancer as _load_enhancer_artifact,
+            _load_elo as _load_elo_artifact,
+            _load_pi as _load_pi_artifact,
+            _load_training_df as _load_training_df_artifact,
+            _try_load_weibull as _try_load_weibull_artifact,
+        )
+        from app.services.prediction_timer import PredictionTimer
+
+        timer = PredictionTimer()
         pipeline = cls()
         pipeline._mode = mode
+        pipeline._artifact_timer = timer
+
+        # ── Load training DataFrame ──
+        pipeline._training_df = _load_training_df_artifact(timer)
+        pipeline._match_date = pipeline._training_df["match_date"].max().to_pydatetime()
+
+        # ── Load DC (required for all modes) ──
+        pipeline._dc = _load_dc_artifact(timer)
+
+        # ── Load Enhancer + Elo (standard+) ──
+        if mode in ("standard", "full", "research-full"):
+            pipeline._enhancer = _load_enhancer_artifact(timer)
+            pipeline._elo = _load_elo_artifact(timer)
+
+        # ── Load Pi (full+) ──
+        if mode in ("full", "research-full"):
+            pipeline._pi = _load_pi_artifact(timer)
+
+        # ── Load Weibull (research-full only, optional) ──
+        if mode == "research-full":
+            pipeline._weibull = _try_load_weibull_artifact(timer)
+
+        loaded = ["dc"]
+        if hasattr(pipeline, "_enhancer") and pipeline._enhancer is not None:
+            loaded.append("enhancer")
+        if hasattr(pipeline, "_elo") and pipeline._elo is not None:
+            loaded.append("elo")
+        if hasattr(pipeline, "_pi") and pipeline._pi is not None:
+            loaded.append("pi")
+        if hasattr(pipeline, "_weibull") and pipeline._weibull is not None:
+            loaded.append("weibull")
+
         logger.info(
-            "PredictionPipeline.from_artifacts(mode=%s) — "
-            "Pre-trained model loading will be available in Ticket 8a. "
-            "For now, use from_snapshot_env() for DB-aware predictions.",
-            mode,
+            "PredictionPipeline.from_artifacts(mode=%s) — loaded: %s",
+            mode, loaded,
         )
         return pipeline
 
@@ -586,6 +627,607 @@ class PredictionPipeline:
         )
         return await self.predict_match(home_team, away_team, competition, **kwargs)
 
+    # ── Artifact-based prediction (sync, no DB) ───────────────
+
+    def predict_sync(
+        self,
+        home_team: str,
+        away_team: str,
+        competition: str,
+        *,
+        is_neutral: bool = False,
+        mode: str | None = None,
+        match_id: str = "",
+        match_date: str | datetime | None = None,
+        venue: str | None = None,
+        save_snapshot: bool = True,
+        enable_weather: bool = True,
+        enable_market: bool = True,
+        require_full_context: bool = False,
+    ) -> PredictionResult:
+        """Run artifact-based prediction synchronously. No DB required.
+
+        Uses pre-loaded models from ``from_artifacts()``.
+        Returns a fully-populated ``PredictionResult``.
+
+        Args:
+            home_team: Home team name (must match training data).
+            away_team: Away team name.
+            competition: Competition name (e.g. "FIFA World Cup 2026").
+            is_neutral: True for neutral-venue matches.
+            mode: Override the mode set in ``from_artifacts()``.
+            match_id: Optional DB match id for closed-loop traceability.
+            match_date: Optional kickoff/as-of date; defaults to artifact max date.
+            venue: Optional venue name for weather lookup.
+            save_snapshot: Persist a pre-match snapshot when true.
+            enable_weather: Fetch weather context when true.
+            enable_market: Fetch market consensus in shadow mode when true.
+            require_full_context: Enforce the strict enhanced contract. Requires
+                real match_id, match_date, venue, market, and weather attempts.
+        """
+        if mode is None:
+            mode = getattr(self, "_mode", "full")
+
+        if require_full_context:
+            _validate_required_sync_context(
+                match_id=match_id,
+                match_date=match_date,
+                venue=venue,
+                enable_weather=enable_weather,
+                enable_market=enable_market,
+            )
+
+        if not hasattr(self, "_dc") or self._dc is None:
+            raise RuntimeError(
+                "Artifacts not loaded. "
+                "Use PredictionPipeline.from_artifacts(mode=...) first."
+            )
+
+        from app.services.fusion_graph import FusionGraph, probs_dict_to_list
+        from app.services.run_quality import RunQuality
+
+        quality = RunQuality()
+        component_probs: dict[str, dict[str, float]] = {}
+        degraded_reasons: list[DegradedReason] = []
+        source_status = _initial_source_status(
+            enable_weather=enable_weather,
+            enable_market=enable_market,
+            require_full_context=require_full_context,
+        )
+
+        # ── Weight config ──
+        wc = get_weight_config(competition)
+        fg = FusionGraph(blend_params={
+            "dc_weight": wc.dc, "elo_weight": wc.elo, "pi_weight": wc.pi,
+        })
+        fg.compute_effective_weights()
+
+        training_df = self._training_df
+        artifact_match_date = self._match_date
+        effective_match_date = _coerce_match_datetime(match_date) or artifact_match_date
+        kickoff_at = (
+            effective_match_date.isoformat()
+            if hasattr(effective_match_date, "isoformat")
+            else str(effective_match_date)
+        )
+        source_status["match_context"] = _match_context_status(
+            match_id=match_id,
+            match_date=match_date,
+            venue=venue,
+            require_full_context=require_full_context,
+        )
+
+        # ── 1. Dixon-Coles ──
+        quality.model_components["dixon_coles"] = "loaded_from_artifact"
+        dc_pred = self._dc.predict_match(home_team, away_team, is_neutral_venue=is_neutral)
+        component_probs["dixon_coles"] = {
+            "home": dc_pred["home_win_prob"],
+            "draw": dc_pred["draw_prob"],
+            "away": dc_pred["away_win_prob"],
+        }
+        fused: dict[str, float] = dict(dc_pred)
+
+        # ── 2. Tabular Enhancer (standard+) ──
+        has_enhancer = hasattr(self, "_enhancer") and self._enhancer is not None
+        if mode in ("standard", "full", "research-full") and has_enhancer:
+            quality.model_components["tabular_enhancer"] = "loaded_from_artifact"
+            enh_pred = self._enhancer.predict_match(
+                home_team=home_team, away_team=away_team,
+                match_date=effective_match_date, competition_weight=0.5,
+                is_neutral_venue=is_neutral, training_df=training_df,
+            )
+            component_probs["enhancer"] = {
+                "home": enh_pred["home_win_prob"],
+                "draw": enh_pred["draw_prob"],
+                "away": enh_pred["away_win_prob"],
+            }
+            before_step1 = {
+                "dixon_coles": probs_dict_to_list(component_probs["dixon_coles"]),
+                "enhancer": probs_dict_to_list(component_probs["enhancer"]),
+            }
+            fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+            fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
+
+        # ── 3. Elo (standard+) ──
+        has_elo = hasattr(self, "_elo") and self._elo is not None
+        if mode in ("standard", "full", "research-full") and has_elo:
+            quality.model_components["elo"] = "loaded_from_artifact"
+            elo_pred = self._elo.predict(
+                home_team, away_team, is_neutral=is_neutral,
+                competition_weight=0.5, competition=competition,
+            )
+            component_probs["elo"] = {
+                "home": elo_pred.home_win_prob,
+                "draw": elo_pred.draw_prob,
+                "away": elo_pred.away_win_prob,
+            }
+            before_step2 = {
+                "dc+enhancer": probs_dict_to_list(fused),
+                "elo": [elo_pred.home_win_prob, elo_pred.draw_prob, elo_pred.away_win_prob],
+            }
+            fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=wc.elo)
+            fg.add_step("+elo", f"elo_weight={wc.elo}", before_step2, probs_dict_to_list(fused))
+
+        # ── 4. Pi-Rating (full+) ──
+        has_pi = hasattr(self, "_pi") and self._pi is not None
+        if mode in ("full", "research-full") and has_pi:
+            quality.model_components["pi_rating"] = "loaded_from_artifact"
+            try:
+                pi_pred = self._pi.predict(home_team, away_team, is_neutral)
+                component_probs["pi_rating"] = {
+                    "home": pi_pred["home_win_prob"],
+                    "draw": pi_pred["draw_prob"],
+                    "away": pi_pred["away_win_prob"],
+                }
+                before_step3 = {
+                    "dc+enhancer+elo": probs_dict_to_list(fused),
+                    "pi_rating": probs_dict_to_list(component_probs["pi_rating"]),
+                }
+                fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=wc.pi)
+                fg.add_step("+pi", f"pi_weight={wc.pi}", before_step3, probs_dict_to_list(fused))
+            except Exception as exc:
+                quality.model_components["pi_rating"] = "failed"
+                quality.mark_degraded(f"Pi-Rating failed: {exc}")
+                degraded_reasons.append(DegradedReason(
+                    source="pi_rating", reason="fitting_failed",
+                    severity="warning", detail=str(exc),
+                ))
+
+        # ── 5. Weibull (research-full only) ──
+        has_weibull = hasattr(self, "_weibull") and self._weibull is not None
+        if mode == "research-full" and has_weibull:
+            quality.model_components["weibull"] = "loaded_from_artifact"
+            try:
+                wb_pred = self._weibull.predict(home_team, away_team, is_neutral)
+                if wb_pred is not None:
+                    component_probs["weibull"] = {
+                        "home": wb_pred.get("home_win_prob", wb_pred.get("home", 0)),
+                        "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
+                        "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
+                    }
+                    before_wb = {
+                        "dc+enhancer+elo+pi": probs_dict_to_list(fused),
+                        "weibull": probs_dict_to_list(component_probs["weibull"]),
+                    }
+                    fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
+                    fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_wb, probs_dict_to_list(fused))
+            except Exception as exc:
+                logger.warning(f"Weibull prediction failed: {exc}")
+
+        # ── 6. Fusion diagnostics ──
+        fg.compute_disagreement(component_probs)
+
+        # ── 7. Renormalize ──
+        total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
+        if abs(total - 1.0) > 0.001:
+            fused["home_win_prob"] /= total
+            fused["draw_prob"] /= total
+            fused["away_win_prob"] /= total
+
+        # ── 8. Injury signals (best-effort) ──
+        injury_signals_count = 0
+        injury_data_available = False
+        try:
+            from app.services.injury_data import InjuryDataService, fuse_injury_signals
+            injury_svc = InjuryDataService()
+            injury_records = injury_svc.load()
+            if injury_records:
+                injury_data_available = True
+                relevant = [
+                    r for r in injury_records
+                    if r.team_name.lower() in (home_team.lower(), away_team.lower())
+                ]
+                if relevant:
+                    injury_dicts = [
+                        {
+                            "team_name": r.team_name,
+                            "player_name": r.player_name,
+                            "status": r.status,
+                            "confidence": r.confidence,
+                        }
+                        for r in relevant
+                    ]
+                    fused = fuse_injury_signals(
+                        fused,
+                        injury_dicts,
+                        home_team=home_team,
+                        away_team=away_team,
+                    )
+                    injury_signals_count = len(injury_dicts)
+                    quality.model_components["injury_data"] = "applied"
+                    source_status["injuries"] = SourceStatus(
+                        status="used",
+                        reason="relevant_records_applied",
+                        detail=f"records={injury_signals_count}",
+                        attempted=True,
+                    )
+                else:
+                    source_status["injuries"] = SourceStatus(
+                        status="unavailable",
+                        reason="no_relevant_records",
+                        detail=f"loaded_records={len(injury_records)}",
+                        attempted=True,
+                    )
+            else:
+                source_status["injuries"] = SourceStatus(
+                    status="unavailable",
+                    reason="empty_dataset",
+                    attempted=True,
+                )
+        except Exception as exc:
+            logger.warning(f"Injury signals skipped: {exc}")
+            source_status["injuries"] = SourceStatus(
+                status="failed",
+                reason="load_failed",
+                detail=str(exc),
+                attempted=True,
+            )
+            degraded_reasons.append(DegradedReason(
+                source="injuries",
+                reason="load_failed",
+                severity="warning",
+                detail=str(exc),
+            ))
+
+        # ── 9. News signals (best-effort) ──
+        news_signals_count = 0
+        news_signals_available = False
+        news_signal_ids: list[str] = []
+        signal_risk_tags: list[str] = []
+        try:
+            from app.services.signal_adjuster_sync import apply_signal_adjustments, load_approved_signals
+            approved = load_approved_signals(home_team, away_team)
+            if approved:
+                news_signals_available = True
+                news_signals_count = len(approved)
+                news_signal_ids = [s.get("id", "") for s in approved if s.get("id")]
+                (
+                    fused["home_win_prob"],
+                    fused["draw_prob"],
+                    fused["away_win_prob"],
+                    signal_risk_tags,
+                ) = apply_signal_adjustments(
+                    home_prob=fused["home_win_prob"],
+                    draw_prob=fused["draw_prob"],
+                    away_prob=fused["away_win_prob"],
+                    home_team=home_team,
+                    away_team=away_team,
+                    signals=approved,
+                )
+                quality.model_components["news_signals"] = "applied"
+                source_status["news"] = SourceStatus(
+                    status="used",
+                    reason="approved_signals_applied",
+                    detail=f"records={news_signals_count}",
+                    attempted=True,
+                )
+            else:
+                source_status["news"] = SourceStatus(
+                    status="unavailable",
+                    reason="no_approved_signals",
+                    attempted=True,
+                )
+        except Exception as exc:
+            logger.warning(f"News signals skipped: {exc}")
+            source_status["news"] = SourceStatus(
+                status="failed",
+                reason="load_failed",
+                detail=str(exc),
+                attempted=True,
+            )
+            degraded_reasons.append(DegradedReason(
+                source="news",
+                reason="load_failed",
+                severity="warning",
+                detail=str(exc),
+            ))
+
+        # ── 10. Weather data (Open-Meteo API via WeatherService) ──
+        weather_data: dict[str, Any] | None = None
+        weather_available = False
+        weather_risk_tags: list[str] = []
+        if enable_weather:
+            try:
+                from app.services.weather_service import WeatherService
+                weather_svc = WeatherService()
+                weather_data = weather_svc.get_weather_for_match_sync(
+                    venue=venue,
+                    home_team=home_team,
+                    away_team=away_team,
+                )
+                if weather_data and weather_data.get("forecast_available"):
+                    weather_available = True
+                    weather_risk_tags = weather_svc.weather_impact_tags(weather_data)
+                    if weather_risk_tags:
+                        signal_risk_tags.extend(weather_risk_tags)
+                    quality.model_components["weather"] = "loaded"
+                    logger.info(
+                        f"Weather: {weather_data.get('weather_description', '?')} "
+                        f"{weather_data.get('temperature_c', '?')}°C "
+                        f"tags={weather_risk_tags}"
+                    )
+                    source_status["weather"] = SourceStatus(
+                        status="used",
+                        reason="forecast_loaded",
+                        detail=str(weather_data.get("weather_description", "")),
+                        attempted=True,
+                        required=require_full_context,
+                    )
+                else:
+                    quality.model_components["weather"] = "unavailable"
+                    weather_reason = (
+                        weather_data.get("reason")
+                        or weather_data.get("degraded_reason")
+                        if weather_data
+                        else "no_data"
+                    )
+                    source_status["weather"] = SourceStatus(
+                        status="unavailable",
+                        reason=str(weather_reason or "forecast_unavailable"),
+                        detail=str(weather_data or "no data"),
+                        attempted=True,
+                        required=require_full_context,
+                    )
+                    degraded_reasons.append(DegradedReason(
+                        source="weather",
+                        reason="forecast_unavailable",
+                        severity="warning",
+                        detail=weather_data.get("degraded_reason", "") if weather_data else "no data",
+                    ))
+            except Exception as exc:
+                logger.warning(f"Weather fetch failed: {exc}")
+                source_status["weather"] = SourceStatus(
+                    status="failed",
+                    reason="fetch_failed",
+                    detail=str(exc),
+                    attempted=True,
+                    required=require_full_context,
+                )
+                degraded_reasons.append(DegradedReason(
+                    source="weather",
+                    reason="fetch_failed",
+                    severity="warning",
+                    detail=str(exc),
+                ))
+        else:
+            quality.model_components["weather"] = "disabled"
+            source_status["weather"] = SourceStatus(
+                status="skipped",
+                reason="disabled_by_flag",
+                attempted=False,
+                required=require_full_context,
+            )
+
+        # ── 11. Market calibration (real API call) ──
+        market_applied = False
+        market_weight_used = 0.0
+        divergence = 0.0
+        market_probs = None
+        market_available = False
+        if enable_market:
+            try:
+                market = get_calibrator(shadow_mode=True)
+                market_probs_data = _run_async_in_thread(
+                    market.fetch_market_probs(home_team, away_team, 1.5, competition=competition)
+                )
+                if market_probs_data:
+                    market_available = True
+                    quality.model_components["market"] = "loaded"
+                    market_result = market.calibrate(
+                        {"home_win_prob": fused["home_win_prob"],
+                         "draw_prob": fused["draw_prob"],
+                         "away_win_prob": fused["away_win_prob"]},
+                        market_probs_data,
+                        sample_size=len(training_df),
+                    )
+                    if market_result.get("market_applied"):
+                        fused["home_win_prob"] = market_result["home_win_prob"]
+                        fused["draw_prob"] = market_result["draw_prob"]
+                        fused["away_win_prob"] = market_result["away_win_prob"]
+                        market_applied = True
+                        market_weight_used = float(market_result.get("market_weight_used", 0))
+                        divergence = float(market_result.get("divergence", 0))
+                    market_probs = market_probs_data
+                    if market_result.get("risk_tags"):
+                        signal_risk_tags.extend(market_result["risk_tags"])
+                    logger.info(
+                        f"Market: H={market_probs_data.get('home_prob',0):.3f} "
+                        f"D={market_probs_data.get('draw_prob',0):.3f} "
+                        f"A={market_probs_data.get('away_prob',0):.3f}"
+                    )
+                    source_status["market"] = SourceStatus(
+                        status="used",
+                        reason="shadow_mode_loaded",
+                        detail=str(market_probs_data.get("provider", "")),
+                        attempted=True,
+                        required=require_full_context,
+                    )
+                else:
+                    quality.model_components["market"] = "unavailable"
+                    source_status["market"] = SourceStatus(
+                        status="unavailable",
+                        reason="no_market_data_for_match",
+                        attempted=True,
+                        required=require_full_context,
+                    )
+                    degraded_reasons.append(DegradedReason(
+                        source="market_calibration",
+                        reason="no_odds_for_match",
+                        severity="warning",
+                    ))
+            except Exception as exc:
+                logger.warning(f"Market calibration failed: {exc}")
+                source_status["market"] = SourceStatus(
+                    status="failed",
+                    reason="fetch_failed",
+                    detail=str(exc),
+                    attempted=True,
+                    required=require_full_context,
+                )
+                degraded_reasons.append(DegradedReason(
+                    source="market_calibration",
+                    reason="fetch_failed",
+                    severity="warning",
+                    detail=str(exc),
+                ))
+        else:
+            quality.model_components["market"] = "disabled"
+            source_status["market"] = SourceStatus(
+                status="skipped",
+                reason="disabled_by_flag",
+                attempted=False,
+                required=require_full_context,
+            )
+
+        # ── 11. Pipeline status ──
+        used_components = [
+            c for c, s in quality.model_components.items()
+            if s in ("loaded_from_artifact", "applied")
+        ]
+        expected = {
+            "baseline": ["dixon_coles"],
+            "standard": ["dixon_coles", "tabular_enhancer", "elo"],
+            "full": ["dixon_coles", "tabular_enhancer", "elo", "pi_rating"],
+            "research-full": ["dixon_coles", "tabular_enhancer", "elo", "pi_rating"],
+        }.get(mode, [])
+
+        all_loaded = all(
+            quality.model_components.get(c) in ("loaded_from_artifact", "applied")
+            for c in expected
+        )
+        if all_loaded:
+            quality.pipeline_status = "full"
+        elif len(used_components) >= 2:
+            quality.pipeline_status = "degraded"
+        else:
+            quality.pipeline_status = "failed"
+
+        if require_full_context:
+            _apply_required_source_gate(
+                source_status=source_status,
+                degraded_reasons=degraded_reasons,
+                quality=quality,
+            )
+
+        # ── 12. Risk tags ──
+        risk_tags = list(dc_pred.get("risk_tags", [])) + signal_risk_tags
+        max_diff = fg.model_disagreement.get("max_home_diff", 0.0) if fg.model_disagreement else 0.0
+        if max_diff > 0.30:
+            risk_tags.append(f"high_model_disagreement_{max_diff:.2f}")
+
+        # ── 13. Build PredictionResult ──
+        components_used = list(used_components)
+        if market_applied:
+            components_used.append("market")
+
+        now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Elo detail (available when standard+ mode)
+        elo_detail: dict[str, object] = {}
+        try:
+            _elo_pred = elo_pred  # type: ignore[name-defined] — defined in Elo block above
+            elo_detail = {
+                "k_factor": _elo_pred.k_factor,
+                "home_elo": _elo_pred.home_elo,
+                "away_elo": _elo_pred.away_elo,
+                "rating_gap": _elo_pred.rating_gap,
+            }
+        except NameError:
+            pass
+
+        result = PredictionResult(
+            home_team=home_team,
+            away_team=away_team,
+            competition=competition,
+            match_id=match_id,
+            is_neutral=is_neutral,
+            match_date=kickoff_at,
+            home_win_prob=float(fused["home_win_prob"]),
+            draw_prob=float(fused["draw_prob"]),
+            away_win_prob=float(fused["away_win_prob"]),
+            home_xg=float(dc_pred.get("home_xg", 0)),
+            away_xg=float(dc_pred.get("away_xg", 0)),
+            dc_probs={
+                "home": float(component_probs.get("dixon_coles", {}).get("home", fused["home_win_prob"])),
+                "draw": float(component_probs.get("dixon_coles", {}).get("draw", fused["draw_prob"])),
+                "away": float(component_probs.get("dixon_coles", {}).get("away", fused["away_win_prob"])),
+            },
+            enhancer_probs=component_probs.get("enhancer") if "enhancer" in component_probs else None,
+            elo_probs=component_probs.get("elo") if "elo" in component_probs else None,
+            pi_probs=component_probs.get("pi_rating") if "pi_rating" in component_probs else None,
+            weibull_probs=component_probs.get("weibull") if "weibull" in component_probs else None,
+            market_probs=market_probs,
+            home_elo=float(elo_detail.get("home_elo", 1500.0)),
+            away_elo=float(elo_detail.get("away_elo", 1500.0)),
+            elo_gap=float(elo_detail.get("rating_gap", 0.0)),
+            top_scores=list(dc_pred.get("top3_scores", [])),
+            weight_config=wc,
+            mode="internal_research",
+            as_of=now_utc,
+            generated_at=now_utc,
+            confidence=dc_pred.get("data_quality", "fitted"),
+            risk_tags=risk_tags,
+            confidence_penalty=float(dc_pred.get("confidence_penalty", 0.0)),
+            components_used=components_used,
+            missing_inputs=[dr.source for dr in degraded_reasons if dr.severity == "error"],
+            degraded_reasons=degraded_reasons,
+            pipeline_params={
+                "dc_converged": True,
+                "enhancer_rows": getattr(self._enhancer, "training_sample_count", 0) if has_enhancer else 0,
+                "elo_matches": getattr(self._elo, "_match_count", 0) if has_elo else 0,
+                "config_label": f"{wc.label} (DC{wc.dc:.0%}+Enh{wc.enhancer:.0%}+Elo{wc.elo:.0%}+Pi{wc.pi:.0%})",
+                "training_rows": len(training_df),
+                "require_full_context": require_full_context,
+            },
+            source_status=source_status,
+            market_applied=market_applied,
+            market_weight_used=market_weight_used,
+            divergence=divergence,
+            weibull_applied=has_weibull and "weibull" in component_probs,
+            elo_detail=elo_detail,
+            calibration_monitor={"enabled": False, "reason": "sync artifact mode — calibration monitor disabled"},
+        )
+
+        # ── 15. Save pre-match snapshot (best-effort) ──
+        if save_snapshot:
+            _save_snapshot_sync(
+                result=result, quality=quality, component_probs=component_probs,
+                fg=fg, wc=wc,
+                match_id=match_id,
+                kickoff_at=kickoff_at,
+                injury_signals_count=injury_signals_count,
+                injury_data_available=injury_data_available,
+                news_signals_count=news_signals_count,
+                news_signals_available=news_signals_available,
+                news_signal_ids=news_signal_ids,
+                weather_available=weather_available,
+                weather_data=weather_data,
+                odds_available=market_available,
+                odds_data=market_probs,
+            )
+
+        return result
+
     # ── Model loading (3-tier cache) ────────────────────────
 
     async def _load_dc(
@@ -689,3 +1331,255 @@ def _build_context_tags(competition: str, is_neutral: bool) -> list[str]:
     if any(kw in c for kw in ["final", "championship"]):
         tags.append("cup_final")
     return tags
+
+
+def _run_async_in_thread(coro):
+    """Run an async coroutine from sync code via a new event loop in a thread.
+
+    Used by ``predict_sync()`` for best-effort async calls (market, etc.).
+    Never raises — returns None on failure.
+    """
+    import asyncio
+    import threading
+
+    result_holder: list[Any] = []
+    error_holder: list[Exception] = []
+
+    def _runner() -> None:
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result_holder.append(loop.run_until_complete(coro))
+            finally:
+                loop.close()
+        except Exception as exc:
+            error_holder.append(exc)
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    t.join(timeout=15.0)
+    if t.is_alive():
+        return None
+    if error_holder:
+        return None
+    return result_holder[0] if result_holder else None
+
+
+def _initial_source_status(
+    *,
+    enable_weather: bool,
+    enable_market: bool,
+    require_full_context: bool,
+) -> dict[str, SourceStatus]:
+    """Initial real-time source status map for sync predictions."""
+    return {
+        "match_context": SourceStatus(
+            status="skipped",
+            reason="not_evaluated",
+            attempted=False,
+            required=require_full_context,
+        ),
+        "injuries": SourceStatus(
+            status="skipped",
+            reason="not_evaluated",
+            attempted=False,
+        ),
+        "news": SourceStatus(
+            status="skipped",
+            reason="not_evaluated",
+            attempted=False,
+        ),
+        "lineups": SourceStatus(
+            status="skipped",
+            reason="not_implemented_in_sync_pipeline",
+            attempted=False,
+        ),
+        "weather": SourceStatus(
+            status="skipped" if not enable_weather else "skipped",
+            reason="disabled_by_flag" if not enable_weather else "not_evaluated",
+            attempted=False,
+            required=require_full_context,
+        ),
+        "market": SourceStatus(
+            status="skipped" if not enable_market else "skipped",
+            reason="disabled_by_flag" if not enable_market else "not_evaluated",
+            attempted=False,
+            required=require_full_context,
+        ),
+    }
+
+
+def _match_context_status(
+    *,
+    match_id: str,
+    match_date: str | datetime | None,
+    venue: str | None,
+    require_full_context: bool,
+) -> SourceStatus:
+    missing = []
+    if not str(match_id or "").strip():
+        missing.append("match_id")
+    if match_date is None or not str(match_date).strip():
+        missing.append("match_date")
+    if not str(venue or "").strip():
+        missing.append("venue")
+    if missing:
+        return SourceStatus(
+            status="unavailable",
+            reason="missing_context",
+            detail=",".join(missing),
+            attempted=True,
+            required=require_full_context,
+        )
+    return SourceStatus(
+        status="used",
+        reason="explicit_context_supplied",
+        attempted=True,
+        required=require_full_context,
+    )
+
+
+def _validate_required_sync_context(
+    *,
+    match_id: str,
+    match_date: str | datetime | None,
+    venue: str | None,
+    enable_weather: bool,
+    enable_market: bool,
+) -> None:
+    """Fail before running strict sync prediction with insufficient context."""
+    missing = []
+    if not str(match_id or "").strip():
+        missing.append("match_id")
+    if match_date is None or not str(match_date).strip():
+        missing.append("match_date")
+    if not str(venue or "").strip():
+        missing.append("venue")
+    if not enable_weather:
+        missing.append("enable_weather")
+    if not enable_market:
+        missing.append("enable_market")
+    if missing:
+        raise ValueError(
+            "require_full_context=True requires explicit "
+            + ", ".join(missing)
+            + ". Use enhanced_best_effort/artifact_only when those inputs are unavailable."
+        )
+
+
+def _apply_required_source_gate(
+    *,
+    source_status: dict[str, SourceStatus],
+    degraded_reasons: list[DegradedReason],
+    quality: Any,
+) -> None:
+    """Mark strict sync predictions degraded when required sources did not resolve."""
+    for source in ("match_context", "weather", "market"):
+        status = source_status.get(source)
+        if status is None or status.status == "used":
+            continue
+        degraded_reasons.append(DegradedReason(
+            source=source,
+            reason=status.reason or status.status,
+            severity="error",
+            detail=status.detail,
+        ))
+        if hasattr(quality, "mark_degraded"):
+            quality.mark_degraded(
+                f"Required source {source} is {status.status}: {status.reason}"
+            )
+
+
+def _coerce_match_datetime(value: str | datetime | None) -> datetime | None:
+    """Convert optional user-supplied match date to ``datetime``."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        logger.debug("Invalid match_date supplied to predict_sync: %r", value)
+        return None
+
+
+def _save_snapshot_sync(
+    *,
+    result: "PredictionResult",
+    quality: Any,
+    component_probs: dict,
+    fg: Any,
+    wc: Any,
+    match_id: str = "",
+    kickoff_at: str = "",
+    injury_signals_count: int = 0,
+    injury_data_available: bool = False,
+    news_signals_count: int = 0,
+    news_signals_available: bool = False,
+    news_signal_ids: list[str] | None = None,
+    weather_available: bool = False,
+    weather_data: dict | None = None,
+    odds_available: bool = False,
+    odds_data: dict | None = None,
+) -> None:
+    """Save a PreMatchSnapshot from sync artifact prediction (best-effort)."""
+    try:
+        from app.services.snapshot_service import save_pre_match_snapshot
+        from app.version import VERSION, get_git_commit
+
+        risk_tags = list(result.risk_tags or [])
+        if hasattr(quality, "warnings"):
+            for w in quality.warnings:
+                risk_tags.append(w)
+
+        degraded: list[dict[str, str]] = []
+        if hasattr(quality, "warnings"):
+            for w in quality.warnings:
+                degraded.append({"source": "pipeline", "reason": w, "severity": "warning"})
+
+        save_pre_match_snapshot(
+            home_team=result.home_team,
+            away_team=result.away_team,
+            competition=result.competition,
+            is_neutral=result.is_neutral,
+            match_id=match_id or result.match_id,
+            kickoff_at=kickoff_at or result.match_date,
+            prediction_mode="full",
+            final_home_prob=result.home_win_prob,
+            final_draw_prob=result.draw_prob,
+            final_away_prob=result.away_win_prob,
+            home_xg=result.home_xg,
+            away_xg=result.away_xg,
+            top_scores=result.top_scores,
+            component_probs=component_probs,
+            weight_config_label=getattr(wc, "label", ""),
+            weight_config=wc.to_dict() if hasattr(wc, "to_dict") else None,
+            effective_weights=fg.effective_weights if hasattr(fg, "effective_weights") else None,
+            fusion_graph=fg.to_dict() if hasattr(fg, "to_dict") else {},
+            model_disagreement=(
+                fg.model_disagreement.get("max_home_diff", 0.0)
+                if hasattr(fg, "model_disagreement") and fg.model_disagreement
+                else 0.0
+            ),
+            confidence="medium",
+            confidence_penalty=result.confidence_penalty,
+            risk_tags=risk_tags,
+            pipeline_status=getattr(quality, "pipeline_status", "unknown"),
+            missing_inputs=result.missing_inputs,
+            degraded_reasons=degraded,
+            code_version=VERSION,
+            git_commit=get_git_commit(),
+            injury_data_available=injury_data_available,
+            news_signals_available=news_signals_available,
+            news_signal_ids=news_signal_ids or [],
+            weather_available=weather_available,
+            weather_snapshot=weather_data,
+            odds_available=odds_available,
+            odds_snapshot=odds_data,
+        )
+    except Exception:
+        logger.debug("PreMatchSnapshot save skipped (non-critical)", exc_info=True)

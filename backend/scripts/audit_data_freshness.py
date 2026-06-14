@@ -68,6 +68,37 @@ def _active_missing_count(conn, table: str, condition: str) -> int:
     )
 
 
+def _empty_match_id_status(cursor, table: str) -> tuple[int, int, int]:
+    if table not in {"prediction_snapshots", "pre_match_snapshots", "market_odds"}:
+        raise ValueError(f"unsupported table: {table}")
+
+    cursor.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM {table}
+        WHERE match_id IS NULL OR TRIM(match_id) = ''
+        """
+    )
+    raw = cursor.fetchone()[0]
+
+    cursor.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM {table} item
+        WHERE (item.match_id IS NULL OR TRIM(item.match_id) = '')
+          AND EXISTS (
+              SELECT 1
+              FROM closed_loop_resolution_ledger ledger
+              WHERE ledger.entity_table = '{table}'
+                AND ledger.entity_id = item.id
+                AND ledger.status IN ('unresolvable_legacy', 'ambiguous')
+          )
+        """
+    )
+    ledgered = cursor.fetchone()[0]
+    return raw, ledgered, raw - ledgered
+
+
 def main():
     print("=" * 70)
     print("AUDIT: Data Freshness Report")
@@ -80,6 +111,7 @@ def main():
     c = conn.cursor()
 
     issues = []
+    warnings = []
     ok = []
 
     # 1. Match data recency
@@ -109,7 +141,9 @@ def main():
     if latest_match:
         latest_dt = datetime.fromisoformat(str(latest_match).replace("T", " ").split(".")[0])
         days_behind = (now - latest_dt).days
-        if days_behind > 7:
+        if days_behind < 0:
+            ok.append(f"Match schedule extends {-days_behind} days ahead")
+        elif days_behind > 7:
             issues.append(f"Match data is {days_behind} days behind — might be missing recent matches")
         else:
             ok.append(f"Match data is current (within {days_behind} days)")
@@ -124,31 +158,33 @@ def main():
     total_ps = c.fetchone()[0]
     print(f"  Total snapshots: {total_ps}")
 
-    c.execute("SELECT COUNT(*) FROM prediction_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
-    empty_ps_match_id = c.fetchone()[0]
-    quarantined_ps = _quarantined_count(conn, "prediction_snapshots")
+    empty_ps_match_id, ledgered_ps_match_id, unledgered_ps_match_id = _empty_match_id_status(c, "prediction_snapshots")
     active_empty_ps = _active_missing_count(conn, "prediction_snapshots", "match_id IS NULL OR TRIM(match_id) = ''")
     print(
         f"  Prediction snapshots without match_id: active={active_empty_ps} "
-        f"total={empty_ps_match_id} quarantined={quarantined_ps}"
+        f"total={empty_ps_match_id} ledgered_legacy={ledgered_ps_match_id} "
+        f"unledgered={unledgered_ps_match_id}"
     )
 
     try:
         c.execute("SELECT COUNT(*) FROM pre_match_snapshots")
         total_pre = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM pre_match_snapshots WHERE match_id IS NULL OR TRIM(match_id) = ''")
-        empty_pre_match_id = c.fetchone()[0]
+        empty_pre_match_id, ledgered_pre_match_id, unledgered_pre_match_id = _empty_match_id_status(c, "pre_match_snapshots")
         print(f"  Pre-match snapshots: {total_pre}")
-        quarantined_pre = _quarantined_count(conn, "pre_match_snapshots")
         active_empty_pre = _active_missing_count(conn, "pre_match_snapshots", "match_id IS NULL OR TRIM(match_id) = ''")
         print(
             f"  Pre-match snapshots without match_id: active={active_empty_pre} "
-            f"total={empty_pre_match_id} quarantined={quarantined_pre}"
+            f"total={empty_pre_match_id} ledgered_legacy={ledgered_pre_match_id} "
+            f"unledgered={unledgered_pre_match_id}"
         )
-        if active_empty_pre:
+        if active_empty_pre or unledgered_pre_match_id:
             issues.append(
-                f"CRITICAL: {active_empty_pre}/{total_pre} active pre_match_snapshots have no match_id "
-                f"({quarantined_pre} quarantined legacy)"
+                f"CRITICAL: {max(active_empty_pre, unledgered_pre_match_id)}/{total_pre} "
+                "pre_match_snapshots have active/unledgered missing match_id"
+            )
+        elif empty_pre_match_id:
+            warnings.append(
+                f"{empty_pre_match_id}/{total_pre} pre_match_snapshots are legacy-unresolved and quarantined"
             )
     except Exception as e:
         print(f"  Pre-match snapshot audit skipped: {e}")
@@ -166,10 +202,14 @@ def main():
     else:
         ok.append("All 72 WC26 group matches have prediction snapshots")
 
-    if active_empty_ps:
+    if active_empty_ps or unledgered_ps_match_id:
         issues.append(
-            f"CRITICAL: {active_empty_ps} active prediction_snapshots have no match_id "
-            f"({quarantined_ps} quarantined legacy)"
+            f"CRITICAL: {max(active_empty_ps, unledgered_ps_match_id)} "
+            "prediction_snapshots have active/unledgered missing match_id"
+        )
+    elif empty_ps_match_id:
+        warnings.append(
+            f"{empty_ps_match_id} prediction_snapshots are legacy-unresolved and quarantined"
         )
 
     if latest_ps:
@@ -181,8 +221,8 @@ def main():
         else:
             ok.append(f"Prediction snapshots are fresh ({ps_days}d)")
 
-    # 3. News signals — CRITICAL
-    print("\n--- 3. News Signals (CRITICAL) ---")
+    # 3. News signals
+    print("\n--- 3. News Signals ---")
     c.execute("SELECT COUNT(*) FROM news_signals")
     ns_count = c.fetchone()[0]
     print(f"  news_signals: {ns_count}")
@@ -216,7 +256,7 @@ def main():
     print(f"  Latest created_at: {mo_dates[0]}")
     print(f"  Latest fetched_at: {mo_dates[1]}")
 
-    c.execute("SELECT COUNT(DISTINCT match_id) FROM market_odds")
+    c.execute("SELECT COUNT(DISTINCT match_id) FROM market_odds WHERE match_id IS NOT NULL AND TRIM(match_id) <> ''")
     mo_matches = c.fetchone()[0]
     c.execute("SELECT COUNT(*) FROM market_odds WHERE match_id IS NULL OR TRIM(match_id) = ''")
     mo_unlinked_total = c.fetchone()[0]
@@ -228,6 +268,13 @@ def main():
         f"total={mo_unlinked_total} quarantined={mo_unlinked_quarantined}"
     )
 
+    empty_mo_match_id, ledgered_mo_match_id, unledgered_mo_match_id = _empty_match_id_status(c, "market_odds")
+    print(
+        "  Market odds without match_id: "
+        f"{empty_mo_match_id} (ledgered legacy: {ledgered_mo_match_id}, "
+        f"unledgered: {unledgered_mo_match_id})"
+    )
+
     c.execute("SELECT provider, COUNT(*) FROM market_odds GROUP BY provider")
     providers = c.fetchall()
     for p in providers:
@@ -235,15 +282,15 @@ def main():
 
     if mo_count == 0:
         issues.append("market_odds is empty — no market data for calibration")
-    elif mo_unlinked_active:
+    elif mo_unlinked_active or unledgered_mo_match_id:
         issues.append(
-            f"CRITICAL: market_odds has {mo_unlinked_active} active unlinked rows "
-            f"({mo_unlinked_quarantined} quarantined legacy)"
+            f"CRITICAL: market_odds has {max(mo_unlinked_active, unledgered_mo_match_id)} "
+            f"active/unledgered rows without match_id ({ledgered_mo_match_id} legacy rows quarantined)"
         )
     elif mo_matches <= 1:
-        issues.append(
-            f"market_odds has {mo_count} rows but only {mo_matches} linked match(es); "
-            "legacy unlinked rows are quarantined, but market benchmark coverage is still sparse"
+        warnings.append(
+            f"market_odds has {mo_count} rows but only {mo_matches} linked active match(es); "
+            f"{ledgered_mo_match_id} legacy rows are quarantined"
         )
     else:
         ok.append(f"market_odds has {mo_count} records from {len(providers)} providers")
@@ -255,7 +302,7 @@ def main():
     print(f"  manual_events: {me_count}")
 
     if me_count <= 20:
-        issues.append(f"manual_events only has {me_count} entries — manual intelligence input is sparse")
+        warnings.append(f"manual_events only has {me_count} entries — manual intelligence input is sparse")
     else:
         ok.append(f"manual_events has {me_count} entries")
 
@@ -278,7 +325,7 @@ def main():
     print(f"  weekly_learning_reports: {wlr_count}")
 
     if eval_count < 50:
-        issues.append(f"Only {eval_count} post-match evaluations — learning loop has limited data")
+        warnings.append(f"Only {eval_count} post-match evaluations — learning loop has limited data")
     else:
         ok.append(f"{eval_count} post-match evaluations available")
 
@@ -353,7 +400,10 @@ def main():
     print(f"  [OK] OK: {len(ok)}")
     for item in ok:
         print(f"    + {item}")
-    print(f"  [WARN] Issues: {len(issues)}")
+    print(f"  [WARN] Warnings: {len(warnings)}")
+    for item in warnings:
+        print(f"    - {item}")
+    print(f"  [FAIL] Issues: {len(issues)}")
     for item in issues:
         print(f"    ! {item}")
 

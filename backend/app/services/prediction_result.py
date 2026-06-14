@@ -16,6 +16,7 @@ from app.services.weights import WeightConfig
 
 
 DegradedSeverity = Literal["warning", "error"]
+SourceStatusValue = Literal["used", "unavailable", "failed", "skipped"]
 
 
 @dataclass
@@ -49,6 +50,44 @@ class DegradedReason:
             reason=data.get("reason", ""),
             severity=data.get("severity", "warning"),  # type: ignore[arg-type]
             detail=data.get("detail", ""),
+        )
+
+
+@dataclass
+class SourceStatus:
+    """Structured status for a data source used by the prediction pipeline.
+
+    This is the hard contract that prevents optional real-time sources from
+    disappearing silently. A source can be used, unavailable, failed, or skipped,
+    and consumers must render that state explicitly.
+    """
+
+    status: SourceStatusValue
+    reason: str = ""
+    detail: str = ""
+    attempted: bool = False
+    required: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "detail": self.detail,
+            "attempted": self.attempted,
+            "required": self.required,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SourceStatus":
+        status = data.get("status", "skipped")
+        if status not in ("used", "unavailable", "failed", "skipped"):
+            status = "skipped"
+        return cls(
+            status=status,  # type: ignore[arg-type]
+            reason=str(data.get("reason", "")),
+            detail=str(data.get("detail", "")),
+            attempted=bool(data.get("attempted", False)),
+            required=bool(data.get("required", False)),
         )
 
 
@@ -131,6 +170,7 @@ class PredictionResult:
 
     # ── Sources ──
     sources: dict[str, str] = field(default_factory=dict)
+    source_status: dict[str, SourceStatus] = field(default_factory=dict)
 
     # ── Degraded reasons (Ticket 1.2 contract) ──
     # Always present — empty list when all data sources succeeded.
@@ -209,6 +249,10 @@ class PredictionResult:
             "active_event_ids": [e.get("id", "") for e in self.active_events],
             "context_adjustments": self.context_adjustments,
             "sources": self.sources,
+            "source_status": {
+                key: value.to_dict() if isinstance(value, SourceStatus) else value
+                for key, value in self.source_status.items()
+            },
             "degraded_reasons": [dr.to_dict() for dr in self.degraded_reasons],
         }
         payload["evaluation_sample"] = evaluation_sample_from_prediction_dict(payload)
@@ -265,6 +309,10 @@ class PredictionResult:
             elo_detail=dict(elo.get("detail", {})),
             calibration_monitor=dict(data.get("calibration_monitor", {})),
             sources=dict(data.get("sources", {})),
+            source_status={
+                key: SourceStatus.from_dict(value) if isinstance(value, dict) else value
+                for key, value in data.get("source_status", {}).items()
+            },
             degraded_reasons=[
                 DegradedReason.from_dict(dr) if isinstance(dr, dict) else dr
                 for dr in data.get("degraded_reasons", [])

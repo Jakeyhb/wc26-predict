@@ -98,7 +98,7 @@ st.markdown("""
 ```
 历史数据 → 离线训练 → 模型文件 (dc.pkl, enhancer.joblib, ...)
                             ↓
-                  predict_match.py / Dashboard
+                 PredictionPipeline / Dashboard
                             ↓
               4 模型融合 (DC + Enhancer + Elo + Pi)
                             ↓

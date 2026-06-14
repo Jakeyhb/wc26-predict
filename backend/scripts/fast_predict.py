@@ -38,7 +38,8 @@ async def fast_predict(
     ``await pipeline.predict_match(home_team, away_team, competition, is_neutral=is_neutral)``
     for the same result via the unified entry point.
 
-    This function will be removed in V3.3.
+    This legacy helper is kept for compatibility; prefer PredictionPipeline for
+    new code.
     """
     import warnings
     warnings.warn(

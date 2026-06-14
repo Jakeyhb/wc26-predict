@@ -47,15 +47,23 @@ def main():
 
     # ── Step 1: Run artifact prediction ───────────────────────────────────
     print(f"  Running prediction for {args.home} vs {args.away}...")
-    from app.services.prediction_core import run_artifact_pipeline
+    from app.services.prediction_pipeline import PredictionPipeline
 
-    result, quality, timer = run_artifact_pipeline(
-        home_team=args.home,
-        away_team=args.away,
-        competition=args.competition,
-        is_neutral=args.neutral,
-        mode=args.mode,
+    pipeline = PredictionPipeline.from_artifacts(mode=args.mode)
+    pred_result = pipeline.predict_sync(
+        args.home, args.away, args.competition, is_neutral=args.neutral
     )
+    # Build backward-compatible dict for evaluate_prediction()
+    result = pred_result.to_dict()["prediction"]
+    result["home_team"] = pred_result.home_team
+    result["away_team"] = pred_result.away_team
+    result["competition"] = pred_result.competition
+    result["is_neutral"] = pred_result.is_neutral
+    result["home_xg"] = pred_result.home_xg
+    result["away_xg"] = pred_result.away_xg
+    result["top_scores"] = pred_result.top_scores
+    result["components_used"] = pred_result.components_used
+    result["mode"] = args.mode
 
     # ── Step 2: Evaluate ──────────────────────────────────────────────────
     from app.services.postmatch import (

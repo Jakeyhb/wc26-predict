@@ -56,15 +56,22 @@ if st.button("开始复盘", type="primary", disabled=not can_review):
     with st.status("正在复盘...", expanded=True) as status:
         # Step 1: Prediction
         st.write("📊 运行预测模型...")
-        from app.services.prediction_core import run_artifact_pipeline
+        from app.services.prediction_pipeline import PredictionPipeline
 
-        result, quality, timer = run_artifact_pipeline(
-            home_team=review_home,
-            away_team=review_away,
-            competition=review_comp,
-            is_neutral=review_neutral,
-            mode="full",
+        pipeline = PredictionPipeline.from_artifacts(mode="full")
+        pred_result = pipeline.predict_sync(
+            review_home, review_away, review_comp, is_neutral=review_neutral
         )
+        # Compatibility: build dict for existing evaluate_prediction()
+        result = pred_result.to_dict()["prediction"]
+        result["home_team"] = pred_result.home_team
+        result["away_team"] = pred_result.away_team
+        result["competition"] = pred_result.competition
+        result["is_neutral"] = pred_result.is_neutral
+        result["home_xg"] = pred_result.home_xg
+        result["away_xg"] = pred_result.away_xg
+        result["top_scores"] = pred_result.top_scores
+        result["components_used"] = pred_result.components_used
 
         # Step 2: Evaluate
         st.write("📐 计算评估指标...")

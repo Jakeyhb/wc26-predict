@@ -63,7 +63,34 @@ if last_pred is None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── Extract result data ─────────────────────────────────────────────────────
-result = last_pred["result"]
+
+def _flatten_prediction_payload(payload: dict) -> dict:
+    """Normalize legacy/enhanced/canonical prediction payloads for this page."""
+    raw = payload.get("result", payload)
+    if isinstance(raw, dict) and "meta" in raw and "prediction" in raw:
+        meta = raw.get("meta", {})
+        pred = raw.get("prediction", {})
+        return {
+            "home_team": meta.get("home_team", ""),
+            "away_team": meta.get("away_team", ""),
+            "competition": meta.get("competition", ""),
+            "is_neutral": meta.get("is_neutral", True),
+            "match_id": meta.get("match_id", ""),
+            "match_date": meta.get("match_date", ""),
+            "mode": meta.get("mode", "internal_research"),
+            "home_win_prob": pred.get("home_win_prob", 0.333),
+            "draw_prob": pred.get("draw_prob", 0.334),
+            "away_win_prob": pred.get("away_win_prob", 0.333),
+            "home_xg": pred.get("home_xg", 0.0),
+            "away_xg": pred.get("away_xg", 0.0),
+            "top_scores": pred.get("top_scores", []),
+            "components_used": meta.get("components_used", []),
+            "source_status": raw.get("source_status", {}),
+        }
+    return raw if isinstance(raw, dict) else {}
+
+
+result = _flatten_prediction_payload(last_pred)
 
 home = result["home_team"]
 away = result["away_team"]
@@ -119,7 +146,7 @@ if scores:
 st.divider()
 
 # ── Market data (if available) ──────────────────────────────────────────────
-market_probs = last_pred.get("market_probs")
+market_probs = last_pred.get("market_probs") or result.get("market_probs")
 if market_probs:
     st.subheader("市场共识")
     cm1, cm2, cm3 = st.columns(3)
@@ -237,7 +264,14 @@ with col_btn1:
                         enable_weather=False,
                         enable_llm=True,
                     )
-                    st.session_state["last_prediction"] = enhanced_result_to_dict(enhanced)
+                    session_dict = enhanced_result_to_dict(enhanced)
+                    st.session_state["last_prediction"] = {
+                        **session_dict,
+                        "result": session_dict,
+                        "quality": enhanced.base_quality,
+                        "timings": enhanced.timings.to_dict() if enhanced.timings else {},
+                        "total_seconds": enhanced.total_seconds,
+                    }
                     st.session_state["last_enhanced"] = enhanced
                     st.rerun()
                 except Exception as e:
