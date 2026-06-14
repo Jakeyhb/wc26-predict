@@ -31,6 +31,9 @@ class WeatherService:
         "estadio azteca": (19.3029, -99.1505),
         "estadio bbva": (25.6694, -100.3114),
         "estadio akron": (20.6729, -103.4692),
+        # Additional WC26 venues discovered during analysis
+        "nrg stadium": (29.6847, -95.4110),             # Houston, Texas
+        "mercedes-benz stadium": (33.7555, -84.4010),    # Atlanta, Georgia
         # European national stadiums (for friendlies/qualifiers)
         "king baudouin stadium": (50.8958, 4.3339),       # Brussels, Belgium
         "wembley stadium": (51.5560, -0.2795),             # London, England

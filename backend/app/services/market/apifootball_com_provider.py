@@ -6,10 +6,16 @@ This is a DIFFERENT service from API-Sports / api-football.com.
 Provider is designed to fail gracefully — if the key is invalid, rate-limited,
 or odds are unavailable, fetch() returns None and the main prediction pipeline
 continues unaffected.
+
+Proxy support: auto-detects system proxy (Windows registry, env vars) and
+routes all requests through it. Required for users behind firewalls/VPNs.
 """
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import sys
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -21,10 +27,10 @@ from app.services.market.provider_base import MarketOddsResult, MarketProvider
 
 logger = logging.getLogger(__name__)
 
-# Known league IDs on apifootball.com (discovered via get_leagues, documented here)
-# These may differ from API-Sports league IDs.
+# Known league IDs on apifootball.com (discovered via get_events, documented here)
+# These differ from API-Sports league IDs.
 KNOWN_LEAGUE_IDS: dict[str, int] = {
-    "world cup": 1,
+    "world cup": 28,           # World Cup - World Championship (country_id=8)
     "premier league": 2,
     "la liga": 3,
     "bundesliga": 4,
@@ -40,6 +46,9 @@ class ApifootballComProvider(MarketProvider):
 
     Fetches pre-match 1X2 odds for a given match via team name matching.
     Falls back gracefully when the API is unavailable or odds are missing.
+
+    Proxy: auto-detects from Windows registry / env vars. On first request,
+    tests connectivity and caches the working transport mode (direct or proxy).
     """
 
     def __init__(self) -> None:
@@ -49,15 +58,107 @@ class ApifootballComProvider(MarketProvider):
         self._client: httpx.AsyncClient | None = None
         self._available: bool | None = None
         self._odds_available: bool | None = None
+        self._proxy: str | None = self._detect_proxy()
+        self._use_proxy: bool | None = None  # None = not tested yet
+        if self._proxy:
+            logger.debug("apifootball.com: proxy candidate %s", self._proxy)
+
+    @staticmethod
+    def _detect_proxy() -> str | None:
+        """Auto-detect system proxy from env vars or Windows registry.
+
+        Priority:
+        1. HTTPS_PROXY / HTTP_PROXY / ALL_PROXY env vars
+        2. Windows registry (HKCU Internet Settings)
+        """
+        # 1. environment variables
+        for var in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+            val = os.environ.get(var, "").strip()
+            if val:
+                return val
+
+        # 2. Windows registry
+        if sys.platform == "win32":
+            try:
+                result = subprocess.run(
+                    [
+                        "reg", "query",
+                        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                    ],
+                    capture_output=True, text=True, timeout=5,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                    if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                )
+                proxy_server = None
+                for line in result.stdout.splitlines():
+                    if "ProxyServer" in line:
+                        parts = line.strip().split()
+                        proxy_server = parts[-1] if len(parts) >= 3 else None
+                if proxy_server and proxy_server.strip():
+                    addr = proxy_server.strip()
+                    return f"http://{addr}" if "://" not in addr else addr
+            except Exception:
+                pass
+
+        return None
+
+    async def _resolve_transport(self) -> httpx.AsyncClient:
+        """Create a client, testing proxy vs direct to pick the working mode.
+
+        On first call, attempts a direct connection. If it fails and a proxy
+        candidate exists, falls back to the proxy. The result is cached for
+        the provider's lifetime.
+        """
+        if self._client is not None:
+            return self._client
+
+        # Try direct first
+        client = httpx.AsyncClient(timeout=15.0)
+        if await self._try_connect(client):
+            self._use_proxy = False
+            self._client = client
+            logger.debug("apifootball.com: using direct connection")
+            return self._client
+
+        # Direct failed — close and try proxy
+        await client.aclose()
+
+        if self._proxy:
+            client = httpx.AsyncClient(timeout=15.0, proxy=self._proxy)
+            if await self._try_connect(client):
+                self._use_proxy = True
+                self._client = client
+                logger.info("apifootball.com: using proxy %s", self._proxy)
+                return self._client
+            await client.aclose()
+
+        # Both failed — use direct client anyway (will fail gracefully later)
+        logger.warning(
+            "apifootball.com: connectivity check failed (direct + proxy both unreachable)"
+        )
+        self._client = httpx.AsyncClient(timeout=15.0)
+        self._use_proxy = False
+        return self._client
+
+    async def _try_connect(self, client: httpx.AsyncClient) -> bool:
+        """Quick connectivity check against the base API."""
+        try:
+            r = await client.get(
+                self.base_url,
+                params={**self._auth_params(), "action": "get_countries"},
+            )
+            data = r.json()
+            return isinstance(data, list) and len(data) > 0
+        except Exception:
+            return False
 
     @property
     def name(self) -> str:
         return "apifootball.com"
 
     async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=15.0)
-        return self._client
+        """Get or create the HTTP client with automatic transport resolution."""
+        return await self._resolve_transport()
 
     def _auth_params(self) -> dict[str, str]:
         """Build query params with API key. Never logs the full key."""
@@ -308,3 +409,6 @@ class ApifootballComProvider(MarketProvider):
         if self._client:
             await self._client.aclose()
             self._client = None
+        self._available = None
+        self._odds_available = None
+        self._use_proxy = None
