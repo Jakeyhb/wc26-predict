@@ -3,53 +3,43 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.6.1_postmatch_stats-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_2A_postmatch_stats-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/version-V3.8.0-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-Phase_2B_self_evolution-red?style=flat-square" alt="phase">
   <img src="https://img.shields.io/badge/backend_tests-215_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
-  <img src="https://img.shields.io/badge/frontend-React_+_Vite-informational?style=flat-square" alt="frontend">
+  <img src="https://img.shields.io/badge/model_loading-disk_cache_only-brightgreen?style=flat-square" alt="model loading">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
 </p>
 
 ## 当前结论
 
-WC26 Predict 现在处在 **Phase 2A：真实赛后统计与 provenance 阶段**，不是“盲目堆模型”的阶段。
+WC26 Predict 现在处在 **Phase 2B：自进化基础 + 赛后复盘学习** 阶段。
 
-已经完成的 V3.6.1 重点：
+**V3.8.0（2026-06-15）关键修复与升级：**
+
+- 🔴 **P0:** 修复模型参数静默回退 bug — 删除了过期的静态 artifact 文件（`dc.pkl`、`enhancer.joblib`），disk cache 成为唯一加载路径。不会再出现”两条加载路径加载不同参数”的问题。
+- 🔴 **P1:** 权重门控 — 基于两场世界杯赛后复盘数据，Enhancer 有效权重从 39.7% 降至 24.3%，DC 从 49.6% 升至 56.7%。完整审计追踪已写入 DB。
+- 🟢 **P2:** 参数溯源 — `prediction_snapshots` 新增 `dc_params_hash`、`training_df_fingerprint`、`training_df_max_date`，现在可精确定位”为什么两次预测结果不同”。
+- 📊 两场世界杯赛后复盘完成：德国 7-1 库拉索（Brier 0.135）、荷兰 2-2 日本（Brier 0.832）。Enhancer 系统性反平局偏置确认。
+
+**从 V3.6.1 继承的能力：**
 
 - 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
 - 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
 - 无真实 `match_id` 的预测不允许进入复盘和学习链路。
 - 新增 `closed_loop_resolution_ledger`，把旧数据分成 `resolved`、`ambiguous`、`unresolvable_legacy`。
 - active 闭环追溯缺口清零；旧快照、旧赔率和旧学习日志被隔离，不再混入学习。
-- `postmatch_eval` 已修复到 `48/48` 可追溯。
 - 新增 proper scoring 指标：log loss、Brier、RPS。
-- walk-forward 回测升级为 champion gate，可比较 DC、Elo、Pi、Weibull、tabular、market、current fusion、uniform baseline。
-- 新增 `--enforce-gate`；当前 champion 不合格时返回非零，阻止发布。
-- 新增 paired evaluation example，只在同一场、同一预测时点、同一条样本内比较候选与基线。
-- 新增 `--enforce-paired-gate`；默认 paired champion 为 `snapshot_adjusted`，默认 paired baselines 为 uniform、DC、Elo、Pi、tabular、market、Weibull。
-- `PredictionResult.to_dict()` 已输出统一 `evaluation_sample`，新预测会同时写入 `prediction_snapshots.pipeline_params` 和 `prediction_runs.input_feature_snapshot`。
-- walk-forward 回测优先读取 `evaluation_sample`，旧数据没有该字段时继续使用 legacy fallback。
-- 新增 `backfill_evaluation_samples.py`，默认 dry-run，只用同一行已有数据回填评估样本。
-- `market_only`、`weibull_only` 等样本不足 baseline 会输出 `insufficient_samples`，不会被伪造为通过或失败。
-- 非配对 leaderboard 已明确标记为 exploratory，不能再被当作模型优劣结论。
-- 每次回测生成 JSON + Markdown 报告到 ignored `backend/reports/`。
-- 新增闭环完整性审计脚本，能暴露 prediction snapshot、pre-match snapshot、赔率、学习日志的追溯缺口。
-- 新增 `audit_data_provenance.py`，统一审计真实 xG、赔率、赛前快照、伤停、阵容探针、manual/news signal 的覆盖与来源。
-- active 未绑定赔率仍是 critical；已隔离 legacy 赔率不再伪装成有效 market benchmark。
-- `pre_match_snapshots` 的 input availability、payload、`source_timestamps`、snapshot id 已纳入 warning 级审计。
-- 新增 `postmatch_team_stats`，用独立表保存真实 xG、射门、射正、角球、红黄牌与 `source_time` / `available_at`。
-- 新增 StatsBomb open-data 回填脚本，默认 dry-run，只有精确 `external_id` 或日期+主客队唯一匹配才允许写入。
-- `audit_data_provenance.py` 已纳入 `postmatch_stats_provenance`，能检查扩展赛后统计的 provenance 覆盖。
-- WC26 小组赛 72 场赛程已绑定到内部 team id；淘汰赛仍需在晋级结果确定后动态绑定。
-- 完成一次仓库大扫除：删除可再生成缓存、依赖目录、构建产物和重复旧库，非核心素材归档到 `_archive/` 并从 Git 跟踪中排除。
+- walk-forward 回测升级为 champion gate + paired gate。
+- 新增闭环完整性审计脚本、数据 provenance 审计脚本。
+- WC26 小组赛 72 场赛程已绑定到内部 team id。
 
 还不能过度声称的部分：
 
 - 系统还不是完整自动闭环。
-- 系统还不能称为可信自进化，只能说“可控自进化基础已开始搭建”。
-- 当前不应该直接上线新权重；V3.6.1 只建立真实赛后统计导入层，不改变模型权重，也不宣称更准。
-- `snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化，并且没有超过 `dc_only`。
+- 系统还不能称为可信自进化，只能说”可控自进化基础已搭建”。
+- V3.8.0 权重调整基于 2 场比赛的赛后复盘数据，样本量不足以宣称全局最优。随着更多比赛完成，权重将持续校准。
+- `snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化。
 - 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足；新的 provenance 审计会把这些缺口显式输出。
 
 ## 系统目标
@@ -72,26 +62,36 @@ flowchart LR
   B --> D["PredictionPipeline"]
   D --> E["模型组件: DC / Elo / Pi / Weibull / Tabular / Market"]
   E --> F["概率融合与校准"]
-  F --> G["prediction_snapshots"]
+  F --> G["prediction_snapshots<br/>(含 dc_params_hash 溯源)"]
   G --> H["赛果验证: 2+ 独立可信来源"]
   H --> I["赛后复盘: log loss / Brier / RPS / 归因"]
   I --> J["候选权重 / 候选规则"]
   J --> K["walk-forward gate"]
   K -->|通过后人工批准| D
+
+  subgraph "V3.8.0: 模型加载单一路径"
+    L["model_artifacts/dc_cache/"] -->|"唯一来源"| D
+    M["train_models.py"] -->|"写入"| L
+    N["snapshot.py"] -->|"读写"| L
+  end
 ```
 
 ## 代码结构
 
 ```text
-apps/web/                    React + Vite 前端
 backend/app/                 FastAPI 后端与核心服务
 backend/app/services/        预测、快照、学习、验证、评估服务
-backend/scripts/             审计、回填、回测、运维脚本
+backend/app/services/prediction_core.py  模型加载（disk cache 唯一路径）
+backend/app/services/weights.py          权重配置（DB auto_optimized）
+backend/model_artifacts/dc_cache/        模型磁盘缓存（DC + Enhancer）
+backend/artifacts/ratings/              Elo / Pi Rating JSON 文件
+backend/artifacts/dataframes/           训练数据 pickle
+backend/scripts/             审计、回填、回测、复盘、运维脚本
 backend/tests/               后端测试
 backend/dashboard/           Streamlit 本地研究工作台
-docs/                        架构、合规、状态文档
-packages/shared/             前端共享类型与工具
-scripts/                     根目录运维脚本
+backend/data/                SQLite 数据库
+backend/reports/             赛后复盘报告
+docs/                        架构、合规、状态文档、CHANGELOG
 ```
 
 ## 快速开始
@@ -294,12 +294,23 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.6.1 Postmatch Stats**
+当前主版本：**V3.8.0**
 
-- Version: `3.6.1-postmatch-stats`
-- Tag: `v3.6.1-postmatch-stats`
-- Branch target: `master`
-- 状态：测试版，重点是真实赛后统计导入与 provenance，不是最终预测精度版本。
+- Version: `3.8.0`
+- Tag: `v3.8.0`
+- Branch: `master` ← `phase-0-baseline`
+- 状态：Phase 2B — 赛后复盘 + 自进化基础 + 权重门控 + 参数溯源
+- 完整 CHANGELOG: [`docs/CHANGELOG_V3.8.0.md`](docs/CHANGELOG_V3.8.0.md)
+
+### 最近版本历史
+
+| 版本 | 日期 | 关键变更 |
+|------|------|---------|
+| **V3.8.0** | 2026-06-15 | 模型加载链修复 + 权重门控 + 参数溯源 + 静态 artifact 删除 |
+| V3.6.1 | 2026-06-14 | Postmatch Stats 层 + provenance 审计 + paired gate |
+| V3.6.0 | 2026-06-10 | Data Provenance Audit |
+| V3.5.4 | 2026-06-08 | Pipeline Evaluation Samples |
+| V3.5.3 | 2026-06-06 | Paired Benchmark Gate |
 
 ## 贡献
 
