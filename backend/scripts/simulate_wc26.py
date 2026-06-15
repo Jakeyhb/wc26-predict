@@ -46,8 +46,6 @@ RATINGS_DIR = ARTIFACTS_DIR / "ratings"
 DATAFRAMES_DIR = ARTIFACTS_DIR / "dataframes"
 DB_PATH = BACKEND_DIR / "data" / "local_stage2.db"
 
-DC_PATH = MODELS_DIR / "dc.pkl"
-ENHANCER_PATH = MODELS_DIR / "enhancer.joblib"
 ELO_PATH = RATINGS_DIR / "elo.json"
 PI_PATH = RATINGS_DIR / "pi.json"
 DF_PATH = DATAFRAMES_DIR / "national_finished_matches.pkl"
@@ -62,27 +60,21 @@ GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 GROUP_SLOTS = [(1, 2), (3, 4), (1, 3), (2, 4), (1, 4), (2, 3)]
 
 
-# ── Artifact loaders ───────────────────────────────────────────────────
+# ── Model loaders (disk cache only — no static artifacts) ──────────────
 
 
 def load_dc() -> DixonColesModel:
-    if not DC_PATH.exists():
-        raise FileNotFoundError(f"DC artifact not found at {DC_PATH}")
-    with open(DC_PATH, "rb") as f:
-        dc = pickle.load(f)
-    if not isinstance(dc, DixonColesModel):
-        raise TypeError(f"Expected DixonColesModel, got {type(dc).__name__}")
-    return dc
+    """Load DC from disk cache (single source of truth since V3.8.0)."""
+    from app.services.prediction_core import _load_dc as _load_dc_from_cache
+    from app.services.prediction_timer import PredictionTimer
+    return _load_dc_from_cache(PredictionTimer())
 
 
 def load_enhancer() -> TabularMatchEnhancer:
-    import joblib
-    if not ENHANCER_PATH.exists():
-        raise FileNotFoundError(f"Enhancer artifact not found at {ENHANCER_PATH}")
-    enh = joblib.load(str(ENHANCER_PATH))
-    if not isinstance(enh, TabularMatchEnhancer):
-        raise TypeError(f"Expected TabularMatchEnhancer, got {type(enh).__name__}")
-    return enh
+    """Load Enhancer from disk cache (single source of truth since V3.8.0)."""
+    from app.services.prediction_core import _load_enhancer as _load_enh_from_cache
+    from app.services.prediction_timer import PredictionTimer
+    return _load_enh_from_cache(PredictionTimer())
 
 
 def load_elo() -> EloRatingSystem:

@@ -15,6 +15,7 @@ import logging
 import pickle
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,8 +51,6 @@ MODELS_DIR = ARTIFACTS_DIR / "models"
 RATINGS_DIR = ARTIFACTS_DIR / "ratings"
 DATAFRAMES_DIR = ARTIFACTS_DIR / "dataframes"
 
-DC_PATH = MODELS_DIR / "dc.pkl"
-ENHANCER_PATH = MODELS_DIR / "enhancer.joblib"
 ELO_PATH = RATINGS_DIR / "elo.json"
 PI_PATH = RATINGS_DIR / "pi.json"
 DF_PATH = DATAFRAMES_DIR / "national_finished_matches.pkl"
@@ -76,225 +75,165 @@ MODE_LABELS: dict[str, str] = {
 
 
 def _load_dc(timer: PredictionTimer) -> DixonColesModel:
-    """Load Dixon-Coles model, preferring disk cache over static pickle artifact.
+    """Load Dixon-Coles model from disk cache. Auto-fits on cold start.
 
-    Cache priority:
-      1. Disk cache (model_artifacts/dc_cache/) — freshest, updated by snapshot runs
-      2. Static artifact (artifacts/models/dc.pkl) — frozen baseline, June 4
+    The disk cache in ``model_artifacts/dc_cache/`` is the **only** loading path.
+    Static pickle artifacts have been removed (V3.8.0) — they were a root cause
+    of silent model-parameter reversion.
 
-    The disk cache is updated whenever snapshot.py retrains on fresh DB data.
-    Using it ensures ``from_artifacts()`` predictions stay in sync with the
-    latest available training data.
+    On first run (empty cache), the model is fitted from the artifact training
+    DataFrame and saved to disk cache. Subsequent runs load the latest cache.
     """
     timer.start("load_dc")
 
-    # 1. Try disk cache for World Cup (most common competition)
-    try:
-        from app.services.model_cache_disk import _cache_dir as _dc_cache_dir
-        dc = _try_load_dc_from_disk(_dc_cache_dir(), timer)
-        if dc is not None:
-            timer.stop()
-            return dc
-    except Exception:
-        logger.debug("Disk cache DC lookup failed, falling back to artifact", exc_info=True)
+    dc = _load_model_from_disk_cache(
+        prefix="dc",
+        cache_dir=_resolve_cache_dir(),
+        model_class=DixonColesModel,
+        timer=timer,
+    )
+    if dc is not None:
+        timer.stop()
+        return dc
 
-    # 2. Fallback: static artifact
-    if not DC_PATH.exists():
-        raise FileNotFoundError(
-            f"DC artifact not found at {DC_PATH}. Run train_models.py first."
-        )
-    with open(DC_PATH, "rb") as f:
-        dc = pickle.load(f)
-    if not isinstance(dc, DixonColesModel):
-        raise TypeError(f"Expected DixonColesModel, got {type(dc).__name__}")
-    if not dc.attack_params:
-        raise ValueError(
-            "Loaded DC model has empty attack_params — artifact appears un-fitted"
-        )
+    # Cold start: fit from training data, save to cache
+    logger.info("DC disk cache empty — fitting from training data (cold start)")
+    df = _load_training_df(timer)
+    dc = DixonColesModel()
+    dc.fit(df)
+    _save_to_disk_cache("dc", dc, timer)
     timer.stop()
     return dc
 
 
-def _try_load_dc_from_disk(
-    cache_dir: Path, timer: PredictionTimer
-) -> DixonColesModel | None:
-    """Attempt to reconstruct a DixonColesModel from the latest disk cache file.
-
-    Scans for ``dc_*`` files, picks the newest, and reconstructs.
-    Returns None if no suitable cache exists or reconstruction fails.
-    """
-    import glob as _glob
-    import os as _os
-
-    dc_files = sorted(
-        _glob.glob(str(cache_dir / "dc_*.pkl")),
-        key=lambda p: _os.path.getmtime(p),
-    )
-    if not dc_files:
-        return None
-
-    latest_path = Path(dc_files[-1])
-    artifact_mtime = DC_PATH.stat().st_mtime if DC_PATH.exists() else 0.0
-    cache_mtime = latest_path.stat().st_mtime
-
-    if cache_mtime <= artifact_mtime:
-        logger.debug(
-            "Disk cache DC (%s) is not newer than artifact; using artifact",
-            latest_path.name,
-        )
-        return None
-
-    try:
-        with open(latest_path, "rb") as f:
-            cached = pickle.load(f)
-    except Exception as exc:
-        logger.warning("Disk cache DC load failed: %s", exc)
-        return None
-
-    from app.services.model_cache import CachedDC, ModelCache
-    from app.services.dixon_coles import DixonColesModel
-
-    if isinstance(cached, DixonColesModel):
-        # Some caches store the full model directly
-        logger.info(
-            "DC loaded from disk cache: %s (age=%.1fh, %d teams)",
-            latest_path.name,
-            (timer._started_at or 0) and 0.0,  # approximate
-            len(cached.attack_params),
-        )
-        return cached
-
-    if isinstance(cached, CachedDC):
-        dc = DixonColesModel()
-        mc = ModelCache()
-        mc.restore_dc(cached, dc)
-        logger.info(
-            "DC reconstructed from disk cache: %s (teams=%d)",
-            latest_path.name,
-            len(cached.attack_params),
-        )
-        return dc
-
-    logger.warning(
-        "Unexpected DC cache type %s in %s; falling back to artifact",
-        type(cached).__name__,
-        latest_path.name,
-    )
-    return None
-
-
 def _load_enhancer(timer: PredictionTimer) -> TabularMatchEnhancer:
-    """Load TabularMatchEnhancer, preferring disk cache over static joblib artifact.
+    """Load TabularMatchEnhancer from disk cache. Auto-fits on cold start.
 
-    Cache priority:
-      1. Disk cache (model_artifacts/dc_cache/) — freshest, updated by snapshot runs
-      2. Static artifact (artifacts/models/enhancer.joblib) — frozen baseline, June 4
+    Same single-path design as ``_load_dc`` — no static artifact fallback.
+    Sklearn version-mismatch warnings are suppressed during cache loading
+    (disk caches may be trained with sklearn 1.9.0 while runtime uses 1.8.0).
     """
     timer.start("load_enhancer")
 
-    # 1. Try disk cache
-    try:
-        from app.services.model_cache_disk import _cache_dir as _enh_cache_dir
-        enh = _try_load_enhancer_from_disk(_enh_cache_dir(), timer)
-        if enh is not None:
-            timer.stop()
-            return enh
-    except Exception:
-        logger.debug(
-            "Disk cache Enhancer lookup failed, falling back to artifact",
-            exc_info=True,
+    import warnings as _warnings
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", category=UserWarning)
+        enh = _load_model_from_disk_cache(
+            prefix="enhancer",
+            cache_dir=_resolve_cache_dir(),
+            model_class=TabularMatchEnhancer,
+            timer=timer,
         )
+    if enh is not None:
+        timer.stop()
+        return enh
 
-    # 2. Fallback: static artifact
-    if not ENHANCER_PATH.exists():
-        raise FileNotFoundError(
-            f"Enhancer artifact not found at {ENHANCER_PATH}. Run train_models.py first."
-        )
-    enhancer = joblib.load(str(ENHANCER_PATH))
-    if not isinstance(enhancer, TabularMatchEnhancer):
-        raise TypeError(
-            f"Expected TabularMatchEnhancer, got {type(enhancer).__name__}"
-        )
-    if not enhancer.is_fitted:
-        raise ValueError(
-            "Loaded enhancer is not fitted — artifact appears invalid. "
-            "Retrain with train_models.py"
-        )
+    # Cold start: fit from training data, save to cache
+    logger.info("Enhancer disk cache empty — fitting from training data (cold start)")
+    df = _load_training_df(timer)
+    enhancer = TabularMatchEnhancer()
+    enhancer.fit(df)
+    _save_to_disk_cache("enhancer", enhancer, timer)
     timer.stop()
     return enhancer
 
 
-def _try_load_enhancer_from_disk(
-    cache_dir: Path, timer: PredictionTimer
-) -> TabularMatchEnhancer | None:
-    """Attempt to reconstruct a TabularMatchEnhancer from the latest disk cache.
+# ── Disk cache helpers ────────────────────────────────────────────────────────
 
-    Scans for ``enhancer_*`` files, picks the newest, and reconstructs.
-    Returns None if no suitable cache exists or reconstruction fails.
+def _resolve_cache_dir() -> Path:
+    """Resolve the disk cache directory, creating it if needed."""
+    from app.services.model_cache_disk import _cache_dir
+    return _cache_dir()
+
+
+def _load_model_from_disk_cache(
+    *,
+    prefix: str,
+    cache_dir: Path,
+    model_class: type,
+    timer: PredictionTimer,
+) -> Any | None:
+    """Load the **newest** ``{prefix}_*.pkl`` from the disk cache directory.
+
+    Returns None if no cache exists.  Raises on corrupt/unexpected cache files
+    so that callers can fall back to cold-start fitting.
     """
     import glob as _glob
     import os as _os
-    import warnings as _warnings
 
-    enh_files = sorted(
-        _glob.glob(str(cache_dir / "enhancer_*.pkl")),
+    files = sorted(
+        _glob.glob(str(cache_dir / f"{prefix}_*.pkl")),
         key=lambda p: _os.path.getmtime(p),
     )
-    if not enh_files:
+    if not files:
         return None
 
-    latest_path = Path(enh_files[-1])
-    artifact_mtime = ENHANCER_PATH.stat().st_mtime if ENHANCER_PATH.exists() else 0.0
-    cache_mtime = latest_path.stat().st_mtime
-
-    if cache_mtime <= artifact_mtime:
-        logger.debug(
-            "Disk cache Enhancer (%s) is not newer than artifact; using artifact",
-            latest_path.name,
-        )
-        return None
-
-    # Suppress sklearn version mismatch warnings during disk cache loading.
-    # Disk caches may be trained with sklearn 1.9.0 while runtime uses 1.8.0.
-    # The models are structurally compatible; minor prediction differences
-    # are expected but no worse than falling back to the stale artifact.
+    latest = Path(files[-1])
     try:
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("ignore", category=UserWarning)
-            with open(latest_path, "rb") as f:
-                cached = pickle.load(f)
+        with open(latest, "rb") as f:
+            cached = pickle.load(f)
     except Exception as exc:
-        logger.warning("Disk cache Enhancer load failed: %s", exc)
-        return None
+        logger.error("Disk cache %s load failed: %s", latest.name, exc)
+        raise
 
-    from app.services.model_cache import CachedEnhancer, ModelCache
-    from app.services.tabular_match_model import TabularMatchEnhancer
+    from app.services.model_cache import CachedDC, CachedEnhancer, ModelCache
 
-    if isinstance(cached, TabularMatchEnhancer):
-        logger.info(
-            "Enhancer loaded from disk cache: %s (samples=%d)",
-            latest_path.name,
-            cached.training_sample_count if hasattr(cached, "training_sample_count") else 0,
-        )
+    # If it's already the right type, return directly
+    if isinstance(cached, model_class):
+        logger.info("%s loaded from disk cache: %s", prefix.upper(), latest.name)
         return cached
 
-    if isinstance(cached, CachedEnhancer):
-        enhancer = TabularMatchEnhancer()
-        mc = ModelCache()
-        mc.restore_enhancer(cached, enhancer)
-        logger.info(
-            "Enhancer reconstructed from disk cache: %s (samples=%d)",
-            latest_path.name,
-            cached.training_sample_count,
-        )
-        return enhancer
+    # If it's a CachedDC / CachedEnhancer wrapper, reconstruct
+    mc = ModelCache()
+    if isinstance(cached, CachedDC) and model_class is DixonColesModel:
+        model = DixonColesModel()
+        mc.restore_dc(cached, model)
+        logger.info("DC reconstructed from disk cache: %s", latest.name)
+        return model
+    if isinstance(cached, CachedEnhancer) and model_class is TabularMatchEnhancer:
+        model = TabularMatchEnhancer()
+        mc.restore_enhancer(cached, model)
+        logger.info("Enhancer reconstructed from disk cache: %s", latest.name)
+        return model
 
-    logger.warning(
-        "Unexpected Enhancer cache type %s in %s; falling back to artifact",
-        type(cached).__name__,
-        latest_path.name,
+    raise TypeError(
+        f"Unexpected {prefix} cache type {type(cached).__name__} in {latest.name}"
     )
-    return None
+
+
+def _save_to_disk_cache(
+    prefix: str, model: Any, timer: PredictionTimer
+) -> None:
+    """Persist a fitted model to the disk cache directory."""
+    from app.services.model_cache_disk import save_dc_to_disk, save_enhancer_to_disk
+    from app.services.model_cache import CachedDC, CachedEnhancer
+
+    df = _load_training_df(timer)
+    competition_type = "FIFA World Cup 2026"
+
+    if prefix == "dc" and isinstance(model, DixonColesModel):
+        cached = CachedDC(
+            attack_params=model.attack_params.copy(),
+            defense_params=model.defense_params.copy(),
+            home_advantage=model.home_advantage,
+            rho=model.rho,
+            _team_order=list(model._team_order),
+            trained_at=datetime.now(),
+        )
+        save_dc_to_disk(cached, competition_type, df)
+    elif prefix == "enhancer" and isinstance(model, TabularMatchEnhancer):
+        cached = CachedEnhancer(
+            model=model.model,
+            feature_columns=model.feature_columns.copy(),
+            training_sample_count=model.training_sample_count,
+            fitted_at=getattr(model, "fitted_at", datetime.now()),
+        )
+        save_enhancer_to_disk(cached, competition_type, df)
+    else:
+        logger.warning(
+            "Cannot save %s to disk cache: unsupported type %s",
+            prefix, type(model).__name__,
+        )
 
 
 def _load_elo(timer: PredictionTimer) -> EloRatingSystem:

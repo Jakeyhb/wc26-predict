@@ -259,17 +259,24 @@ def _try_remove(path: Path) -> None:
 #  3. Artifact save helpers
 # ═══════════════════════════════════════════════════════════════════════
 
-def save_dc(dc: DixonColesModel) -> None:
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(MODELS_DIR / "dc.pkl", "wb") as f:
-        pickle.dump(dc, f)
-    print(f"    -> {MODELS_DIR / 'dc.pkl'}", flush=True)
+def save_dc(dc: DixonColesModel, df: pd.DataFrame) -> None:
+    """Persist DC model to disk cache (single source of truth since V3.8.0)."""
+    from app.services.model_cache_disk import save_dc_model_to_disk
+    save_dc_model_to_disk(dc, "FIFA World Cup 2026", df)
 
 
-def save_enhancer(enh: TabularMatchEnhancer) -> None:
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(enh, MODELS_DIR / "enhancer.joblib")
-    print(f"    -> {MODELS_DIR / 'enhancer.joblib'}", flush=True)
+def save_enhancer(enh: TabularMatchEnhancer, df: pd.DataFrame) -> None:
+    """Persist Enhancer to disk cache (single source of truth since V3.8.0)."""
+    from app.services.model_cache_disk import save_enhancer_to_disk
+    from app.services.model_cache import CachedEnhancer
+    from datetime import datetime
+    cached = CachedEnhancer(
+        model=enh.model,
+        feature_columns=enh.feature_columns.copy(),
+        training_sample_count=enh.training_sample_count,
+        fitted_at=getattr(enh, "fitted_at", datetime.now()),
+    )
+    save_enhancer_to_disk(cached, "FIFA World Cup 2026", df)
 
 
 def save_elo_ratings(ratings: dict[str, float]) -> None:
@@ -360,7 +367,7 @@ def main() -> None:
     # a. Dixon-Coles
     try:
         dc_model, dc_sec = train_dixon_coles(df)
-        save_dc(dc_model)
+        save_dc(dc_model, df)
         components["dixon_coles"] = {
             "status": "ready",
             "fit_seconds": round(dc_sec, 1),
@@ -378,7 +385,7 @@ def main() -> None:
     # b. TabularMatchEnhancer
     try:
         enh_model, enh_sec = train_enhancer(df)
-        save_enhancer(enh_model)
+        save_enhancer(enh_model, df)
         components["tabular_enhancer"] = {
             "status": "ready",
             "fit_seconds": round(enh_sec, 1),
