@@ -9,6 +9,8 @@ Does NOT rewrite business logic — just orchestrates existing services.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -592,6 +594,11 @@ class PredictionPipeline:
                     f"+Elo{wc.elo:.0%}+Pi{wc.pi:.0%})"
                 ),
                 "training_rows": rows,
+                "dc_params_hash": dc_provenance.get("dc_params_hash", hashlib.md5(
+                    json.dumps(sorted(self._dc.attack_params.items()), sort_keys=True).encode()
+                ).hexdigest()) if hasattr(self, "_dc") and self._dc else "unavailable",
+                "training_df_fingerprint": dc_provenance.get("training_df_fingerprint", "batch_snapshot_db"),
+                "training_df_max_date": str(match_date) if match_date else "",
             },
             active_events=active_events,
             context_adjustments=ctx_adjustments,
@@ -1140,6 +1147,32 @@ class PredictionPipeline:
         if market_applied:
             components_used.append("market")
 
+        # Parameter provenance — traceable fingerprint of model state
+        dc_provenance: dict[str, object] = {}
+        try:
+            dc_params_sorted = json.dumps(
+                sorted(self._dc.attack_params.items()),
+                sort_keys=True,
+            ).encode()
+            dc_provenance["dc_params_hash"] = hashlib.md5(dc_params_sorted).hexdigest()
+            dc_provenance["dc_teams"] = len(self._dc.attack_params)
+        except Exception:
+            dc_provenance["dc_params_hash"] = "unavailable"
+
+        try:
+            df_fp = (
+                str(len(training_df)),
+                str(training_df["match_date"].min()),
+                str(training_df["match_date"].max()),
+            )
+            dc_provenance["training_df_fingerprint"] = hashlib.md5(
+                str(df_fp).encode()
+            ).hexdigest()
+            dc_provenance["training_rows"] = len(training_df)
+        except Exception:
+            dc_provenance["training_df_fingerprint"] = "unavailable"
+            dc_provenance["training_rows"] = len(training_df) if training_df is not None else 0
+
         now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # Elo detail (available when standard+ mode)
@@ -1196,7 +1229,10 @@ class PredictionPipeline:
                 "enhancer_rows": getattr(self._enhancer, "training_sample_count", 0) if has_enhancer else 0,
                 "elo_matches": getattr(self._elo, "_match_count", 0) if has_elo else 0,
                 "config_label": f"{wc.label} (DC{wc.dc:.0%}+Enh{wc.enhancer:.0%}+Elo{wc.elo:.0%}+Pi{wc.pi:.0%})",
-                "training_rows": len(training_df),
+                "training_rows": dc_provenance.get("training_rows", len(training_df)),
+                "dc_params_hash": dc_provenance.get("dc_params_hash", "unavailable"),
+                "training_df_fingerprint": dc_provenance.get("training_df_fingerprint", "unavailable"),
+                "training_df_max_date": str(training_df["match_date"].max()) if training_df is not None else "",
                 "require_full_context": require_full_context,
             },
             source_status=source_status,
