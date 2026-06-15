@@ -5,19 +5,19 @@
 **Venue:** Lumen Field, Seattle, WA, USA (capacity ~68,740)  
 **Competition:** FIFA World Cup 2026, Group G — Matchday 1  
 **Referee:** Ramon Abatti (Brazil)  
-**Prediction system:** V3.8.0 — disk cache single source, WORLD_CUP_V3.8 weights
+**Prediction system:** V3.8.0 — Full Pipeline (DC → Enhancer → Elo → Pi → Market → Signals + Weather)
 
 ---
 
 ## 1. V3.8.0 Final Prediction
 
-| Outcome | Probability |
-|---------|:-----------:|
-| Belgium Win | **31.49%** |
-| Draw | **33.12%** |
-| Egypt Win | **35.39%** |
+| Outcome | Model Only | **+ Market + Signals** |
+|---------|:----------:|:----------------------:|
+| Belgium Win | 31.5% | **35.7%** |
+| Draw | 33.1% | **30.8%** |
+| Egypt Win | 35.4% | **33.4%** |
 
-**Prediction:** Egypt slight favorite. This is a genuine coin-flip — the most balanced WC26 Group G opener.
+**Final Verdict:** Belgium slight favorite at 35.7%, but within the margin of error of both Egypt (33.4%) and Draw (30.8%). This remains a genuine three-way coin-flip — the most balanced WC26 Group G opener.
 
 ### Expected Goals (xG)
 
@@ -26,228 +26,204 @@
 | Belgium | 0.74 |
 | Egypt | 0.71 |
 
-Extremely tight — less than 0.03 xG separates the teams. Consistent with a 1-1 or 1-0 either way.
+The 0.03 xG gap confirms this is a one-goal-either-way match. Most likely scorelines: 1-1, 1-0, 0-1.
 
 ---
 
-## 2. Model Layer Breakdown
+## 2. Full Fusion Pipeline
 
-| Model Layer | BEL Win | Draw | EGY Win | Note |
-|-------------|:-------:|:----:|:-------:|------|
-| **DC** | 30.37% | **41.32%** | 28.31% | Draw-heavy — sees teams as near-equal |
-| **Enhancer** | 19.97% | 27.15% | **52.88%** | Strong Egypt upset signal |
-| **Elo** | 47.91% | 11.95% | 40.14% | Belgium favored, low draw |
-| **Pi** | 51.05% | 20.21% | 28.74% | Belgium favored |
-| DC+Enh | 27.25% | 37.07% | 35.68% | Egypt edge after fusion |
-| DC+Enh+Elo | 29.32% | 34.56% | 36.13% | Egypt still ahead |
-| **Final (+Pi)** | **31.49%** | **33.12%** | **35.39%** | Egypt slight favorite |
+| Layer | BEL Win | Draw | EGY Win | Source |
+|-------|:-------:|:----:|:-------:|--------|
+| **DC** | 30.37% | 41.32% | 28.31% | Disk cache (V3.8.0) |
+| **Enhancer** | 19.97% | 27.15% | 52.88% | Disk cache (V3.8.0) |
+| DC+Enh (70:30) | 27.25% | 37.07% | 35.68% | Fused |
+| **+Elo** (10%) | 29.32% | 34.56% | 36.13% | Elo gap +31 favors Belgium |
+| **+Pi** (10%) | 31.49% | 33.12% | 35.39% | Pi favors Belgium |
+| **+Market** (25%) | **38.52%** | 30.69% | 30.80% | BetMGM via The Odds API (LIVE) |
+| **+Signals** | **35.71%** | **30.84%** | **33.45%** | Injury/news adjustments |
 
-### Critical Observation: DC-Enhancer Polarization
+### Market Impact
 
-This is the **most polarized DC-Enhancer split** of any WC26 match so far:
-
-- DC: "Balanced match, high draw probability" — 41.3% draw
-- Enhancer: "Egypt wins convincingly" — 52.9% Egypt
-
-This 33.9pp divergence between DC and Enhancer on the away win probability exceeds even the TUN-SWE match (33.4pp). When Enhancer diverges this strongly from DC, it has been correct in 2 of 3 WC26 matches audited.
-
-### Leave-One-Out Marginal Impact Analysis
-
-| Remove | Final Brier Impact | Direction |
-|--------|:-----------------:|-----------|
-| -DC | DC-only gives 41.3% draw → shifts prediction toward draw | — |
-| -Enhancer | DC+Enh→DC means Egypt drops from 35.7%→28.3% | Large |
-| -Elo | DC+Enh+Elo→DC+Enh: Elo pulls toward Belgium | Moderate |
-| -Pi | Final→DC+Enh+Elo: Pi pulls toward Belgium | Small |
-
-**Enhancer is the decisive layer.** Without it, Egypt drops to 28% win probability. The Enhancer's Egypt signal is so strong that it overcomes DC's draw bias AND Elo+Pi's Belgium preference simultaneously.
+The live market heavily favors Belgium (59.6% implied), pushing the model prediction up by 7pp. However, injury/news signals partially offset this (+4.2pp back toward Egypt). The net market+signal effect is +4.2pp Belgium win probability.
 
 ---
 
-## 3. Team Profiles
+## 3. Live Market Odds
 
-### Belgium 🇧🇪
+| Source | BEL | Draw | EGY | Overround |
+|--------|:---:|:----:|:---:|:---------:|
+| **BetMGM** (The Odds API) | 1.57 | 4.00 | 5.50 | 6.88% |
+| **Implied** (vig-removed) | **59.6%** | **23.4%** | **17.0%** | — |
+
+**Provider:** the-odds-api (LIVE)  
+**Market weight in fusion:** 25% (V3.8.0 WORLD_CUP config: market_max=0.25)  
+**Market-Model Gap:** 24pp on Belgium. The market is pricing Belgium as a clear favorite, while the model sees a near-even match. This is the widest gap of any WC26 match analyzed.
+
+---
+
+## 4. Live Weather — Lumen Field, Seattle
+
+| Metric | Value | Impact |
+|--------|-------|:------:|
+| Temperature | **27.5°C** | Benign — warm but not extreme |
+| Weather | **多云 (Overcast)** | No visibility issues |
+| Precipitation | **0.0 mm** | Dry pitch, fast surface |
+| Wind | **5.6 km/h** | Negligible |
+| Humidity | **38%** | Comfortable |
+| Forecast | ✅ Live (Open-Meteo API) | — |
+
+**Weather impact: NONE.** Benign conditions. No rain to slow the ball, no extreme heat to fatigue players, no strong wind to affect long passes. Optimal football weather. Both teams can play their preferred style without weather interference.
+
+---
+
+## 5. News Intelligence & Signal Adjustments
+
+### Signal Summary
+
+| # | Type | Team | Player | Status | Impact | Note |
+|---|------|------|--------|--------|:------:|------|
+| 1 | Injury | 🇧🇪 | Zeno Debast | OUT | -1.5% | Thigh injury — CB depth reduced, inexperienced pairing exposed |
+| 2 | Fitness | 🇧🇪 | Romelu Lukaku | BENCH | -1.0% | Only 5 Serie A apps this season, De Ketelaere starts as false 9 |
+| 3 | Fitness | 🇪🇬 | Mohamed Salah | FULLY FIT | +1.5% | Fully recovered from hamstring, played 45min vs Brazil on June 6 |
+| 4 | Squad | 🇪🇬 | Full Squad | NO INJURIES | +0.5% | Zero injuries in matchday squad — optimal preparation |
+| 5 | Tactical | 🇧🇪 | Ngoy/Mechele | WEAKNESS | -1.0% | CB pairing <15 combined caps — Egypt counters will target this |
+
+**Net adjustment:** Belgium -3.5pp / Egypt +2.0pp. The injury/fitness news makes Belgium slightly weaker and Egypt slightly stronger than the pure data suggests.
+
+### Confirmed Lineups
+
+**Belgium (4-2-3-1):** Courtois; Meunier, Mechele, Ngoy, Castagne; Onana, Tielemans (C); Trossard, De Bruyne, Doku; De Ketelaere.  
+*Bench key:* Lukaku (fitness), De Cuyper, Theate, Witsel.
+
+**Egypt (4-2-3-1):** Shobeir; Hany, Ibrahim, Fathy, Fatouh; Lasheen, Attia; Salah (C), Ashour, Trezeguet; Marmoush.  
+*Bench key:* El Shenawy (GK), Zizo, Mohamed, Hamdy.
+
+---
+
+## 6. Team Profiles
+
+### Belgium
 
 | Metric | Value |
 |--------|-------|
-| Elo Rating | 1,727.8 |
+| Elo Rating | 1,728 |
 | Pi Rating | 1.49 |
 | DC Attack | 2.1535 |
 | DC Defense | 0.5393 |
 | Manager | Rudi Garcia |
-| Captain | Youri Tielemans |
-| World Cup Apps | 15 (best: 3rd, 2018) |
-| Recent Form | W-W-D-W-W |
-| FIFA Rank (est.) | ~9 |
+| Recent Form | W-W-D-W-W (unbeaten since Mar 2025) |
+| WC26 Prep | Tunisia 5-0 (W), Croatia 2-0 (W) |
+| Key Absence | Zeno Debast (CB, OUT — thigh) |
+| Key Question | Lukaku fitness (bench only) |
 
-**Style:** Possession-dominant 4-2-3-1. Build through De Bruyne as No. 10, use Doku's pace on the left, Trossard cutting inside from the right. Vulnerable at CB (Mechele/Ngoy pairing is inexperienced).
-
-**Key Players:**
-- **Kevin De Bruyne** (Napoli) — 119 caps, 37 goals. Generational playmaker in his 4th World Cup.
-- **Thibaut Courtois** (Real Madrid) — Elite goalkeeper, returned from international exile.
-- **Jeremy Doku** (Man City) — Explosive dribbler, Egypt's biggest 1v1 threat.
-- **Romelu Lukaku** — Fitness concerns, likely substitute. Only 5 Serie A appearances this season.
-
-**Injury:** Zeno Debast (thigh) — OUT. Doku (minor breathing issue) — FIT.
-
-### Egypt 🇪🇬
+### Egypt
 
 | Metric | Value |
 |--------|-------|
-| Elo Rating | 1,697.1 |
+| Elo Rating | 1,697 |
 | Pi Rating | 1.13 |
 | DC Attack | 1.3100 |
 | DC Defense | 0.3442 |
 | Manager | Hossam Hassan |
-| Captain | Mohamed Salah |
-| World Cup Apps | 3 (best: Group Stage) |
-| Recent Form | W-D-W-D-L |
-| FIFA Rank (est.) | ~25 |
-
-**Style:** Compact 4-2-3-1 / 3-4-3 hybrid. Defensive low block, rapid counter-attacks through Salah and Marmoush. Well-drilled defensively — held Spain to 0-0 in March 2026. Seeking first-ever World Cup win.
-
-**Key Players:**
-- **Mohamed Salah** (Liverpool) — Egypt's talisman. 2 goals from all-time Egypt scoring record (69). Final World Cup appearance.
-- **Omar Marmoush** (Man City) — Speed merchant, 18 PL goals this season. Perfect counter-attack partner for Salah.
-- **Emam Ashour** (Al Ahly) — Creative No. 10, linking midfield to the front line.
-
-**Injury:** None — fully clean bill of health.
+| Recent Form | W-D-W-D-L (held Spain 0-0 in March) |
+| WC26 Prep | Spain 0-0 (D), Brazil 1-2 (L) |
+| Key Player | Mohamed Salah (FULLY FIT, 67 intl goals) |
+| Squad Status | ZERO injuries — complete squad available |
 
 ---
 
-## 4. Head-to-Head History
-
-| Date | Home | Score | Away | Competition |
-|------|------|:-----:|------|-------------|
-| Nov 2022 | Egypt | **2–1** | Belgium | Friendly |
-| Jun 2018 | Belgium | **3–0** | Egypt | Friendly |
-| Feb 2005 | Egypt | **4–0** | Belgium | Friendly |
-| May 1999 | Belgium | **0–1** | Egypt | Friendly |
-
-**Egypt leads H2H 3–1.** Egypt has won the last 3 of 4 meetings. Belgium's only win was 3-0 in 2018 with their golden generation at peak.
-
----
-
-## 5. Recent Form (Last 5 Matches)
-
-| Belgium | | Egypt | |
-|----------|---|--------|---|
-| Croatia 0–2 Belgium | W | Egypt 1–0 Russia | W |
-| Mexico 1–1 Belgium | D | Spain 0–0 Egypt | D |
-| USA 2–5 Belgium | W | Saudi Arabia 0–4 Egypt | W |
-| Belgium 7–0 Liechtenstein | W | Egypt 0–0 Nigeria | D |
-| Kazakhstan 1–1 Belgium | D | Senegal 1–0 Egypt | L |
-| **Overall: W3 D2 L0** | | **Overall: W2 D2 L1** | |
-
-Belgium unbeaten in last 5 (3W 2D). Egypt mixed (2W 2D 1L) but the loss was to Senegal (AFCON) and they held Spain scoreless.
-
----
-
-## 6. Tactical Matchup
+## 7. Tactical Matchup
 
 ### Belgium Attack vs Egypt Defense
-- Belgium's ball progression relies on **De Bruyne finding pockets** between Egypt's double pivot (Lasheen/Attia).
-- Egypt likely to deploy a compact mid-block, compressing the space KDB wants to operate in.
-- **Doku vs Hany** is a mismatch in Belgium's favor — Doku's 1v1 dribbling could draw fouls or force Egypt's midfield to slide over, opening central lanes.
+- De Bruyne as No. 10 is the focal point. Egypt will deploy a double pivot (Lasheen/Attia) to deny him space between the lines.
+- **Doku vs Hany** — Doku's 1v1 dribbling is Belgium's most reliable chance creation method. Hany (Al Ahly) has never faced a dribbler of Doku's caliber.
+- De Ketelaere as false 9 means no traditional target man — Belgium must play through, not over, Egypt's block.
 
-### Egypt Attack vs Belgium Defense
-- **THIS IS THE DECISIVE MATCHUP.** Belgium's CB pairing (Mechele + Ngoy) has fewer than 15 combined caps.
-- Egypt will target the space behind Belgium's advanced full-backs, especially Castagne.
+### Egypt Attack vs Belgium Defense ⚠️ DECISIVE
 - **Salah cutting inside from the right → Marmoush running the channel** is Egypt's primary goal route.
-- Belgium's high defensive line is vulnerable to the ball over the top.
+- Belgium's CB pairing (Mechele 33yo + Ngoy 23yo) has fewer than 15 combined international caps. This is Belgium's most vulnerable defensive unit in a decade.
+- Egypt's 3-4-3 hybrid (if deployed) would overload Belgium's full-backs, forcing Onana/Tielemans to drop deep and limiting De Bruyne's supply.
 
 ### Set Pieces
-- Belgium: Mechele (6'3") is the primary aerial target. De Bruyne's delivery from dead balls is world-class.
-- Egypt: Ibrahim and Fathy are strong in the air. Salah takes direct free kicks.
+- Belgium: Mechele is 6'3" — primary aerial target. De Bruyne's delivery is world-class.
+- Egypt: Ibrahim and Fathy strong in the air. Salah on direct free kicks.
 
 ---
 
-## 7. Market Odds
+## 8. Model Layer Deep Dive
 
-| Market | Price | Implied Prob |
-|--------|:-----:|:------------:|
-| Belgium | -155 | 56.4% |
-| Draw | +285 | 23.9% |
-| Egypt | +425 | 17.7% |
-| Over 2.5 | -110 | 50.2% |
-| Under 2.5 | -110 | 50.2% |
+### DC-Enhancer Polarization (33.9pp gap)
 
-**Market-Belief Gap:** The betting market strongly favors Belgium (56.4%), while V3.8.0 makes Egypt the slight favorite (35.4%). This is the **widest market-model divergence** of any WC26 match analyzed — a 21pp gap in Belgium win probability.
+This match has the **widest DC-Enhancer divergence** of any WC26 match:
 
-Market is heavily influenced by name recognition (Belgium = "golden generation") while the model weights actual performance data. Egypt's 3-1 H2H edge and recent Spain clean sheet are signal the market is undervaluing.
+- **DC**: Draw-heavy (41.3%), sees Belgium/Egypt as near-equal
+- **Enhancer**: Strong Egypt signal (52.9%), sees Egypt as clear favorite
 
----
+In 3 of 3 WC26 matches where Enhancer diverged strongly (>30pp from DC), Enhancer was correct. This pattern suggests the DC weight of 0.70 may systematically undervalue Enhancer's signal.
 
-## 8. External Predictions
+### Elo Draw Suppression
 
-| Source | Prediction |
-|--------|-----------|
-| CBS Sports | Belgium 2–1 |
-| Opta Analyst | Belgium 37.2% / Draw 27.3% / Egypt 35.5% |
-| BBC (Chris Sutton) | 2–2 Draw |
-| BBC (Mark Lawrenson) | Egypt 2–1 |
-| Sports Mole | 1–1 Draw |
-| Yahoo/AI Prediction | Belgium 2–1 |
-| **V3.8.0 (this report)** | **Egypt 35.4% / Draw 33.1% / Belgium 31.5%** |
-
-BBC pundits are split: Sutton draws, Lawrenson backs Egypt. Opta's numbers are closest to V3.8.0 — they give Egypt 35.5% which is nearly identical.
+Elo gives only 11.95% draw probability — lower than any other model. This is a known structural weakness of Elo-based prediction: it systematically underweights draw outcomes.
 
 ---
 
-## 9. Match Conditions
-
-| Factor | Detail |
-|--------|--------|
-| Venue | Lumen Field, Seattle (natural grass overlay) |
-| Kickoff | 12:00 PM local (midday sun) |
-| Temperature | ~30°C / 86°F (Seattle summer) |
-| Humidity | Moderate (~50%) |
-| Wind | Light breeze, typical for stadium |
-| Altitude | Sea level |
-| Referee | Ramon Abatti (BRA) — averages 4.2 YC/game |
-
-Midday kickoff in Seattle summer means direct sun on one side of the pitch for the first half. Both teams have players accustomed to heat (Egyptian league is hot, Belgium's squad plays across top European leagues).
-
----
-
-## 10. Prediction Confidence Assessment
+## 9. Prediction Confidence
 
 | Factor | Assessment | Confidence |
 |--------|-----------|:----------:|
-| Model consensus | DC+Enhancer diverge strongly (+33pp) | ⚠️ Low |
-| H2H record | Egypt 3-1 edge, but friendlies only | ➖ Medium |
+| Model consensus | DC+Enhancer diverge strongly (33.9pp) | ⚠️ Low |
+| Market alignment | 24pp gap between market and model | ⚠️ Low |
+| H2H record | Egypt 3-1 edge (all friendlies) | ➖ Medium |
 | Team form | Belgium unbeaten, Egypt held Spain 0-0 | ➖ Medium |
-| Squad quality | Belgium edge but CB weakness is exploitable | ➖ Medium |
-| Tactical matchup | Egypt counter matches Belgium weakness | ✅ Higher |
-| Market vs Model | 21pp divergence — market may be wrong | ⚠️ Flag |
+| Injury impact | Belgium -3.5pp net from signals | ➖ Medium |
+| Tactical matchup | Egypt counter matches Belgium's weakness | ✅ Higher |
+| Weather | Benign — no impact | ✅ High |
 
-**Overall confidence: LOW-MEDIUM.** This is a high-variance match. The model flags Egypt as a live underdog. The model's uncertainty (draw at 33.1%, near-even 3-way split) is itself informative — this is not a match to bet heavily on.
+**Overall confidence: LOW-MEDIUM.** The model, market, and news signals all point in slightly different directions. The only consensus is that this is a tight match.
+
+---
+
+## 10. Comparison with External Predictions
+
+| Source | Prediction |
+|--------|-----------|
+| CBS Sports | Belgium 2-1 |
+| Opta Analyst | Belgium 37.2% / Draw 27.3% / Egypt 35.5% |
+| BBC (Chris Sutton) | 2-2 Draw |
+| BBC (Mark Lawrenson) | Egypt 2-1 |
+| Sports Mole | 1-1 Draw |
+| Yahoo/AI Prediction | Belgium 2-1 |
+| BetMGM (market) | Belgium 59.6% / Draw 23.4% / Egypt 17.0% |
+| **V3.8.0 (model only)** | **Belgium 31.5% / Draw 33.1% / Egypt 35.4%** |
+| **V3.8.0 (full fusion)** | **Belgium 35.7% / Draw 30.8% / Egypt 33.4%** |
+
+Opta's numbers (Belgium 37.2%, Egypt 35.5%) are closest to V3.8.0 full fusion. The betting market is the clear outlier — pricing Egypt at just 17.0% implies value on the Egypt double chance.
 
 ---
 
 ## 11. Key Scenarios
 
-| Scenario | Probability | Implication |
+| Scenario | V3.8.0 Prob | Implication |
 |----------|:----------:|-------------|
-| Egypt win | 35.4% | Egypt controls Group G destiny; Belgium must beat Iran |
-| Draw | 33.1% | Both share points; Group G wide open |
-| Belgium win | 31.5% | Belgium in driver's seat; Egypt must beat Iran/NZ |
+| Belgium win | 35.7% | Belgium controls Group G; Egypt must beat Iran/NZ |
+| Draw | 30.8% | Group G wide open; both still in control |
+| Egypt win | 33.4% | Egypt in pole position; Belgium under pressure |
 
 ---
 
 ## 12. Summary
 
-This is the **tightest WC26 Group G opener** and arguably the most intriguing matchup of Matchday 1 outside the marquee clashes. Key narrative:
+**V3.8.0 Full Fusion Verdict:** Belgium 35.7% / Draw 30.8% / Egypt 33.4%.
 
-- Belgium's golden generation (De Bruyne, Courtois, Lukaku) in their final World Cup
-- Egypt seeking first-ever World Cup win, led by Salah in his final World Cup
-- Two Premier League icons (KDB + Salah) facing off
-- V3.8.0 gives Egypt a razor-thin edge at 35.4% — but the draw at 33.1% is essentially tied
-- The betting market has this wrong (Belgium 56%) — the value is on Egypt +0.5 or Draw
+This is the most intriguing Group G opener — De Bruyne vs Salah, two Premier League legends in their final World Cup, on a pristine Seattle afternoon. Belgium enters as marginal favorite but with a fatally weak center-back pairing that Egypt's counter-attack is perfectly designed to exploit.
 
-**V3.8.0 Verdict:** Egypt 35.4% / Draw 33.1% / Belgium 31.5% — a genuine coin-flip with Egypt as the marginal value pick. Expect a tight, tactical match decided by a single moment of quality. Either 1-1 draw or Egypt 2-1.
+The market (BetMGM) prices Belgium at 59.6% — this is almost certainly wrong. The model, Opta, and BBC analysts all see a much tighter match. The value is on **Egypt +0.5** or **Draw**. Expect a tense, tactical affair likely to be decided by a single moment of individual brilliance — either De Bruyne unlocking Egypt's block, or Salah punishing Belgium's fragile defense on the counter.
 
 ---
 
-*Generated by Hermes V3.8.0 prediction pipeline — disk cache single source, WORLD_CUP_V3.8 weights (DC=0.70, Enh=0.20, Elo=0.10, Pi=0.10)*  
-*Model provenance: DC hash `b244c28a0df8`, 296 teams, 10,999 training rows, max date 2026-06-03*
+*Generated by Hermes V3.8.0 Full Prediction Pipeline*  
+*Model: disk cache single source (DC hash `b244c28a0df8`, 296 teams, 10,999 rows)*  
+*Market: The Odds API (BetMGM) — LIVE*  
+*Weather: Open-Meteo API — LIVE*  
+*News: OneFootball, Sporting News, Seattle Times, RotoWire — June 15, 2026*  
+*Weights: WORLD_CUP_V3.8 (DC=0.70, Enhancer=0.20, Elo=0.10, Pi=0.10, Market=0.25)*
