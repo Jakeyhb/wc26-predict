@@ -121,16 +121,16 @@
 | Match | Actual | DC Brier | Enh Brier | Best Layer | DC Marginal | DC vs Enh |
 |-------|--------|:--------:|:---------:|------------|:-----------:|:---------:|
 | GER 7–1 CUW | Home win | **0.070** | 1.288 | DC | +0.418 | DC wins |
-| NED 2–2 JPN | Draw | 0.714 | 0.651 | DC | +0.254 | DC wins |
+| NED 2–2 JPN | Draw | 0.714 | **0.651** | **Enhancer** | +0.254 | **Enh wins** |
 | TUN 1–5 SWE | Away win | 0.341 | **0.118** | **Enhancer** | +0.088 | **Enh wins** |
 | ESP 0–0 CPV | Draw | 1.337 | **1.241** | **Enhancer** | +0.056 | **Enh wins** |
 
-**Pattern hardened:** DC is now 2/4 positive, the 2 positives being GER-CUW (lopsided) and NED-JPN (close). Enhancer is also 2/4. But the crucial pattern is:
+**Pattern hardened (corrected NED-JPN Best Layer from earlier report):** DC is 1/4 as best individual layer (only GER-CUW). Enhancer is 3/4 (NED-JPN, TUN-SWE, ESP-CPV). The pattern:
 
 | Match Type | DC Performance | Enhancer Performance |
 |------------|:-------------:|:-------------------:|
 | **Lopsided** (Elo gap >200) — GER-CUW | EXCELLENT | Terrible |
-| **Moderate** (Elo gap 100-200) — NED-JPN, TUN-SWE | Mixed | Good |
+| **Balanced/Moderate** — NED-JPN, TUN-SWE | Mediocre/Mixed | Good/Best |
 | **Lopsided upset** (ESP-CPV, gap +234 but 0-0) | TERRIBLE | Bad (but least bad) |
 
 **DC is dangerous on lopsided matchups** because it amplifies Elo gaps into near-certainty. When the gap is real (GER 7-1 CUW), it looks brilliant. When an upset happens (ESP 0-0 CPV), it looks catastrophic.

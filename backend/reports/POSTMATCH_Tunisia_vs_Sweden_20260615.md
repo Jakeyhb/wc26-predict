@@ -107,7 +107,7 @@ The LOO confirms what the Brier scores show: **DC was a net negative**, and **En
 | Match | Actual | DC Brier | Enh Brier | Best Layer | DC Marginal |
 |-------|--------|:--------:|:---------:|------------|:-----------:|
 | GER 7–1 CUW | Home win (expected) | **0.070** | 1.288 | DC | +0.418 |
-| NED 2–2 JPN | Draw | 0.714 | 0.651 | DC | +0.254 |
+| NED 2–2 JPN | Draw | 0.714 | **0.651** | **Enhancer** | +0.254 |
 | TUN 1–5 SWE | Away win | 0.341 | **0.118** | **Enhancer** | +0.088 |
 
 **Pattern emerges:** DC is excellent on lopsided matchups (GER-CUW, Elo gap +202) but fails when the Elo gap is moderate or the Elo-favored team underperforms. Enhancer excels precisely in those moderate-gap matches.

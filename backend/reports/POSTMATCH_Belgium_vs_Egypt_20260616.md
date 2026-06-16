@@ -152,23 +152,22 @@ The pre-match report specifically flagged: *"Lukaku BENCH — only 5 Serie A app
 | Match | Actual | DC Brier | Enh Brier | Best Layer | DC Marginal | DC vs Enh |
 |-------|--------|:--------:|:---------:|------------|:-----------:|:---------:|
 | GER 7–1 CUW | Home win | **0.070** | 1.288 | DC | +0.418 | DC wins |
-| NED 2–2 JPN | Draw | 0.714 | 0.651 | DC | +0.254 | DC wins |
+| NED 2–2 JPN | Draw | 0.714 | **0.651** | **Enhancer** | +0.254 | **Enh wins** |
 | TUN 1–5 SWE | Away win | 0.341 | **0.118** | **Enhancer** | +0.088 | **Enh wins** |
 | ESP 0–0 CPV | Draw | 1.337 | **1.241** | **Enhancer** | +0.056 | **Enh wins** |
 | **BEL 1–1 EGY** | **Draw** | **0.517** | 0.850 | **DC** | **-0.155** | **DC wins** |
 
 ### Pattern Analysis: DC vs Enhancer by Match Type
 
-| Match Type | DC Performance | Enhancer Performance |
-|------------|:-------------:|:-------------------:|
-| **Lopsided, result as expected** (GER-CUW) | EXCELLENT | Terrible |
-| **Lopsided, upset** (ESP-CPV) | TERRIBLE | Bad (but less bad) |
-| **Moderate, upset** (TUN-SWE) | Bad | GOOD |
-| **Balanced** (BEL-EGY, NED-JPN) | GOOD to EXCELLENT | Mixed |
+| Match Type | DC Performance | Enhancer Performance | Best Layer |
+|------------|:-------------:|:-------------------:|:----------:|
+| **Lopsided, result as expected** (GER-CUW, gap +202) | EXCELLENT | Terrible | DC |
+| **Lopsided, upset** (ESP-CPV, gap +234) | TERRIBLE | Bad (but least bad) | Enhancer |
+| **Moderate, upset** (TUN-SWE, gap +70) | Bad | GOOD | Enhancer |
+| **Balanced, draw** (BEL-EGY, gap +31) | EXCELLENT | Bad (wrong favorite) | DC |
+| **Balanced, draw** (NED-JPN, gap ~40) | Mediocre | **GOOD** | Enhancer |
 
-**Key insight:** DC excels when the match is genuinely balanced (BEL-EGY, NED-JPN — both draws) because its conservatism is calibrated correctly. DC fails catastrophically on lopsided matchups that end in upsets (ESP-CPV) because it amplifies Elo gaps into near-certainty. Enhancer is the opposite — it correctly spots overconfident favorites but over-corrects on balanced matches.
-
-**This is strong evidence for dynamic DC weight:** higher DC weight on balanced matches (Elo gap < 100), lower DC weight on lopsided matches (Elo gap > 200).
+**Revised insight (correcting NED-JPN error from earlier report):** The balanced-match advantage is not as clear-cut as previously stated. DC is 1/2 on balanced draws (BEL-EGY ✓, NED-JPN ✗), and Enhancer is also 1/2 on balanced draws. The only robust finding is that **DC catastrophically over-estimates favorites in lopsided matchups that become upsets** (ESP-CPV Brier 1.337), while **Enhancer consistently performs better in upset scenarios** (3/3: NED-JPN, TUN-SWE, ESP-CPV). On expected lopsided results (GER-CUW), DC is unmatched. Dynamic DC weight is still a worthwhile direction but the evidence is weaker with the corrected NED-JPN data.
 
 ---
 
@@ -216,27 +215,35 @@ Ziko (76' ↓)
 
 ### 8.2 Weight Gate Assessment
 
-Five-match cumulative evidence:
+Five-match cumulative evidence (correcting NED-JPN Best Layer from earlier reports):
 
-| Model | GER-CUW | NED-JPN | TUN-SWE | ESP-CPV | BEL-EGY | **Cumulative** |
+Best Layer Count (lower Brier = better):
+| Model | GER-CUW | NED-JPN | TUN-SWE | ESP-CPV | BEL-EGY | **Best Layer** |
 |-------|:-------:|:-------:|:-------:|:-------:|:-------:|:------------:|
-| DC | **+** | - | **-** | **-** | **+** | **2/5 positive** |
-| Enhancer | - | - | **+** | **+** | **-** | **2/5 positive** |
+| DC | 🥇 | — | — | — | 🥇 | **2/5** |
+| Enhancer | — | 🥇 | 🥇 | 🥇 | — | **3/5** |
 
-Both models are now **dead even at 2/5 positive** over five very different match profiles. This is remarkably balanced across:
-- 2 lopsided (GER-CUW, ESP-CPV) — DC 1/2, Enhancer 0/2
-- 1 moderate-upset (TUN-SWE) — DC 0/1, Enhancer 1/1
-- 2 balanced (NED-JPN, BEL-EGY) — DC 2/2, Enhancer 0/2
+Directional Correctness (did the model identify the actual outcome as most likely?):
+| Model | GER-CUW | NED-JPN | TUN-SWE | ESP-CPV | BEL-EGY | **Count** |
+|-------|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
+| DC | ✅ (GER) | ❌ | ❌ (TUN) | ❌ (ESP) | ✅ (Draw) | **2/5** |
+| Enhancer | ❌ (CUW) | ❌ | ✅ (SWE) | ❌ (ESP) | ❌ (EGY) | **1/5** |
 
-**Recommendation: NO WEIGHT CHANGE.** The current 70:30 DC-to-Enhancer ratio is empirically balanced over 5 matches. However, a **dynamic weight system** based on Elo gap is becoming clearly indicated by the data:
+**Revised assessment:** Enhancer has been the best individual layer on 3 of 5 matches (NED-JPN, TUN-SWE, ESP-CPV), while DC's best-layer wins are concentrated in expected lopsided results (GER-CUW) and high-draw-probability balanced matches (BEL-EGY). Neither model is consistently better — their value is complementary:
 
-| Elo Gap | Recommended DC Weight | Rationale |
-|---------|:--------------------:|-----------|
-| < 100 | 0.80 | DC excels on balanced matches |
-| 100–200 | 0.70 (current) | Current weight works well |
-| > 200 | 0.40 → 0.50 | DC overconfident on lopsided; give Enhancer more say |
+- **DC excels:** lopsided as expected (GER-CUW), balanced where its draw bias is correct (BEL-EGY)
+- **Enhancer excels:** upset detection — all 3 of its best-layer wins are matches where the paper favorite underperformed
+- **Elo is consistently harmful:** worst or second-worst on 4 of 5 matches
 
-**Action: DEFER to 10+ match sample before implementing dynamic weights.** Current static 70:30 is performing within acceptable bounds.
+**Recommendation: NO WEIGHT CHANGE.** The 70:30 DC:Enhancer ratio has produced acceptable results across 5 very different match profiles. However, the data now leans slightly toward Enhancer (3/5 best layer). A dynamic weight system based on Elo gap should be re-evaluated:
+
+| Elo Gap | Suggested Approach | Rationale |
+|---------|:------------------:|-----------|
+| < 100 | 0.70 (unchanged) | DC's conservatism + Enhancer's balance cancel out |
+| 100–200 | 0.60 → 0.65 | Moderately reduce DC weight; Enhancer better on upsets |
+| > 200 | 0.45 → 0.55 | Significantly reduce DC weight; catastrophic on lopsided upsets |
+
+**Action: DEFER to 10+ match sample.** Current static weights are adequate. The NED-JPN correction weakens (but does not eliminate) the case for dynamic DC weight.
 
 ### 8.3 Signal Model Upgrade
 
