@@ -148,7 +148,7 @@
 | 2 | NED 2–2 JPN | Draw | 0.714 | **0.651** | **Enhancer** | Enh wins |
 | 3 | TUN 1–5 SWE | Away win | 0.341 | **0.118** | **Enhancer** | Enh wins |
 | 4 | ESP 0–0 CPV | Draw | 1.337 | **1.241** | **Enhancer** | Enh wins |
-| 5 | BEL 1–1 EGY | Draw | **0.517** | 0.955 | **DC** | DC wins |
+| 5 | BEL 1–1 EGY | Draw | **0.517** | 0.850 | **DC** | DC wins |
 | 6 | KSA 1–1 URU | Draw | **0.496** | 0.751 | **DC** | DC wins |
 
 **DC 3/6 best layer | Enhancer 3/6 best layer — PERFECT SPLIT.**
@@ -160,7 +160,7 @@
 | **Lopsided, expected result** (GER-CUW) | EXCELLENT (0.070) | Terrible (1.288) | DC |
 | **Upset — underdog dominates** (TUN-SWE, NED-JPN) | Poor/Mediocre (0.341/0.714) | GOOD (0.118/0.651) | Enhancer |
 | **Draw — favorite held** (ESP-CPV) | TERRIBLE (1.337) | Bad but least bad (1.241) | Enhancer |
-| **Draw — balanced contest** (BEL-EGY, KSA-URU) | GOOD (0.517/0.496) | Poor (0.955/0.751) | DC |
+| **Draw — balanced contest** (BEL-EGY, KSA-URU) | GOOD (0.517/0.496) | Poor (0.850/0.751) | DC |
 
 **The pattern is now clear:**
 

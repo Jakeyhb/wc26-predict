@@ -54,7 +54,7 @@
 
 ### Historical Context
 
-- **Ramin Rezaeian becomes the first Iranian to score in two different World Cups** (2018 vs Morocco, 2026 vs NZL)
+- **Ramin Rezaeian becomes the second Iranian to score in two different World Cups** (2022 vs Wales, 2026 vs NZL) — Mehdi Taremi was the first
 - **Elijah Just scores New Zealand's first-ever World Cup brace** — and becomes the first NZL player with 2 WC goals in a single match
 - **Chris Wood becomes first NZL player with 2 assists in a World Cup match** — now has 3 career WC goal involvements
 - **Iran remains winless in 2026 World Cup openers** — last WC opening win was 1998 vs USA
@@ -113,7 +113,7 @@
 - Gave Iran 62.1% — even more confident than Elo on Iran winning
 - Draw probability 13.3% — only Elo was lower
 - Enhancer's "decisive outcome" bias, which helped on TUN-SWE and NED-JPN, is a liability on balanced draws
-- **Enhancer continues to struggle on draws** — now 0/4 on draw matches (NED-JPN excepted: Enhancer was best on that draw, but it was a high-scoring 2-2 like this one)
+- **Enhancer continues to struggle on draws** — now best on only 2/5 draw matches (NED-JPN and ESP-CPV), but both were extreme outliers (combined 4 goals in NED-JPN, black-swan 0-0 in ESP-CPV). On "normal" competitive draws (BEL-EGY, KSA-URU, IRN-NZL), Enhancer is 0/3.
 
 ### 🔮 Pi: Still Inverted, But Less Wrong Than Usual (Brier 1.0655)
 - Gave NZL 60.85% win probability — completely inverted direction
@@ -158,7 +158,7 @@
 | 2 | NED 2–2 JPN | Draw | 0.714 | **0.651** | **Enhancer** | Enh wins |
 | 3 | TUN 1–5 SWE | Away win | 0.341 | **0.118** | **Enhancer** | Enh wins |
 | 4 | ESP 0–0 CPV | Draw | 1.337 | **1.241** | **Enhancer** | Enh wins |
-| 5 | BEL 1–1 EGY | Draw | **0.517** | 0.955 | **DC** | DC wins |
+| 5 | BEL 1–1 EGY | Draw | **0.517** | 0.850 | **DC** | DC wins |
 | 6 | KSA 1–1 URU | Draw | **0.496** | 0.751 | **DC** | DC wins |
 | 7 | IRN 2–2 NZL | Draw | **0.800** | 1.198 | **DC** | DC wins |
 
@@ -366,7 +366,7 @@ Both Group G matches on June 15-16 ended in draws:
 
 1. **DC is now the best model on a plurality of WC26 matches (4/7).** The 3-match winning streak (BEL-EGY, KSA-URU, IRN-NZL) is not a fluke — all three share a profile of moderate Elo gap (120-170), competitive expectations, and actual draw results. DC's structural draw bias, long considered a "bug," is proving to be the single most valuable model feature in a draw-heavy tournament (5/7 draws).
 
-2. **Enhancer's anti-pattern crystallizes: bad on draws, essential on upsets.** Enhancer's draw probabilities across the 5 draw matches: 23.1% (NED-JPN), 9.4% (ESP-CPV), 17.0% (BEL-EGY), 31.6% (KSA-URU), 13.3% (IRN-NZL). Average: 18.9%. DC's draw probabilities: 27.7%, 15.7%, 35.7%, 43.5%, 29.3%. Average: 30.4%. **DC gives draws 11.5pp more probability than Enhancer on average** — and in a tournament where 71% of matches are draws, that's the difference between right and wrong.
+2. **Enhancer's anti-pattern crystallizes: bad on draws, essential on upsets.** Enhancer's draw probabilities across the 5 draw matches: 23.1% (NED-JPN), 9.4% (ESP-CPV), 27.2% (BEL-EGY), 31.6% (KSA-URU), 13.3% (IRN-NZL). Average: 20.9%. DC's draw probabilities: 27.7%, 15.7%, 35.7%, 43.5%, 29.3%. Average: 30.4%. **DC gives draws 9.5pp more probability than Enhancer on average** — and in a tournament where 71% of matches are draws, that's the difference between right and wrong.
 
 3. **Elo's draw suppression is now indefensible (2/7 correct).** Elo has given draw <15% on 5/7 matches. In a tournament where 5/7 matches are draws, a model that structurally predicts <15% draw is fundamentally miscalibrated. Elo needs a draw-boosting adjustment — its raw head-to-head probabilities are suitable for knockout football, not group stage tournaments.
 
