@@ -70,14 +70,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="3.8",
-    dc=0.70,            # ↑ from 0.55 (post-match review: DC best layer, Enhancer systemic anti-draw)
-    enhancer=0.20,      # ↓ from 0.25 (effective 1-dc=0.30, gated for |Elo gap| > 50)
-    elo=0.10,           # ↑ from 0.05 (improved calibration needed for close matches)
-    pi=0.10,            # ↑ from 0.05 (strong on lopsided matches)
+    version="3.8.1",
+    dc=0.75,            # ↑ from 0.70 (V3.8.1: 7-match audit — DC 4/7 best, 3 consecutive draw wins)
+    enhancer=0.25,      # = 1-dc (consistency; Enhancer 3/7 best on upsets)
+    elo=0.10,           # unchanged (draw suppression fatal but gap signal still useful)
+    pi=0.05,            # ↓ from 0.10 (V3.8.1: Pi 1/7 correct, systemic >60% anomaly on 4/7 matches)
     weibull=0.10,
-    market_max=0.25,    # ↑ from 0.10 (market best overall, Phase 3 acceleration)
-    label="WORLD_CUP_V3.8",
+    market_max=0.25,
+    label="WORLD_CUP_V3.8.1",
 )
 
 _UCL_FINAL = WeightConfig(
