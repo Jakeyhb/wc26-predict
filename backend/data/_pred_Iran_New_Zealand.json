@@ -40,25 +40,25 @@
       "away_win_prob": 0.25399257378314044
     },
     "post_market": {
-      "home_win_prob": 0.5194087122133578,
-      "draw_prob": 0.2388123844609982,
-      "away_win_prob": 0.24177890332564395
+      "home_win_prob": 0.5179506160512585,
+      "draw_prob": 0.2408351720278668,
+      "away_win_prob": 0.24121421192087483
     },
     "final": {
-      "home_win_prob": 0.5194087122133578,
-      "draw_prob": 0.2388123844609982,
-      "away_win_prob": 0.24177890332564395
+      "home_win_prob": 0.5179506160512584,
+      "draw_prob": 0.24083517202786675,
+      "away_win_prob": 0.24121421192087478
     }
   },
   "market": {
     "provider": "apifootball.com",
     "live": true,
-    "home_odds": 1.81,
-    "draw_odds": 3.45,
-    "away_odds": 4.6,
-    "home_prob": 0.5213449187759728,
-    "draw_prob": 0.27351718927087265,
-    "away_prob": 0.2051378919531545,
+    "home_odds": 1.83,
+    "draw_odds": 3.35,
+    "away_odds": 4.65,
+    "home_prob": 0.515512534127575,
+    "draw_prob": 0.28160833953834696,
+    "away_prob": 0.20287912633407792,
     "market_weight": 0.25
   },
   "home_xg": 1.5349908043925289,
