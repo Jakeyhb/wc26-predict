@@ -44,6 +44,8 @@ backend/data/*.bak
 backend/data/lineup_probes/
 backend/data/injury_probes/
 *.bak
+*.db.bak-*
+*.db.codex-backup-*
 backend/tmp/
 backend/package.json
 
@@ -102,3 +104,14 @@ scripts/2026-06-*
 
 # Local cleanup archive
 _archive/
+
+# Prediction intermediates (different format, regenerated on demand)
+*_full.json
+
+# Agent runtime state (regenerated on demand)
+backend/data/hermes_agent_state.json
+
+# User content projects (not prediction-related)
+douyincheat/
+docs/BILI_SCRIPT_5MIN.md
+docs/DOUYIN_AI_PARADOX.md
