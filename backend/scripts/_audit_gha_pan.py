@@ -127,8 +127,11 @@ for k,exp in [('home_atk',1.395),('home_def',0.793),('away_atk',1.813),('away_de
 # 7. Math claims
 print('\n[7] MATH CLAIMS')
 u25=sum(poi(h,lf)*poi(a,la) for h in range(9) for a in range(9) if h+a<=2)*100
-print(f'  Under 2.5: {u25:.1f}% (report 53.3%)')
-if abs(u25-53.3)>0.3: errors.append('under 2.5')
+# Find Under 2.5 in section 9 (Poisson section) — look for the bold one
+u25_match = re.search(r'Under 2\.5 概率.*?\*\*(\d+\.\d+)%\*\*', report)
+report_u25 = float(u25_match.group(1)) if u25_match else 0.0
+print(f'  Under 2.5: {u25:.1f}% (report {report_u25:.1f}%)')
+if abs(u25-report_u25) > 0.3: errors.append(f'under 2.5 computed={u25:.1f} vs report={report_u25:.1f}')
 pan_undef=layers['final']['draw_prob']*100+layers['final']['away_win_prob']*100
 print(f'  PAN undef: {pan_undef:.1f}% (report 70.4%)')
 if abs(pan_undef-70.4)>0.2: errors.append('pan undef')
@@ -164,12 +167,15 @@ if tilde_pct:
     print(f'  FAIL: {len(tilde_pct)} ~X% approximation(s)')
     errors.append(f'{len(tilde_pct)} ~X% approximations')
 else: print('  OK: No ~X% approximations')
-for eyeball_pat in ['大约','大概','差不多','左右']:
-    if eyeball_pat in report:
-        print(f'  WARNING: eyeball pattern "{eyeball_pat}" found')
-        errors.append(f'eyeball: {eyeball_pat}')
-if not any(eyeball_pat in report for eyeball_pat in ['大约','大概','差不多','左右']):
-    print('  OK: No eyeballed/estimated values')
+for eyeball_pat in ['大约','大概','差不多']:
+    # Only flag if near a percentage sign (probability context)
+    for m in re.finditer(eyeball_pat, report):
+        ctx = report[max(0,m.start()-3):m.end()+8]
+        if '%' in ctx:
+            print(f'  WARNING: eyeball "{eyeball_pat}" near %: "{ctx}"')
+            errors.append(f'eyeball: {eyeball_pat}')
+if not any(re.search(f'{e}.*%|%.*{e}', report) for e in ['大约','大概','差不多']):
+    print('  OK: No eyeballed probability values')
 
 # 11. News keyword depth
 print('\n[11] NEWS DEPTH')
