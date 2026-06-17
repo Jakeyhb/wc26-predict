@@ -23,6 +23,7 @@ HOME = sys.argv[1] if len(sys.argv) > 1 else "Saudi Arabia"
 AWAY = sys.argv[2] if len(sys.argv) > 2 else "Uruguay"
 COMP = sys.argv[3] if len(sys.argv) > 3 else "FIFA World Cup 2026"
 IS_NEUTRAL = True
+RUN_BOOTSTRAP = "--bootstrap" in sys.argv
 
 timer = PredictionTimer()
 
@@ -198,10 +199,35 @@ result = {
     "calibration_applied": calibration_applied,
     "calibration_stats": calibration_stats,
     "dc_enhancer_divergence": divergence,
+    "bootstrap_ci": None,
     "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
                    "dc_teams": len(dc.attack_params), "training_rows": len(df),
                    "version": "3.8.0", "weight_label": wc.label},
 }
+# ── 8. Bootstrap CI (optional, --bootstrap flag) ──
+if RUN_BOOTSTRAP:
+    print("\n[Bootstrap] Computing confidence intervals (500 iterations)...")
+    try:
+        from scripts._bootstrap_ci import bootstrap_lambda_ci
+        bs_result = bootstrap_lambda_ci(HOME, AWAY, is_neutral=IS_NEUTRAL, n_bootstrap=500, seed=42)
+        if bs_result:
+            result["bootstrap_ci"] = {
+                "home_win": bs_result["home_win"],
+                "draw": bs_result["draw"],
+                "away_win": bs_result["away_win"],
+                "xg_home": bs_result["bootstrap_xg"]["home"],
+                "xg_away": bs_result["bootstrap_xg"]["away"],
+                "n_samples": bs_result["n_bootstrap"],
+            }
+            # Print CI summary
+            for key, label in [("home_win", HOME), ("draw", "Draw"), ("away_win", AWAY)]:
+                ci = bs_result[key]
+                print(f"  {label:20s}: {ci['median']:5.1f}% (95% CI: {ci['ci95_low']:5.1f}% – {ci['ci95_high']:5.1f}%)")
+            print(f"  {'xG ' + HOME:20s}: {bs_result['base_xg']['home']:.2f} (95% CI: {bs_result['bootstrap_xg']['home']['ci95_low']:.1f} – {bs_result['bootstrap_xg']['home']['ci95_high']:.1f})")
+            print(f"  {'xG ' + AWAY:20s}: {bs_result['base_xg']['away']:.2f} (95% CI: {bs_result['bootstrap_xg']['away']['ci95_low']:.1f} – {bs_result['bootstrap_xg']['away']['ci95_high']:.1f})")
+    except Exception as e:
+        print(f"  [Bootstrap] Failed: {e}", file=sys.stderr)
+
 out = BACKEND_DIR / "data" / f"_pred_{HOME.replace(' ','_')}_{AWAY.replace(' ','_')}.json"
 with open(str(out), "w") as f:
     json.dump(result, f, indent=2, default=str)

@@ -107,6 +107,7 @@ _archive/
 
 # Prediction intermediates (different format, regenerated on demand)
 *_full.json
+backend/data/_bootstrap_*.json
 
 # Agent runtime state (regenerated on demand)
 backend/data/hermes_agent_state.json
