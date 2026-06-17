@@ -25,41 +25,41 @@
       "away_win_prob": 0.32063934988768167
     },
     "dc_enh": {
-      "home_win_prob": 0.4243803506293404,
-      "draw_prob": 0.31835847040076415,
-      "away_win_prob": 0.2572611789698955
+      "home_win_prob": 0.3722878737310166,
+      "draw_prob": 0.2829989089627376,
+      "away_win_prob": 0.3447132173062457
     },
     "dc_enh_elo": {
-      "home_win_prob": 0.42948111284503054,
-      "draw_prob": 0.29848420435285117,
-      "away_win_prob": 0.27203468280211834
+      "home_win_prob": 0.3753808767026734,
+      "draw_prob": 0.2780974159915045,
+      "away_win_prob": 0.34652170730582205
     },
     "pre_market": {
-      "home_win_prob": 0.43175846755211233,
-      "draw_prob": 0.2937766162914912,
-      "away_win_prob": 0.2744649161563965
+      "home_win_prob": 0.3773738233083533,
+      "draw_prob": 0.2766221165341875,
+      "away_win_prob": 0.34600406015745927
     },
     "post_market": {
-      "home_win_prob": 0.4593097147086801,
-      "draw_prob": 0.2876907774865032,
-      "away_win_prob": 0.2529995078048167
+      "home_win_prob": 0.42443720772723814,
+      "draw_prob": 0.2735959619483438,
+      "away_win_prob": 0.3019668303244181
     },
     "final": {
-      "home_win_prob": 0.4593097147086801,
-      "draw_prob": 0.2876907774865032,
-      "away_win_prob": 0.2529995078048167
+      "home_win_prob": 0.42443720772723814,
+      "draw_prob": 0.2735959619483438,
+      "away_win_prob": 0.3019668303244181
     }
   },
   "market": {
     "provider": "apifootball.com",
     "live": true,
-    "home_odds": 1.74,
-    "draw_odds": 3.5,
+    "home_odds": 1.73,
+    "draw_odds": 3.55,
     "away_odds": 5.0,
-    "home_prob": 0.5419634561783834,
-    "draw_prob": 0.26943326107153914,
-    "away_prob": 0.18860328275007743,
-    "market_weight": 0.25
+    "home_prob": 0.545457339090085,
+    "draw_prob": 0.26581442158474566,
+    "away_prob": 0.1887282393251694,
+    "market_weight": 0.28
   },
   "home_xg": 1.1778035646981582,
   "away_xg": 0.6622199053528051,
@@ -77,6 +77,42 @@
     "away_atk": 1.7648383931564107,
     "away_def": 0.5514266250230909
   },
+  "calibrated": {
+    "home_win_prob": 0.5280354981847519,
+    "draw_prob": 0.3565954013715208,
+    "away_win_prob": 0.11536910044372731
+  },
+  "calibration_applied": true,
+  "calibration_stats": {
+    "is_fitted": true,
+    "training_samples": 30,
+    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
+    "expected_calibration_error": 0.12791184850008377
+  },
+  "dc_enhancer_divergence": {
+    "home": 16.5,
+    "draw": 11.2,
+    "away": 27.7,
+    "max_pp": 27.7,
+    "warning": "Large divergence (27.7pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "severity": "high",
+    "dc_weight_adaptive": 0.43,
+    "shift_applied": 0.12
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.4832762559653692,
+      "draw": 0.30903470588944054,
+      "away_win": 0.20768903814519038
+    },
+    "negbin": {
+      "home_win": 0.45773211491528903,
+      "draw": 0.3190068158808257,
+      "away_win": 0.22326106920388525
+    },
+    "overdispersion_r": 3.0
+  },
+  "bootstrap_ci": null,
   "provenance": {
     "dc_hash": "b244c28a0df8",
     "dc_teams": 296,

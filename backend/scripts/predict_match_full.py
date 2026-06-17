@@ -18,6 +18,64 @@ from app.services.pi_ratings import fuse_pi_probabilities
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
 from app.services.calibration import IsotonicCalibrator
+import math
+
+# ── Overdispersion-corrected NegBin PMF ──
+# Pure Poisson has Var=Mean. Actual football: Var≈1.46*Mean (home), 1.38*Mean (away).
+# Negative Binomial: Var = μ + μ²/r → r = μ²/(Var-μ)
+# From 16,705 matches: r_H ≈ 3.46, r_A ≈ 3.09. Default r=3.0.
+NEGBIN_R = 3.0
+
+def negbin_pmf(k: int, mu: float, r: float = NEGBIN_R) -> float:
+    """Negative Binomial PMF: NB(k; r, p) where p = r/(r+μ).
+
+    This corrects for overdispersion: tail probabilities are higher than
+    pure Poisson, central probabilities are lower. Matches empirical data.
+    """
+    if mu <= 0:
+        return 1.0 if k == 0 else 0.0
+    p = r / (r + mu)
+    # log P(k) = log(Γ(r+k)) - log(Γ(r)) - log(k!) + r*log(p) + k*log(1-p)
+    # Use iterative computation for numerical stability
+    log_prob = r * math.log(p)
+    for i in range(k):
+        log_prob += math.log(r + i) - math.log(i + 1)
+    log_prob += k * math.log(1 - p)
+    return math.exp(log_prob)
+
+def overdispersed_poisson_scoreline(hxg: float, axg: float, max_g: int = 20) -> dict:
+    """Compute H/D/A probabilities using NegBin (corrected for overdispersion).
+
+    Returns both NegBin and pure Poisson results for comparison.
+    """
+    # Pure Poisson
+    pp_h = pp_d = pp_a = 0.0
+    for h in range(max_g):
+        ph = hxg**h * math.exp(-hxg) / math.factorial(h)
+        for a in range(max_g):
+            pa = axg**a * math.exp(-axg) / math.factorial(a)
+            p = ph * pa
+            if h > a: pp_h += p
+            elif h == a: pp_d += p
+            else: pp_a += p
+
+    # NegBin corrected
+    nb_h = nb_d = nb_a = 0.0
+    for h in range(max_g):
+        ph = negbin_pmf(h, hxg)
+        for a in range(max_g):
+            pa = negbin_pmf(a, axg)
+            p = ph * pa
+            if h > a: nb_h += p
+            elif h == a: nb_d += p
+            else: nb_a += p
+
+    total_nb = nb_h + nb_d + nb_a
+    return {
+        "poisson": {"home_win": pp_h, "draw": pp_d, "away_win": pp_a},
+        "negbin": {"home_win": nb_h / total_nb, "draw": nb_d / total_nb, "away_win": nb_a / total_nb},
+        "overdispersion_r": NEGBIN_R,
+    }
 
 HOME = sys.argv[1] if len(sys.argv) > 1 else "Saudi Arabia"
 AWAY = sys.argv[2] if len(sys.argv) > 2 else "Uruguay"
@@ -72,6 +130,30 @@ else:
 
 if divergence["warning"]:
     print(f"DIVERGENCE: {divergence['warning']}")
+
+# ── 2.6. Divergence-adaptive DC weight ──
+# When DC and Enhancer strongly disagree, DC's marginal contribution is
+# most harmful. Reduce DC weight proportionally to divergence.
+dc_weight_adaptive = wc.dc
+if max_div > 20:
+    # Shift up to 0.15 from DC to Enhancer when divergence > 20pp
+    shift = min(0.15, (max_div - 20) * 0.015)
+    dc_weight_adaptive = wc.dc - shift
+    enh_weight_adaptive = 1.0 - dc_weight_adaptive
+    print(f"ADAPTIVE: Divergence {max_div:.1f}pp > 20pp threshold. "
+          f"DC weight {wc.dc:.2f} → {dc_weight_adaptive:.2f} (shift={shift:.2f})")
+    # Recompute DC+Enh fusion with adaptive weights
+    fused = {
+        "home_win_prob": dc_raw["home_win_prob"] * dc_weight_adaptive + enh_raw["home_win_prob"] * enh_weight_adaptive,
+        "draw_prob": dc_raw["draw_prob"] * dc_weight_adaptive + enh_raw["draw_prob"] * enh_weight_adaptive,
+        "away_win_prob": dc_raw["away_win_prob"] * dc_weight_adaptive + enh_raw["away_win_prob"] * enh_weight_adaptive,
+    }
+    dc_enh = dict(fused)
+    divergence["dc_weight_adaptive"] = round(dc_weight_adaptive, 2)
+    divergence["shift_applied"] = round(shift, 2)
+else:
+    divergence["dc_weight_adaptive"] = None
+    divergence["shift_applied"] = None
 
 # ── 3. Elo ──
 elo_obj = elo.predict(HOME, AWAY, is_neutral=IS_NEUTRAL, competition_weight=1.0, competition=COMP)
@@ -172,6 +254,17 @@ if market_live:
 print(f"FINAL:     H={final['home_win_prob']:.4f} D={final['draw_prob']:.4f} A={final['away_win_prob']:.4f}")
 if calibrated_final:
     print(f"CALIBRATED:H={calibrated_final['home_win_prob']:.4f} D={calibrated_final['draw_prob']:.4f} A={calibrated_final['away_win_prob']:.4f}")
+
+# Overdispersion-corrected scoreline distribution
+od_scoreline = overdispersed_poisson_scoreline(dc_pred.get('home_xg', 0), dc_pred.get('away_xg', 0))
+print(f"Scoreline: Poisson H={od_scoreline['poisson']['home_win']:.4f} D={od_scoreline['poisson']['draw']:.4f} A={od_scoreline['poisson']['away_win']:.4f}")
+print(f"           NegBin  H={od_scoreline['negbin']['home_win']:.4f} D={od_scoreline['negbin']['draw']:.4f} A={od_scoreline['negbin']['away_win']:.4f}")
+# Show the difference
+for key, label in [("home_win", "H"), ("draw", "D"), ("away_win", "A")]:
+    delta = (od_scoreline["negbin"][key] - od_scoreline["poisson"][key]) * 100
+    if abs(delta) > 0.3:
+        direction = "↑" if delta > 0 else "↓"
+        print(f"           NegBin {label} correction: {direction}{abs(delta):.1f}pp")
 print(f"xG:        {HOME}={dc_pred.get('home_xg', 0):.2f} {AWAY}={dc_pred.get('away_xg', 0):.2f}")
 print(f"Elo:       {HOME}={elo.ratings.get(HOME, 0):.0f} {AWAY}={elo.ratings.get(AWAY, 0):.0f}")
 print(f"DC params: {HOME} atk={dc.attack_params.get(HOME, 0):.4f} def={dc.defense_params.get(HOME, 0):.4f}")
@@ -199,6 +292,7 @@ result = {
     "calibration_applied": calibration_applied,
     "calibration_stats": calibration_stats,
     "dc_enhancer_divergence": divergence,
+    "overdispersion": od_scoreline,
     "bootstrap_ci": None,
     "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
                    "dc_teams": len(dc.attack_params), "training_rows": len(df),
