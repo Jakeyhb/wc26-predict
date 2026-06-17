@@ -17,6 +17,7 @@ from app.services.elo_ratings import fuse_elo_probabilities
 from app.services.pi_ratings import fuse_pi_probabilities
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
+from app.services.calibration import IsotonicCalibrator
 
 HOME = sys.argv[1] if len(sys.argv) > 1 else "Saudi Arabia"
 AWAY = sys.argv[2] if len(sys.argv) > 2 else "Uruguay"
@@ -45,6 +46,31 @@ enh_pred = enh.predict_match(home_team=HOME, away_team=AWAY, match_date=match_da
 enh_raw = {"home_win_prob": enh_pred["home_win_prob"], "draw_prob": enh_pred["draw_prob"], "away_win_prob": enh_pred["away_win_prob"]}
 fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
 dc_enh = dict(fused)
+
+# ── 2.5. DC-Enhancer Divergence Diagnostic ──
+divergence = {}
+for outcome, label in [("home_win_prob", "home"), ("draw_prob", "draw"), ("away_win_prob", "away")]:
+    div = abs(dc_raw[outcome] - enh_raw[outcome]) * 100
+    divergence[label] = round(div, 1)
+max_div = max(divergence.values())
+divergence["max_pp"] = max_div
+if max_div > 15:
+    # Determine direction of divergence
+    max_outcome = max(divergence, key=lambda k: divergence[k] if k != "max_pp" else 0)
+    dc_higher = dc_raw[f"{max_outcome}_win_prob" if max_outcome != "draw" else "draw_prob"] > \
+                enh_raw[f"{max_outcome}_win_prob" if max_outcome != "draw" else "draw_prob"]
+    divergence["warning"] = (
+        f"Large divergence ({max_div:.1f}pp) on {max_outcome}. "
+        f"{'DC' if dc_higher else 'Enhancer'} rates this outcome higher. "
+        f"Recommend checking DC params and Enhancer features for inconsistencies."
+    )
+    divergence["severity"] = "high" if max_div > 20 else "medium"
+else:
+    divergence["warning"] = None
+    divergence["severity"] = "normal"
+
+if divergence["warning"]:
+    print(f"DIVERGENCE: {divergence['warning']}")
 
 # ── 3. Elo ──
 elo_obj = elo.predict(HOME, AWAY, is_neutral=IS_NEUTRAL, competition_weight=1.0, competition=COMP)
@@ -101,6 +127,32 @@ signal_away = max(0.01, fused["away_win_prob"])
 total_s = signal_home + signal_draw + signal_away
 final = {"home_win_prob": signal_home / total_s, "draw_prob": signal_draw / total_s, "away_win_prob": signal_away / total_s}
 
+# ── 6.5. Probability Calibration (Isotonic Regression) ──
+calibrated_final = None
+calibration_applied = False
+calibration_stats = {"is_fitted": False, "training_samples": 0, "ece": 0.0}
+try:
+    calibrator = IsotonicCalibrator()
+    # Try competition-specific calibrator first, then fall back to generic
+    is_wc = "world cup" in COMP.lower()
+    cal_name = "calibrator_wc.json" if is_wc else "calibrator.json"
+    cal_path = str(BACKEND_DIR / "artifacts" / cal_name)
+
+    # If competition-specific doesn't exist or isn't fitted, fall back
+    if not os.path.exists(cal_path) or (is_wc and not Path(cal_path).exists()):
+        cal_path = str(BACKEND_DIR / "artifacts" / "calibrator.json")
+
+    calibrator.load(cal_path)
+    if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+        calibrated_final = calibrator.calibrate(final)
+        calibration_applied = True
+        calibration_stats = calibrator.calibration_stats()
+    elif calibrator.is_fitted:
+        print(f"[CALIBRATION] Loaded but only {calibrator.training_sample_count} samples — "
+              f"need ≥20. Skipping calibration.", file=sys.stderr)
+except Exception as e:
+    print(f"[CALIBRATION] Not applied: {e}", file=sys.stderr)
+
 # ── 7. Weather ──
 weather_data = {
     "temperature_c": None, "precipitation_mm": 0.0, "wind_speed_kmh": None,
@@ -117,6 +169,8 @@ print(f"+Pi:       H={pre_market['home_win_prob']:.4f} D={pre_market['draw_prob'
 if market_live:
     print(f"+Market:   H={post_market['home_win_prob']:.4f} D={post_market['draw_prob']:.4f} A={post_market['away_win_prob']:.4f}")
 print(f"FINAL:     H={final['home_win_prob']:.4f} D={final['draw_prob']:.4f} A={final['away_win_prob']:.4f}")
+if calibrated_final:
+    print(f"CALIBRATED:H={calibrated_final['home_win_prob']:.4f} D={calibrated_final['draw_prob']:.4f} A={calibrated_final['away_win_prob']:.4f}")
 print(f"xG:        {HOME}={dc_pred.get('home_xg', 0):.2f} {AWAY}={dc_pred.get('away_xg', 0):.2f}")
 print(f"Elo:       {HOME}={elo.ratings.get(HOME, 0):.0f} {AWAY}={elo.ratings.get(AWAY, 0):.0f}")
 print(f"DC params: {HOME} atk={dc.attack_params.get(HOME, 0):.4f} def={dc.defense_params.get(HOME, 0):.4f}")
@@ -140,6 +194,10 @@ result = {
     "pi": {"home": pi_model.team_ratings.get(HOME, 0), "away": pi_model.team_ratings.get(AWAY, 0)},
     "dc_params": {"home_atk": dc.attack_params.get(HOME, 0), "home_def": dc.defense_params.get(HOME, 0),
                   "away_atk": dc.attack_params.get(AWAY, 0), "away_def": dc.defense_params.get(AWAY, 0)},
+    "calibrated": calibrated_final,
+    "calibration_applied": calibration_applied,
+    "calibration_stats": calibration_stats,
+    "dc_enhancer_divergence": divergence,
     "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
                    "dc_teams": len(dc.attack_params), "training_rows": len(df),
                    "version": "3.8.0", "weight_label": wc.label},
