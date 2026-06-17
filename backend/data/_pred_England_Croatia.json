@@ -40,25 +40,25 @@
       "away_win_prob": 0.34600406015745927
     },
     "post_market": {
-      "home_win_prob": 0.42443720772723814,
-      "draw_prob": 0.2735959619483438,
-      "away_win_prob": 0.3019668303244181
+      "home_win_prob": 0.426765399969655,
+      "draw_prob": 0.27342021129024574,
+      "away_win_prob": 0.2998143887400993
     },
     "final": {
-      "home_win_prob": 0.42443720772723814,
-      "draw_prob": 0.2735959619483438,
-      "away_win_prob": 0.3019668303244181
+      "home_win_prob": 0.426765399969655,
+      "draw_prob": 0.27342021129024574,
+      "away_win_prob": 0.2998143887400993
     }
   },
   "market": {
     "provider": "apifootball.com",
     "live": true,
-    "home_odds": 1.73,
+    "home_odds": 1.7,
     "draw_odds": 3.55,
-    "away_odds": 5.0,
-    "home_prob": 0.545457339090085,
-    "draw_prob": 0.26581442158474566,
-    "away_prob": 0.1887282393251694,
+    "away_odds": 5.2,
+    "home_prob": 0.5537723113844308,
+    "draw_prob": 0.2651867406629669,
+    "away_prob": 0.18104094795260237,
     "market_weight": 0.28
   },
   "home_xg": 1.1778035646981582,
@@ -77,17 +77,12 @@
     "away_atk": 1.7648383931564107,
     "away_def": 0.5514266250230909
   },
-  "calibrated": {
-    "home_win_prob": 0.5280354981847519,
-    "draw_prob": 0.3565954013715208,
-    "away_win_prob": 0.11536910044372731
-  },
-  "calibration_applied": true,
+  "calibrated": null,
+  "calibration_applied": false,
   "calibration_stats": {
-    "is_fitted": true,
-    "training_samples": 30,
-    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
-    "expected_calibration_error": 0.12791184850008377
+    "is_fitted": false,
+    "training_samples": 0,
+    "ece": 0.0
   },
   "dc_enhancer_divergence": {
     "home": 16.5,
@@ -186,7 +181,7 @@
     "dc_hash": "b244c28a0df8",
     "dc_teams": 296,
     "training_rows": 10999,
-    "version": "3.8.0",
+    "version": "3.9.5",
     "weight_label": "AUTO_OPTIMIZED"
   }
 }
