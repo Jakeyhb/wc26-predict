@@ -1,0 +1,87 @@
+{
+  "home_team": "England",
+  "away_team": "Croatia",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.4656580660796762,
+      "draw_prob": 0.3463771403199611,
+      "away_win_prob": 0.18796479360036278
+    },
+    "enhancer": {
+      "home_win_prob": 0.30054720427833304,
+      "draw_prob": 0.23430246064317337,
+      "away_win_prob": 0.4651503350784936
+    },
+    "elo": {
+      "home_win_prob": 0.4753879727862419,
+      "draw_prob": 0.11961580992163423,
+      "away_win_prob": 0.4049962172921239
+    },
+    "pi": {
+      "home_win_prob": 0.47502820698666604,
+      "draw_prob": 0.20433244312565232,
+      "away_win_prob": 0.32063934988768167
+    },
+    "dc_enh": {
+      "home_win_prob": 0.4243803506293404,
+      "draw_prob": 0.31835847040076415,
+      "away_win_prob": 0.2572611789698955
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.42948111284503054,
+      "draw_prob": 0.29848420435285117,
+      "away_win_prob": 0.27203468280211834
+    },
+    "pre_market": {
+      "home_win_prob": 0.43175846755211233,
+      "draw_prob": 0.2937766162914912,
+      "away_win_prob": 0.2744649161563965
+    },
+    "post_market": {
+      "home_win_prob": 0.4593097147086801,
+      "draw_prob": 0.2876907774865032,
+      "away_win_prob": 0.2529995078048167
+    },
+    "final": {
+      "home_win_prob": 0.4593097147086801,
+      "draw_prob": 0.2876907774865032,
+      "away_win_prob": 0.2529995078048167
+    }
+  },
+  "market": {
+    "provider": "apifootball.com",
+    "live": true,
+    "home_odds": 1.74,
+    "draw_odds": 3.5,
+    "away_odds": 5.0,
+    "home_prob": 0.5419634561783834,
+    "draw_prob": 0.26943326107153914,
+    "away_prob": 0.18860328275007743,
+    "market_weight": 0.25
+  },
+  "home_xg": 1.1778035646981582,
+  "away_xg": 0.6622199053528051,
+  "elo": {
+    "home": 1742.6235125429407,
+    "away": 1714.7846233041087
+  },
+  "pi": {
+    "home": 1.2037822174876252,
+    "away": 0.9791780949202713
+  },
+  "dc_params": {
+    "home_atk": 2.148725602514882,
+    "home_def": 0.37543575288312947,
+    "away_atk": 1.7648383931564107,
+    "away_def": 0.5514266250230909
+  },
+  "provenance": {
+    "dc_hash": "b244c28a0df8",
+    "dc_teams": 296,
+    "training_rows": 10999,
+    "version": "3.8.0",
+    "weight_label": "AUTO_OPTIMIZED"
+  }
+}
