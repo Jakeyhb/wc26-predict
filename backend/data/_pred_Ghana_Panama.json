@@ -1,0 +1,87 @@
+{
+  "home_team": "Ghana",
+  "away_team": "Panama",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.2756646216888337,
+      "draw_prob": 0.3020469840135139,
+      "away_win_prob": 0.4222883942976524
+    },
+    "enhancer": {
+      "home_win_prob": 0.1338506961151932,
+      "draw_prob": 0.2320010787420584,
+      "away_win_prob": 0.6341482251427485
+    },
+    "elo": {
+      "home_win_prob": 0.3323457190609056,
+      "draw_prob": 0.11625521267944249,
+      "away_win_prob": 0.5513990682596519
+    },
+    "pi": {
+      "home_win_prob": 0.3764428701604182,
+      "draw_prob": 0.20620983531909515,
+      "away_win_prob": 0.41734729452048663
+    },
+    "dc_enh": {
+      "home_win_prob": 0.2402111402954236,
+      "draw_prob": 0.28453550769565,
+      "away_win_prob": 0.4752533520089265
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.2494245981719718,
+      "draw_prob": 0.26770747819402924,
+      "away_win_prob": 0.48286792363399905
+    },
+    "pre_market": {
+      "home_win_prob": 0.25577551177139407,
+      "draw_prob": 0.26463259605028255,
+      "away_win_prob": 0.47959189217832343
+    },
+    "post_market": {
+      "home_win_prob": 0.2958981883696316,
+      "draw_prob": 0.2731380702957609,
+      "away_win_prob": 0.4309637413346076
+    },
+    "final": {
+      "home_win_prob": 0.2958981883696316,
+      "draw_prob": 0.2731380702957609,
+      "away_win_prob": 0.4309637413346076
+    }
+  },
+  "market": {
+    "provider": "apifootball.com",
+    "live": true,
+    "home_odds": 2.26,
+    "draw_odds": 3.15,
+    "away_odds": 3.3,
+    "home_prob": 0.4162662181643441,
+    "draw_prob": 0.29865449303219604,
+    "away_prob": 0.2850792888034599,
+    "market_weight": 0.25
+  },
+  "home_xg": 1.1161505187319507,
+  "away_xg": 1.4201319844459848,
+  "elo": {
+    "home": 1560.28747660448,
+    "away": 1648.2378521658686
+  },
+  "pi": {
+    "home": 0.44903025921247885,
+    "away": 0.5079744988191148
+  },
+  "dc_params": {
+    "home_atk": 1.395163972575085,
+    "home_def": 0.7928764763356546,
+    "away_atk": 1.8132334936149723,
+    "away_def": 0.8038909419939545
+  },
+  "provenance": {
+    "dc_hash": "b244c28a0df8",
+    "dc_teams": 296,
+    "training_rows": 10999,
+    "version": "3.8.0",
+    "weight_label": "AUTO_OPTIMIZED"
+  }
+}
