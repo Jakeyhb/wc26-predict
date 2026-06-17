@@ -284,6 +284,26 @@ for kw in keywords:
             print(f'  MISSING: (special chars)')
         errors.append(f'news keyword {kw}')
 
+# 11. ANTI-LAZINESS: ~X% approximations check
+print('\n[11] APPROXIMATION AUDIT (~X% patterns)')
+tilde_pct = re.findall(r'~\d+\.?\d*%', report)
+# Filter: temperature ~35°C, time ~18:00 etc are OK; ~X% in probability context is NOT
+if tilde_pct:
+    print(f'  FAIL: Found {len(tilde_pct)} ~X% approximation(s):')
+    for m in tilde_pct:
+        print(f'    - {m}')
+    errors.append(f'{len(tilde_pct)} ~X% approximations should be exact values')
+else:
+    print('  OK: No ~X% approximations')
+
+# 12. Check for suspicious "eyeballed" patterns
+eyeball = re.findall(r'(?:大约|大概|差不多|左右)\s*\d+\.?\d*%', report)
+if eyeball:
+    print(f'  WARNING: Found {len(eyeball)} eyeballed values: {eyeball}')
+    errors.append(f'{len(eyeball)} eyeballed values')
+else:
+    print('  OK: No eyeballed/estimated values')
+
 # SUMMARY
 print('\n' + '='*70)
 if errors:
