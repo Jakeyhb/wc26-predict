@@ -217,6 +217,25 @@ def main():
         home_odds = draw_odds = away_odds = 0
 
     market_weight = wc.market_max
+
+    # V3.9.5.3: Dynamic market boost when model-market divergence is extreme.
+    # When model (pre-market) and market disagree by >15pp on the favorite,
+    # the model is likely suffering from component bias (e.g. Enhancer extreme).
+    # Boost market_weight up to 0.40 to provide a stronger anchor.
+    if market_live:
+        model_market_div = max(
+            abs(pre_market["home_win_prob"] - market_home),
+            abs(pre_market["draw_prob"] - market_draw),
+            abs(pre_market["away_win_prob"] - market_away),
+        )
+        if model_market_div > 0.15:
+            # Linear boost: at 15pp divergence → no boost, at 30pp → +0.12
+            boost = min(0.12, (model_market_div - 0.15) * 0.8)
+            market_weight = min(0.40, wc.market_max + boost)
+            print(f"[MARKET_BOOST] model-market divergence={model_market_div:.1%}, "
+                  f"market_weight {wc.market_max:.2f}→{market_weight:.2f} (+{boost:.2f})",
+                  file=sys.stderr)
+
     if market_live:
         fused_market = {
             "home_win_prob": fused["home_win_prob"] * (1 - market_weight) + market_home * market_weight,
@@ -236,24 +255,31 @@ def main():
     final = {"home_win_prob": signal_home / total_s, "draw_prob": signal_draw / total_s, "away_win_prob": signal_away / total_s}
 
     # ── 6.5. Probability Calibration ──
+    # V3.9.5.3: WC-first, fallback to main calibrator if WC has < 20 samples.
+    # calibrator_wc.json auto-activates once ≥20 WC postmatch pairs accumulate.
     calibrated_final = None
     calibration_applied = False
     calibration_stats = {"is_fitted": False, "training_samples": 0, "ece": 0.0}
     try:
-        calibrator = IsotonicCalibrator()
         is_wc = "world cup" in COMP.lower()
 
+        # Try WC-specific calibrator first (requires ≥20 WC samples)
         if is_wc:
-            cal_path = str(BACKEND_DIR / "artifacts" / "calibrator_wc.json")
-            if os.path.exists(cal_path):
-                calibrator.load(cal_path)
-                if calibrator.is_fitted and calibrator.training_sample_count >= 20:
-                    calibrated_final = calibrator.calibrate(final)
+            wc_path = str(BACKEND_DIR / "artifacts" / "calibrator_wc.json")
+            if os.path.exists(wc_path):
+                wc_cal = IsotonicCalibrator()
+                wc_cal.load(wc_path)
+                if wc_cal.is_fitted and wc_cal.training_sample_count >= 20:
+                    calibrated_final = wc_cal.calibrate(final)
                     calibration_applied = True
-                    calibration_stats = calibrator.calibration_stats()
-        else:
+                    calibration_stats = wc_cal.calibration_stats()
+
+        # Fallback: use main calibrator for ALL competitions (including WC)
+        # when WC-specific calibrator isn't ready yet
+        if not calibration_applied:
             cal_path = str(BACKEND_DIR / "artifacts" / "calibrator.json")
             if os.path.exists(cal_path):
+                calibrator = IsotonicCalibrator()
                 calibrator.load(cal_path)
                 if calibrator.is_fitted and calibrator.training_sample_count >= 20:
                     calibrated_final = calibrator.calibrate(final)
