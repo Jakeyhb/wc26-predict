@@ -26,6 +26,7 @@ nginx/html/*
 *.pyo
 *.sqlite3
 *.db
+*.pkl
 *.log
 *.tsbuildinfo
 .env
