@@ -168,7 +168,7 @@ def fuse_ensemble(
 ) -> dict[str, float]:
     """Sequential fusion matching the predict_match pipeline.
 
-    Step order matches run_artifact_pipeline:
+    Step order matches predict_match_full.py pipeline:
       1. DC (base)
       2. DC + Enhancer  → fuse_outcome_probabilities(base_weight=dc_weight)
       3. + Elo           → fuse_elo_probabilities(elo_weight=elo_weight)

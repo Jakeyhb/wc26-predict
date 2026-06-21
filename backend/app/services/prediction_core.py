@@ -1,11 +1,11 @@
-"""prediction_core.py — legacy compatibility shim for old artifact prediction.
+"""prediction_core.py — shared model-loading helpers for the prediction pipeline.
 
-The current entry point is PredictionPipeline.from_artifacts(...).predict_sync(...).
-Older imports are kept here to avoid import-time breakage while callers migrate.
+The current entry point is PredictionPipeline.from_artifacts(...).predict_sync(...)
+or scripts/predict_match_full.py for the full pipeline (DC → Enhancer → Elo → Pi → Market).
 
 Provides:
-    run_artifact_pipeline(home_team, away_team, competition, is_neutral, mode)
-        -> (result_dict, RunQuality, PredictionTimer)
+    _load_dc, _load_enhancer, _load_elo, _load_pi, _load_training_df
+        → model objects ready for prediction
 """
 
 from __future__ import annotations
