@@ -63,21 +63,42 @@ def load_data():
 
         # Parse component probs from snapshot (may be NULL)
         comp = _parse_comp_probs(r["component_probs"])
+
+        def _norm(c, mult=1.0):
+            """Normalize component probs: dict->list, handle missing."""
+            if c is None:
+                return [0.33, 0.34, 0.33]
+            if isinstance(c, dict):
+                # Dict format: {"home": ..., "draw": ..., "away": ...}
+                h = c.get("home", c.get("home_win_prob", 0.33))
+                d_val = c.get("draw", c.get("draw_prob", 0.34))
+                a = c.get("away", c.get("away_win_prob", 0.33))
+                return [float(h or 0.33) * mult, float(d_val or 0.34) * mult, float(a or 0.33) * mult]
+            if isinstance(c, (list, tuple)):
+                return [float(c[0] or 0.33), float(c[1] or 0.34), float(c[2] or 0.33)]
+            return [0.33, 0.34, 0.33]
+
         if not comp:
             # Fallback: estimate from final probs
             comp = {
-                "dc": [r["home_win_prob"] * 0.6, r["draw_prob"] * 0.6, r["away_win_prob"] * 0.6],
-                "enhancer": [r["home_win_prob"] * 0.3, r["draw_prob"] * 0.3, r["away_win_prob"] * 0.3],
-                "elo": [r["home_win_prob"] * 0.05, r["draw_prob"] * 0.05, r["away_win_prob"] * 0.05],
-                "pi_rating": [r["home_win_prob"] * 0.05, r["draw_prob"] * 0.05, r["away_win_prob"] * 0.05],
+                "dc": _norm(None),
+                "enhancer": _norm(None),
+                "elo": _norm(None),
+                "pi_rating": _norm(None),
             }
+            # Override with scaled final probs
+            h, d_val, a = r["home_win_prob"] or 0.33, r["draw_prob"] or 0.34, r["away_win_prob"] or 0.33
+            comp["dc"] = [float(h) * 0.6, float(d_val) * 0.6, float(a) * 0.6]
+            comp["enhancer"] = [float(h) * 0.3, float(d_val) * 0.3, float(a) * 0.3]
+            comp["elo"] = [float(h) * 0.05, float(d_val) * 0.05, float(a) * 0.05]
+            comp["pi_rating"] = [float(h) * 0.05, float(d_val) * 0.05, float(a) * 0.05]
 
         data.append({
-            "dc": comp.get("dc", [0.33, 0.34, 0.33]),
-            "enhancer": comp.get("enhancer", [0.33, 0.34, 0.33]),
-            "elo": comp.get("elo", [0.33, 0.34, 0.33]),
-            "pi_rating": comp.get("pi_rating", [0.33, 0.34, 0.33]),
-            "final": [r["home_win_prob"] or 0.33, r["draw_prob"] or 0.34, r["away_win_prob"] or 0.33],
+            "dc": _norm(comp.get("dc")),
+            "enhancer": _norm(comp.get("enhancer")),
+            "elo": _norm(comp.get("elo")),
+            "pi_rating": _norm(comp.get("pi_rating")),
+            "final": [float(r["home_win_prob"] or 0.33), float(r["draw_prob"] or 0.34), float(r["away_win_prob"] or 0.33)],
             "actual": actual,
             "stage": r["stage"] or "",
         })
@@ -103,6 +124,9 @@ def optimize_weights(data):
         print(f"Only {len(data)} records, need >=10. Using defaults.")
         return {"dc": 0.50, "enhancer": 0.30, "elo": 0.05, "pi_rating": 0.05}
 
+    # Minimum weight per component to prevent degenerate 0-weight solutions
+    MIN_WEIGHT = 0.03
+
     def ensemble_rps(w):
         w_abs = np.abs(w) / np.sum(np.abs(w))
         total = 0.0
@@ -117,12 +141,24 @@ def optimize_weights(data):
     x0 = np.array([0.50, 0.30, 0.05, 0.05])
     current_rps = ensemble_rps(x0)
 
-    result = minimize(ensemble_rps, x0, method="Nelder-Mead",
-                       options={"maxiter": 500, "xatol": 1e-4})
+    # Use bounded optimization to prevent corners
+    bounds = [(MIN_WEIGHT, 1.0) for _ in COMPONENTS]
+    result = minimize(
+        ensemble_rps, x0, method="L-BFGS-B",
+        bounds=bounds,
+        options={"maxiter": 500, "ftol": 1e-6},
+    )
 
     optimal = np.abs(result.x) / np.sum(np.abs(result.x))
     weights = {comp: float(optimal[i]) for i, comp in enumerate(COMPONENTS)}
     optimal_rps = ensemble_rps(optimal)
+
+    # Safety check: if any weight is at the boundary (degenerate), fallback to defaults
+    if any(abs(optimal[i] - MIN_WEIGHT) < 1e-4 for i in range(len(COMPONENTS))):
+        print("WARNING: Optimization hit minimum bound — result may be degenerate.")
+        print("Falling back to sensible defaults (DC 0.50, Enhancer 0.30, Elo 0.10, Pi 0.10).")
+        weights = {"dc": 0.50, "enhancer": 0.30, "elo": 0.10, "pi_rating": 0.10}
+        return weights
 
     print(f"Records: {len(data)}")
     print(f"Current RPS: {current_rps:.4f} (DC{x0[0]:.0%} Enh{x0[1]:.0%} Elo{x0[2]:.0%} Pi{x0[3]:.0%})")

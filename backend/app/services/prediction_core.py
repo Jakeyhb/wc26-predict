@@ -340,41 +340,6 @@ def _load_training_df(timer: PredictionTimer) -> pd.DataFrame:
     return df
 
 
-# ── Pipeline runner ──────────────────────────────────────────────────────────
-
-
-def run_artifact_pipeline(
-    home_team: str,
-    away_team: str,
-    competition: str,
-    is_neutral: bool,
-    mode: str,
-) -> tuple[dict[str, Any], RunQuality, PredictionTimer]:
-    """Legacy artifact-pipeline entry point; use PredictionPipeline instead.
-
-    **Migration (sync, no DB):**
-        pipeline = PredictionPipeline.from_artifacts(mode=mode)
-        result = pipeline.predict_sync(home_team, away_team, competition,
-                                       is_neutral=is_neutral)
-        # result is a PredictionResult dataclass with .home_win_prob, .draw_prob, etc.
-
-    **Migration (async, DB-aware):**
-        pipeline = await PredictionPipeline.from_snapshot_env(...)
-        result = await pipeline.predict_match(home_team, away_team, competition,
-                                              is_neutral=is_neutral)
-    """
-    raise RuntimeError(
-        "run_artifact_pipeline is not available in the current V3.5 branch. "
-        "Use PredictionPipeline.from_artifacts(mode=mode).predict_sync(...) instead.\n"
-        "Example:\n"
-        "  pipeline = PredictionPipeline.from_artifacts(mode='full')\n"
-        "  result = pipeline.predict_sync('Qatar', 'Switzerland', "
-        "'FIFA World Cup 2026', is_neutral=True)\n"
-        "  print(f'H={result.home_win_prob:.3f} D={result.draw_prob:.3f} "
-        "A={result.away_win_prob:.3f}')"
-    )
-
-
 # ── Snapshot persistence ───────────────────────────────────────────────────────
 
 

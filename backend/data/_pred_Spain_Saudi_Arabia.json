@@ -1,0 +1,192 @@
+{
+  "home_team": "Spain",
+  "away_team": "Saudi Arabia",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.752843400473146,
+      "draw_prob": 0.17245375582265973,
+      "away_win_prob": 0.0747028437041942
+    },
+    "enhancer": {
+      "home_win_prob": 0.32041404884808655,
+      "draw_prob": 0.30503033248437456,
+      "away_win_prob": 0.37455561866753895
+    },
+    "elo": {
+      "home_win_prob": 0.7365220181936345,
+      "draw_prob": 0.09365092194206369,
+      "away_win_prob": 0.16982705986430185
+    },
+    "pi": {
+      "home_win_prob": 0.7741457565707439,
+      "draw_prob": 0.1465129222601903,
+      "away_win_prob": 0.07934132116906602
+    },
+    "dc_enh": {
+      "home_win_prob": 0.4933857894981103,
+      "draw_prob": 0.2519997018196886,
+      "away_win_prob": 0.25461450868220104
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.500679876358976,
+      "draw_prob": 0.24724923842335988,
+      "away_win_prob": 0.2520708852176641
+    },
+    "pre_market": {
+      "home_win_prob": 0.5061491939632115,
+      "draw_prob": 0.2452345121000965,
+      "away_win_prob": 0.2486162939366921
+    },
+    "post_market": {
+      "home_win_prob": 0.6571905360924069,
+      "draw_prob": 0.1789557990343611,
+      "away_win_prob": 0.1638536648732321
+    },
+    "final": {
+      "home_win_prob": 0.6571905360924069,
+      "draw_prob": 0.1789557990343611,
+      "away_win_prob": 0.1638536648732321
+    }
+  },
+  "market": {
+    "provider": "the-odds-api",
+    "live": true,
+    "home_odds": 1.08,
+    "draw_odds": 12.0,
+    "away_odds": 26.0,
+    "home_prob": 0.8837525492861998,
+    "draw_prob": 0.07953772943575799,
+    "away_prob": 0.03670972127804215,
+    "market_weight": 0.4
+  },
+  "home_xg": 2.007526906359545,
+  "away_xg": 0.4718302649028418,
+  "elo": {
+    "home": 1832.3161161475084,
+    "away": 1577.44457870978
+  },
+  "pi": {
+    "home": 1.7660646845269403,
+    "away": 0.4643497674391868
+  },
+  "dc_params": {
+    "home_atk": 2.310911353707887,
+    "home_def": 0.442366941795981,
+    "away_atk": 1.0667335665480981,
+    "away_def": 0.9071048252827492
+  },
+  "calibrated": {
+    "home_win_prob": 0.6710526315789473,
+    "draw_prob": 0.2236842105263158,
+    "away_win_prob": 0.10526315789473684
+  },
+  "calibration_applied": true,
+  "calibration_stats": {
+    "is_fitted": true,
+    "training_samples": 30,
+    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
+    "expected_calibration_error": 0.12791184850008377
+  },
+  "dc_enhancer_divergence": {
+    "home": 43.2,
+    "draw": 13.3,
+    "away": 30.0,
+    "max_pp": 43.2,
+    "warning": "Large divergence (43.2pp) on home. DC rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "severity": "high",
+    "dc_weight_adaptive": 0.4,
+    "shift_applied": 0.15
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.7397466318376019,
+      "draw": 0.18406642633042608,
+      "away_win": 0.0761869418319032
+    },
+    "negbin": {
+      "home_win": 0.7383316319627733,
+      "draw": 0.1631538076957437,
+      "away_win": 0.09851456034148302
+    },
+    "overdispersion_r": 3.5,
+    "wc_xg_calibration_factor": 1.35,
+    "calibrated_xg": {
+      "home": 2.71,
+      "away": 0.64
+    },
+    "top_15_scorelines": [
+      {
+        "score": "1-0",
+        "prob_pct": 11.4
+      },
+      {
+        "score": "2-0",
+        "prob_pct": 11.2
+      },
+      {
+        "score": "3-0",
+        "prob_pct": 9.0
+      },
+      {
+        "score": "0-0",
+        "prob_pct": 7.5
+      },
+      {
+        "score": "4-0",
+        "prob_pct": 6.4
+      },
+      {
+        "score": "1-1",
+        "prob_pct": 6.2
+      },
+      {
+        "score": "2-1",
+        "prob_pct": 6.1
+      },
+      {
+        "score": "3-1",
+        "prob_pct": 4.8
+      },
+      {
+        "score": "5-0",
+        "prob_pct": 4.2
+      },
+      {
+        "score": "0-1",
+        "prob_pct": 4.0
+      },
+      {
+        "score": "4-1",
+        "prob_pct": 3.4
+      },
+      {
+        "score": "6-0",
+        "prob_pct": 2.6
+      },
+      {
+        "score": "5-1",
+        "prob_pct": 2.2
+      },
+      {
+        "score": "1-2",
+        "prob_pct": 2.1
+      },
+      {
+        "score": "2-2",
+        "prob_pct": 2.1
+      }
+    ],
+    "under_2_5_pct": 41.7,
+    "over_2_5_pct": 58.0
+  },
+  "bootstrap_ci": null,
+  "provenance": {
+    "dc_hash": "345ceb9e55d8",
+    "dc_teams": 296,
+    "training_rows": 16706,
+    "version": "3.9.5",
+    "weight_label": "WORLD_CUP_V3.9.5"
+  }
+}
