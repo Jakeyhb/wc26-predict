@@ -40,25 +40,25 @@
       "away_win_prob": 0.2486162939366921
     },
     "post_market": {
-      "home_win_prob": 0.6571905360924069,
-      "draw_prob": 0.1789557990343611,
-      "away_win_prob": 0.1638536648732321
+      "home_win_prob": 0.655972285155541,
+      "draw_prob": 0.1802246542409121,
+      "away_win_prob": 0.16380306060354693
     },
     "final": {
-      "home_win_prob": 0.6571905360924069,
-      "draw_prob": 0.1789557990343611,
-      "away_win_prob": 0.1638536648732321
+      "home_win_prob": 0.655972285155541,
+      "draw_prob": 0.1802246542409121,
+      "away_win_prob": 0.16380306060354693
     }
   },
   "market": {
     "provider": "the-odds-api",
     "live": true,
     "home_odds": 1.08,
-    "draw_odds": 12.0,
+    "draw_odds": 11.5,
     "away_odds": 26.0,
-    "home_prob": 0.8837525492861998,
-    "draw_prob": 0.07953772943575799,
-    "away_prob": 0.03670972127804215,
+    "home_prob": 0.8807069219440353,
+    "draw_prob": 0.0827098674521355,
+    "away_prob": 0.036583210603829165,
     "market_weight": 0.4
   },
   "home_xg": 2.007526906359545,
