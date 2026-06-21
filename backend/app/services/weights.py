@@ -70,14 +70,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="3.9.5",
-    dc=0.55,            # ↓ from 0.75 (V3.9.5: DC marginal=+0.0318 adds error in fusion)
-    enhancer=0.45,      # ↑ from 0.25 (V3.9.5: ONLY component with negative marginal -0.032 across ALL subsets)
-    elo=0.03,           # ↓ from 0.10 (V3.9.5: worst marginal +0.071, 7x worse per-unit than DC)
-    pi=0.02,            # ↓ from 0.05 (V3.9.5: standalone Brier=1.036 worse than uniform 0.667)
-    weibull=0.10,
-    market_max=0.28,    # ↑ from 0.25 (consistently negative marginal, provides independent anchor)
-    label="WORLD_CUP_V3.9.5",
+    version="3.9.6",
+    dc=0.70,            # ↑ from 0.55 (V3.9.6: 18-match WC review: DC net positive +0.041 avg, 61% positivity rate)
+    enhancer=0.30,      # ↓ from 0.45 (V3.9.6: 12/18 matches negative marginal, -0.024 avg → reduce exposure)
+    elo=0.08,           # ↑ from 0.03 (V3.9.6: +0.073 avg marginal — highest per-unit, severely undervalued at 0.03)
+    pi=0.02,            # (unchanged: high variance, use as weak prior only)
+    weibull=0.10,       # (unchanged)
+    market_max=0.28,    # (unchanged: dynamic boost mechanism validated in Brazil-Haiti)
+    label="WORLD_CUP_V3.9.6",
 )
 
 _UCL_FINAL = WeightConfig(

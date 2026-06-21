@@ -17,33 +17,51 @@ class WeatherService:
 
     OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
     VENUE_COORDS = {
-        # WC26 venues
-        "metlife stadium": (40.8135, -74.0745),
-        "sofi stadium": (33.9535, -118.3392),
-        "at&t stadium": (32.7478, -97.0931),
-        "levi's stadium": (37.4033, -121.9700),
-        "arrowhead stadium": (39.0489, -94.4839),
-        "lincoln financial field": (39.9007, -75.1675),
-        "gillette stadium": (42.0909, -71.2643),
-        "seahawks stadium": (47.5952, -122.3316),
-        "bc place": (49.2767, -123.1117),
-        "bmo field": (43.6333, -79.4187),
-        "estadio azteca": (19.3029, -99.1505),
-        "estadio bbva": (25.6694, -100.3114),
-        "estadio akron": (20.6729, -103.4692),
-        # Additional WC26 venues discovered during analysis
-        "nrg stadium": (29.6847, -95.4110),             # Houston, Texas
-        "mercedes-benz stadium": (33.7555, -84.4010),    # Atlanta, Georgia
+        # WC26 venues — USA
+        "metlife stadium": (40.8135, -74.0745),           # East Rutherford, NJ
+        "new york new jersey stadium": (40.8135, -74.0745), # FIFA name
+        "sofi stadium": (33.9535, -118.3392),             # Inglewood, CA
+        "los angeles stadium": (33.9535, -118.3392),       # FIFA name
+        "at&t stadium": (32.7478, -97.0931),              # Arlington, TX
+        "dallas stadium": (32.7478, -97.0931),             # FIFA name
+        "levi's stadium": (37.4033, -121.9700),           # Santa Clara, CA
+        "san francisco bay area stadium": (37.4033, -121.9700), # FIFA name
+        "arrowhead stadium": (39.0489, -94.4839),         # Kansas City, MO
+        "kansas city stadium": (39.0489, -94.4839),        # FIFA name
+        "lincoln financial field": (39.9007, -75.1675),    # Philadelphia, PA
+        "philadelphia stadium": (39.9007, -75.1675),       # FIFA name
+        "gillette stadium": (42.0909, -71.2643),           # Foxborough, MA
+        "boston stadium": (42.0909, -71.2643),             # FIFA name
+        "lumen field": (47.5952, -122.3316),               # Seattle, WA
+        "seattle stadium": (47.5952, -122.3316),           # FIFA name
+        "hard rock stadium": (25.9580, -80.2389),          # Miami Gardens, FL
+        "miami stadium": (25.9580, -80.2389),              # FIFA name
+        "nrg stadium": (29.6847, -95.4110),                # Houston, TX
+        "houston stadium": (29.6847, -95.4110),            # FIFA name
+        "mercedes-benz stadium": (33.7555, -84.4010),      # Atlanta, GA
+        "atlanta stadium": (33.7555, -84.4010),            # FIFA name
+        # WC26 venues — Canada
+        "bc place": (49.2767, -123.1117),                  # Vancouver
+        "bmo field": (43.6333, -79.4187),                  # Toronto
+        "toronto stadium": (43.6333, -79.4187),            # FIFA name
+        # WC26 venues — Mexico
+        "estadio azteca": (19.3029, -99.1505),             # Mexico City
+        "azteca stadium": (19.3029, -99.1505),             # alias
+        "mexico city stadium": (19.3029, -99.1505),        # FIFA name
+        "estadio bbva": (25.6694, -100.3114),              # Monterrey
+        "monterrey stadium": (25.6694, -100.3114),         # FIFA name
+        "estadio akron": (20.6729, -103.4692),             # Guadalajara
+        "guadalajara stadium": (20.6729, -103.4692),       # FIFA name
         # European national stadiums (for friendlies/qualifiers)
-        "king baudouin stadium": (50.8958, 4.3339),       # Brussels, Belgium
-        "wembley stadium": (51.5560, -0.2795),             # London, England
-        "stade de france": (48.9245, 2.3601),              # Paris, France
-        "santiago bernabeu": (40.4531, -3.6884),           # Madrid, Spain
-        "olympiastadion berlin": (52.5147, 13.2395),       # Berlin, Germany
-        "allianz stadium": (48.2188, 11.6247),             # Munich, Germany
-        "san siro": (45.4781, 9.1240),                     # Milan, Italy
-        "johan cruijff arena": (52.3142, 4.9419),          # Amsterdam, Netherlands
-        "estadio da luz": (38.7528, -9.1847),              # Lisbon, Portugal
+        "king baudouin stadium": (50.8958, 4.3339),
+        "wembley stadium": (51.5560, -0.2795),
+        "stade de france": (48.9245, 2.3601),
+        "santiago bernabeu": (40.4531, -3.6884),
+        "olympiastadion berlin": (52.5147, 13.2395),
+        "allianz stadium": (48.2188, 11.6247),
+        "san siro": (45.4781, 9.1240),
+        "johan cruijff arena": (52.3142, 4.9419),
+        "estadio da luz": (38.7528, -9.1847),
     }
     # Team -> likely home venue mapping
     TEAM_VENUE_MAP: dict[str, str] = {

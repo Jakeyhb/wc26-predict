@@ -22,14 +22,17 @@ from app.services.pi_ratings import fuse_pi_probabilities
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
 from app.services.calibration import IsotonicCalibrator
+from app.version import VERSION
 
 # ═══════════════════════════════════════════════════════════════════════════
 # World Cup xG Calibration
 # ═══════════════════════════════════════════════════════════════════════════
 # DC model trained on club football. WC actual avg total goals = 2.81 (n=2,891).
 # DC systematically under-predicts xG for national teams: avg 2.02 vs WC 2.81.
-# Factor: 2.81/2.02 ≈ 1.39. Conservative choice: 1.35.
-WC_XG_CALIBRATION_FACTOR = 1.35
+# Factor: 2.81/2.02 ≈ 1.39. Initial choice: 1.35.
+# V3.9.6: Brazil-Haiti post-match shows both teams' xG overestimated (+74% rel).
+# Brazil "early-kill" effect (3 goals in 45min, coast 2H) → calibrate down.
+WC_XG_CALIBRATION_FACTOR = 1.20
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Overdispersion correction: Negative Binomial
@@ -288,12 +291,26 @@ def main():
     except Exception:
         pass
 
-    # ── 7. Weather ──
+    # ── 7. Weather (Open-Meteo API) ──
     weather_data = {
         "temperature_c": None, "precipitation_mm": 0.0, "wind_speed_kmh": None,
         "humidity_percent": None, "weather_code": None, "weather_description": "unknown",
         "forecast_available": False, "source": "not fetched"
     }
+    try:
+        from app.services.weather_service import WeatherService
+        weather_svc = WeatherService()
+        weather_data = weather_svc.get_weather_for_match_sync(
+            venue=None, home_team=HOME, away_team=AWAY
+        )
+        if weather_data and weather_data.get("forecast_available"):
+            print(f"Weather: {weather_data.get('weather_description', '?')} "
+                  f"{weather_data.get('temperature_c', '?')}°C "
+                  f"humidity={weather_data.get('humidity_percent', '?')}%")
+        else:
+            print(f"Weather: unavailable ({weather_data.get('reason', 'no data')})")
+    except Exception as e:
+        print(f"Weather: error — {e}")
 
     # ── Output ──
     print(f"DC:        H={dc_raw['home_win_prob']:.4f} D={dc_raw['draw_prob']:.4f} A={dc_raw['away_win_prob']:.4f}")
@@ -347,7 +364,7 @@ def main():
         "bootstrap_ci": None,
         "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
                        "dc_teams": len(dc.attack_params), "training_rows": len(df),
-                       "version": "3.9.5", "weight_label": wc.label},
+                       "version": VERSION, "weight_label": wc.label},
     }
 
     # ── 8. Bootstrap CI ──
