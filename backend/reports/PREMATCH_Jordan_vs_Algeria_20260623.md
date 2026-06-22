@@ -13,14 +13,14 @@
 
 | 指标 | 数值 |
 |------|------|
-| 温度 | **13.8°C** |
-| 湿度 | 89% |
-| 风速 | 4.2 km/h |
+| 温度 | **16.6°C** |
+| 湿度 | 77% |
+| 风速 | 13.4 km/h |
 | 降水 | 0.0 mm |
-| 天气 | ☀️ 大致晴朗 |
-| 来源 | api.open-meteo.com |
+| 天气 | ☀️ 晴朗 |
+| 来源 | api.open-meteo.com (UTC 03:00 实时) |
 
-> Santa Clara 六月清晨典型天气。凉爽温度对来自中东和北非的两队都较友好——不会有热带高温的额外体能消耗。
+> Santa Clara 傍晚晴朗，16.6°C 凉爽宜人。对来自中东和北非的两队都极为友好——既无高温也无降雨，是最理想的比赛气候。
 
 ### 伤病与阵容
 
@@ -31,13 +31,13 @@
 
 **预计首发 (3-4-2-1):** Abu Laila; Al Rousan, Al Arab, Abualnadi; Haddad, Al Rashdan, Al Rawabdeh, Abu Taha; Fakhoury, Olwan; Al-Taamari
 
-**🇩🇿 阿尔及利亚 (无重大伤病):**
+**🇩🇿 阿尔及利亚:**
 | 球员 | 状态 | 详情 |
 |------|:--:|------|
-| Mohamed Amoura | ✅ 回归首发 | 世预赛10球射手，首战替补，本场预计首发 |
-| Riyad Mahrez | ✅ 回归首发 | 队长首战替补，本场应回归右翼 |
+| Mohamed Amoura | ❌ **缺阵** | 🔴 **大腿肌肉撕裂**，6月20日训练中受伤，预计缺阵约15天，**小组赛报销**。世预赛10球射手无缘本场 |
+| Riyad Mahrez | ✅ 首发 | 队长首战替补，本场回归右翼担当进攻核心 |
 
-**预计首发 (4-3-3):** L.Zidane; Belghali, Mandi, Bensebaini, Aït-Nouri; Boudaoui, Zerrouki, Bentaleb; Mahrez (C), Amoura, Maza
+**预计首发 (4-3-3):** L.Zidane; Belghali, Mandi, Bensebaini, Aït-Nouri; Boudaoui, Zerrouki, Bentaleb; Mahrez (C), Maza, Benrahma
 
 ---
 
@@ -132,7 +132,8 @@
 - **防线存疑**: Nasib (中后卫) 出战存疑。三后卫体系若缺少核心可能被阿尔及利亚边路击穿。
 
 ### 4.2 阿尔及利亚
-- **Mahrez + Amoura 回归**: 首战被雪藏的两大进攻核心预计回归首发，攻击力大幅提升。
+- **Mahrez 回归担纲**: 队长首战替补，本场回归右翼担当进攻核心。但 Amoura (世预赛10球射手) 大腿撕裂缺阵是重大打击。
+- **Amoura 缺阵影响**: 阿尔及利亚失去最重要的速度和终结点。进攻将更依赖 Mahrez 的组织和 Boudaoui 的后插上。
 - **中锋问题**: 缺乏9号位的致命终结者——面对阿根廷多次浪费机会。
 - **门将 Luca Zidane**: 首战两失误导致丢球，信心可能波动。约旦会针对性施压。
 - **阵容价值差距**: €2.57亿 vs €1950万 — 132倍差距。
@@ -145,7 +146,7 @@
 |------|:--:|------|
 | 市场赔率 | 🔴 | **不可用** — 本场无实时赔率 |
 | 天气数据 | ✅ | Open-Meteo (13.8°C, 晴朗) |
-| 伤病情报 | ✅ | Nasib存疑, Mahrez/Amoura回归 |
+| 伤病情报 | ✅ | Nasib存疑, Amoura❌大腿撕裂缺阵, Mahrez回归 |
 | 模型内部共识 | 🟢 | 四层一致指向阿尔及利亚 |
 
 ---
