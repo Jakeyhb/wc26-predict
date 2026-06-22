@@ -1,0 +1,272 @@
+{
+  "home_team": "Norway",
+  "away_team": "Senegal",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.4069239606620777,
+      "draw_prob": 0.2589412716373805,
+      "away_win_prob": 0.3341347677005418
+    },
+    "enhancer": {
+      "home_win_prob": 0.09338204595991477,
+      "draw_prob": 0.19662580379162517,
+      "away_win_prob": 0.7099921502484601
+    },
+    "elo": {
+      "home_win_prob": 0.2946014311132918,
+      "draw_prob": 0.11303591877067583,
+      "away_win_prob": 0.5923626501160324
+    },
+    "pi": {
+      "home_win_prob": 0.5605559586408903,
+      "draw_prob": 0.19727308104503408,
+      "away_win_prob": 0.2421709603140756
+    },
+    "dc_enh": {
+      "home_win_prob": 0.2658300990461044,
+      "draw_prob": 0.2308993111067906,
+      "away_win_prob": 0.503270589847105
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.26813180561147937,
+      "draw_prob": 0.22147023971990143,
+      "away_win_prob": 0.5103979546686193
+    },
+    "pre_market": {
+      "home_win_prob": 0.2739802886720676,
+      "draw_prob": 0.22098629654640406,
+      "away_win_prob": 0.5050334147815284
+    },
+    "post_market": {
+      "home_win_prob": 0.2739802886720676,
+      "draw_prob": 0.22098629654640406,
+      "away_win_prob": 0.5050334147815284
+    },
+    "final": {
+      "home_win_prob": 0.2739802886720676,
+      "draw_prob": 0.22098629654640406,
+      "away_win_prob": 0.5050334147815284
+    }
+  },
+  "market": {
+    "provider": "unavailable",
+    "live": false,
+    "home_odds": 0,
+    "draw_odds": 0,
+    "away_odds": 0,
+    "home_prob": 0.333,
+    "draw_prob": 0.333,
+    "away_prob": 0.333,
+    "market_weight": 0.28
+  },
+  "home_xg": 1.3444316032496317,
+  "away_xg": 1.1939162896139224,
+  "elo": {
+    "home": 1643.3575954912903,
+    "away": 1764.6987215632435
+  },
+  "pi": {
+    "home": 1.554940949177624,
+    "away": 1.0753494347694998
+  },
+  "dc_params": {
+    "home_atk": 2.4513410443939216,
+    "home_def": 0.5401330195488172,
+    "away_atk": 2.2243898723192435,
+    "away_def": 0.55394409919106
+  },
+  "calibrated": {
+    "home_win_prob": 0.3058711836802508,
+    "draw_prob": 0.22940338776018812,
+    "away_win_prob": 0.4647254285595611
+  },
+  "calibration_applied": true,
+  "calibration_stats": {
+    "is_fitted": true,
+    "training_samples": 30,
+    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
+    "expected_calibration_error": 0.12791184850008377
+  },
+  "dc_enhancer_divergence": {
+    "home": 31.4,
+    "draw": 6.2,
+    "away": 37.6,
+    "max_pp": 37.6,
+    "warning": "Large divergence (37.6pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "severity": "high",
+    "dc_weight_adaptive": 0.55,
+    "shift_applied": 0.15
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.4022353692155339,
+      "draw": 0.26672739000367035,
+      "away_win": 0.33103724078079555
+    },
+    "negbin": {
+      "home_win": 0.418154237422341,
+      "draw": 0.22773610450813409,
+      "away_win": 0.354109658069525
+    },
+    "overdispersion_r": 3.5,
+    "wc_xg_calibration_factor": 1.2,
+    "calibrated_xg": {
+      "home": 1.61,
+      "away": 1.43
+    },
+    "top_15_scorelines": [
+      {
+        "score": "1-1",
+        "prob_pct": 9.0
+      },
+      {
+        "score": "1-0",
+        "prob_pct": 8.8
+      },
+      {
+        "score": "0-1",
+        "prob_pct": 8.1
+      },
+      {
+        "score": "0-0",
+        "prob_pct": 8.0
+      },
+      {
+        "score": "2-1",
+        "prob_pct": 6.4
+      },
+      {
+        "score": "2-0",
+        "prob_pct": 6.3
+      },
+      {
+        "score": "1-2",
+        "prob_pct": 5.9
+      },
+      {
+        "score": "0-2",
+        "prob_pct": 5.3
+      },
+      {
+        "score": "2-2",
+        "prob_pct": 4.2
+      },
+      {
+        "score": "3-1",
+        "prob_pct": 3.7
+      },
+      {
+        "score": "3-0",
+        "prob_pct": 3.6
+      },
+      {
+        "score": "1-3",
+        "prob_pct": 3.1
+      },
+      {
+        "score": "0-3",
+        "prob_pct": 2.8
+      },
+      {
+        "score": "3-2",
+        "prob_pct": 2.4
+      },
+      {
+        "score": "2-3",
+        "prob_pct": 2.2
+      }
+    ],
+    "under_2_5_pct": 45.4,
+    "over_2_5_pct": 54.5
+  },
+  "bootstrap_ci": {
+    "home_win": {
+      "median": 25.0,
+      "mean": 25.4,
+      "ci50_low": 22.3,
+      "ci50_high": 28.1,
+      "ci95_low": 18.2,
+      "ci95_high": 33.9,
+      "std": 4.3,
+      "raw_median": 0.24970766010784112,
+      "raw_mean": 0.2537675142094277,
+      "raw_ci95": [
+        0.18187589030514725,
+        0.3386184371878119
+      ],
+      "base_in_95ci": false
+    },
+    "draw": {
+      "median": 30.5,
+      "mean": 30.5,
+      "ci50_low": 29.2,
+      "ci50_high": 31.7,
+      "ci95_low": 26.8,
+      "ci95_high": 34.0,
+      "std": 1.8,
+      "raw_median": 0.3052921374693429,
+      "raw_mean": 0.3050843457946877,
+      "raw_ci95": [
+        0.26799300533208226,
+        0.3399232330567392
+      ],
+      "base_in_95ci": false
+    },
+    "away_win": {
+      "median": 44.1,
+      "mean": 44.1,
+      "ci50_low": 40.6,
+      "ci50_high": 47.7,
+      "ci95_low": 34.6,
+      "ci95_high": 54.0,
+      "std": 5.2,
+      "raw_median": 0.4406936311990954,
+      "raw_mean": 0.4411481399958844,
+      "raw_ci95": [
+        0.3455332703646589,
+        0.5395929623434476
+      ],
+      "base_in_95ci": false
+    },
+    "xg_home": {
+      "median": 0.8,
+      "mean": 0.8,
+      "ci50_low": 0.7,
+      "ci50_high": 0.9,
+      "ci95_low": 0.6,
+      "ci95_high": 1.0,
+      "std": 0.1,
+      "raw_median": 0.7887244536680313,
+      "raw_mean": 0.7979555699294298,
+      "raw_ci95": [
+        0.6094504325626395,
+        1.0075472729544435
+      ]
+    },
+    "xg_away": {
+      "median": 1.2,
+      "mean": 1.2,
+      "ci50_low": 1.1,
+      "ci50_high": 1.3,
+      "ci95_low": 0.9,
+      "ci95_high": 1.4,
+      "std": 0.1,
+      "raw_median": 1.1503881107857605,
+      "raw_mean": 1.1574984294907023,
+      "raw_ci95": [
+        0.9229305242981722,
+        1.439278332882142
+      ]
+    },
+    "n_samples": 500
+  },
+  "provenance": {
+    "dc_hash": "345ceb9e55d8",
+    "dc_teams": 296,
+    "training_rows": 16706,
+    "version": "4.0.0-beta",
+    "weight_label": "WORLD_CUP_V3.9.6"
+  }
+}
