@@ -3,7 +3,7 @@
 **比赛时间**: 2026年6月23日 08:00 (北京时间, UTC+8) / 2026年6月23日 00:00 (UTC)
 **比赛地点**: MetLife Stadium, East Rutherford, NJ (大都会人寿球场, 容量82,500, 露天)
 **赛事阶段**: FIFA World Cup 2026, Group I, Matchday 2
-**系统版本**: V4.0.0-beta (V3.9.6权重) | 报告生成: 2026-06-22 | 数据截止: 实时
+**系统版本**: V4.0.1-beta (V3.9.6权重) | 报告生成: 2026-06-22 | 数据截止: 实时
 
 ---
 
@@ -193,4 +193,4 @@
 
 ---
 
-*报告由 Hermes Agent V4.0.0-beta (V3.9.6权重) 自动生成 | 多模型融合: DC + Enhancer + Elo + Pi | 数据源: Open-Meteo + web_search | 校准器: calibrator_wc.json (30 samples) | ⚠️ 本场市场数据不可用*
+*报告由 Hermes Agent V4.0.1-beta (V3.9.6权重) 自动生成 | 多模型融合: DC + Enhancer + Elo + Pi | 数据源: Open-Meteo + web_search | 校准器: calibrator_wc.json (30 samples) | ⚠️ 本场市场数据不可用*
