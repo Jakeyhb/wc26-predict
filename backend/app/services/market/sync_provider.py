@@ -145,92 +145,112 @@ async def _fetch_theodds_api(
     # The Odds API uses 'soccer' for all football
     sport = "soccer"
 
-    # Map competition to region hint
+    # Determine region and sport key hints
     region = "eu"  # default
+    is_wc = False
     if competition:
         comp_lower = competition.lower()
         if "world cup" in comp_lower or "fifa" in comp_lower:
-            region = "us"  # WC 2026 in USA
+            region = "us,uk,eu"  # WC: 三区域全覆盖，避免US-only遗漏低关注度比赛
+            is_wc = True
+
+    # Prefer WC-specific sport key when available — the generic 'soccer' feed
+    # often omits lower-profile WC group-stage matches (observed 2026-06-22:
+    # Norway-Senegal & Jordan-Algeria missing from 'soccer' but present under
+    # 'soccer_fifa_world_cup' with 48 bookmakers each).
+    sport_keys_to_try = ["soccer_fifa_world_cup", "soccer"] if is_wc else ["soccer"]
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            url = f"{base_url}/sports/{sport}/odds"
-            params = {
-                "apiKey": api_key,
-                "regions": region,
-                "markets": "h2h",
-                "oddsFormat": "decimal",
-            }
-            resp = await client.get(url, params=params)
-            if resp.status_code != 200:
-                logger.warning(
-                    f"The Odds API returned {resp.status_code}: {resp.text[:200]}"
-                )
-                return None
+            for sport_idx, sport in enumerate(sport_keys_to_try):
+                url = f"{base_url}/sports/{sport}/odds"
+                params = {
+                    "apiKey": api_key,
+                    "regions": region,
+                    "markets": "h2h",
+                    "oddsFormat": "decimal",
+                }
+                resp = await client.get(url, params=params)
+                if resp.status_code != 200:
+                    logger.warning(
+                        f"The Odds API {sport} returned {resp.status_code}: {resp.text[:200]}"
+                    )
+                    continue
 
-            data = resp.json()
-            if not isinstance(data, list) or len(data) == 0:
-                return None
+                data = resp.json()
+                if not isinstance(data, list) or len(data) == 0:
+                    continue
 
-            # Search for our match
-            home_lower = home_team.lower().strip()
-            away_lower = away_team.lower().strip()
-            for event in data:
-                ev_home = event.get("home_team", "").lower().strip()
-                ev_away = event.get("away_team", "").lower().strip()
-                if (home_lower in ev_home or ev_home in home_lower) and (
-                    away_lower in ev_away or ev_away in away_lower
-                ):
-                    # Found match — extract best 1X2 odds
-                    bookmakers = event.get("bookmakers", [])
-                    if not bookmakers:
-                        continue
-                    # Use first bookmaker's h2h market
-                    for bk in bookmakers:
-                        for market in bk.get("markets", []):
-                            if market.get("key") == "h2h":
-                                outcomes = market.get("outcomes", [])
-                                odds_map = {}
-                                for o in outcomes:
-                                    odds_map[o.get("name", "")] = float(
-                                        o.get("price", 0)
+                # Search for our match
+                home_lower = home_team.lower().strip()
+                away_lower = away_team.lower().strip()
+                match_found = False
+                for event in data:
+                    ev_home = event.get("home_team", "").lower().strip()
+                    ev_away = event.get("away_team", "").lower().strip()
+                    if (home_lower in ev_home or ev_home in home_lower) and (
+                        away_lower in ev_away or ev_away in away_lower
+                    ):
+                        # Found match — extract best 1X2 odds
+                        bookmakers = event.get("bookmakers", [])
+                        if not bookmakers:
+                            continue
+                        # Use first bookmaker's h2h market
+                        for bk in bookmakers:
+                            for market in bk.get("markets", []):
+                                if market.get("key") == "h2h":
+                                    outcomes = market.get("outcomes", [])
+                                    odds_map = {}
+                                    for o in outcomes:
+                                        odds_map[o.get("name", "")] = float(
+                                            o.get("price", 0)
+                                        )
+                                    home_odds = odds_map.get(
+                                        event.get("home_team", ""), 0
                                     )
-                                home_odds = odds_map.get(
-                                    event.get("home_team", ""), 0
-                                )
-                                away_odds = odds_map.get(
-                                    event.get("away_team", ""), 0
-                                )
-                                draw_odds = odds_map.get("Draw", 0)
+                                    away_odds = odds_map.get(
+                                        event.get("away_team", ""), 0
+                                    )
+                                    draw_odds = odds_map.get("Draw", 0)
 
-                                if (
-                                    home_odds > 1.0
-                                    and draw_odds > 1.0
-                                    and away_odds > 1.0
-                                ):
-                                    from app.services.market.probability import (
-                                        normalize_1x2_odds,
-                                    )
+                                    if (
+                                        home_odds > 1.0
+                                        and draw_odds > 1.0
+                                        and away_odds > 1.0
+                                    ):
+                                        from app.services.market.probability import (
+                                            normalize_1x2_odds,
+                                        )
 
-                                    norm = normalize_1x2_odds(
-                                        home_odds, draw_odds, away_odds
-                                    )
-                                    logger.info(
-                                        f"Market odds from The Odds API ({bk.get('title', '?')}): "
-                                        f"H={norm['home']:.3f} D={norm['draw']:.3f} "
-                                        f"A={norm['away']:.3f}"
-                                    )
-                                    return {
-                                        "home_prob": norm["home"],
-                                        "draw_prob": norm["draw"],
-                                        "away_prob": norm["away"],
-                                        "provider": "the-odds-api",
-                                        "overround": norm["overround"],
-                                        "home_odds": home_odds,
-                                        "draw_odds": draw_odds,
-                                        "away_odds": away_odds,
-                                        "bookmaker": bk.get("title", "unknown"),
-                                    }
+                                        norm = normalize_1x2_odds(
+                                            home_odds, draw_odds, away_odds
+                                        )
+                                        logger.info(
+                                            f"Market odds from The Odds API ({bk.get('title', '?')}, "
+                                            f"sport={sport}): "
+                                            f"H={norm['home']:.3f} D={norm['draw']:.3f} "
+                                            f"A={norm['away']:.3f}"
+                                        )
+                                        return {
+                                            "home_prob": norm["home"],
+                                            "draw_prob": norm["draw"],
+                                            "away_prob": norm["away"],
+                                            "provider": "the-odds-api",
+                                            "overround": norm["overround"],
+                                            "home_odds": home_odds,
+                                            "draw_odds": draw_odds,
+                                            "away_odds": away_odds,
+                                            "bookmaker": bk.get("title", "unknown"),
+                                        }
+                        match_found = True  # Found the event but couldn't extract odds
+
+                if match_found:
+                    logger.info(
+                        f"The Odds API: found {home_team} vs {away_team} "
+                        f"in {sport} but couldn't extract valid 1X2 odds"
+                    )
+
+            # Exhausted all sport keys
             logger.info(
                 f"The Odds API: no match found for {home_team} vs {away_team}"
             )

@@ -40,25 +40,25 @@
       "away_win_prob": 0.5794486535564966
     },
     "post_market": {
-      "home_win_prob": 0.19648959785435977,
-      "draw_prob": 0.22406174858914377,
-      "away_win_prob": 0.5794486535564966
+      "home_win_prob": 0.18228234129597995,
+      "draw_prob": 0.22341042635328306,
+      "away_win_prob": 0.594307232350737
     },
     "final": {
-      "home_win_prob": 0.19648959785435977,
-      "draw_prob": 0.22406174858914377,
-      "away_win_prob": 0.5794486535564966
+      "home_win_prob": 0.18228234129597995,
+      "draw_prob": 0.22341042635328306,
+      "away_win_prob": 0.594307232350737
     }
   },
   "market": {
-    "provider": "unavailable",
-    "live": false,
-    "home_odds": 0,
-    "draw_odds": 0,
-    "away_odds": 0,
-    "home_prob": 0.333,
-    "draw_prob": 0.333,
-    "away_prob": 0.333,
+    "provider": "the-odds-api",
+    "live": true,
+    "home_odds": 6.77,
+    "draw_odds": 4.45,
+    "away_odds": 1.56,
+    "home_prob": 0.1457493958601461,
+    "draw_prob": 0.22173559774678406,
+    "away_prob": 0.6325150063930699,
     "market_weight": 0.28
   },
   "home_xg": 0.9263291796139648,
@@ -79,8 +79,8 @@
   },
   "calibrated": {
     "home_win_prob": 0.0,
-    "draw_prob": 0.29411764705882354,
-    "away_win_prob": 0.7058823529411765
+    "draw_prob": 0.2866046159534094,
+    "away_win_prob": 0.7133953840465906
   },
   "calibration_applied": true,
   "calibration_stats": {
@@ -100,13 +100,13 @@
     "shift_applied": null
   },
   "weather": {
-    "temperature_c": 19.2,
+    "temperature_c": 20.3,
     "precipitation_mm": 0.0,
-    "wind_speed_kmh": 12.3,
-    "humidity_percent": 99.0,
-    "weather_code": 45,
-    "weather_description": "\u6709\u96fe",
-    "fetched_at": "2026-06-22T09:36:35.128742+00:00",
+    "wind_speed_kmh": 9.2,
+    "humidity_percent": 97.0,
+    "weather_code": 3,
+    "weather_description": "\u591a\u4e91",
+    "fetched_at": "2026-06-22T12:37:18.156599+00:00",
     "forecast_available": true
   },
   "overdispersion": {
@@ -191,92 +191,12 @@
     "under_2_5_pct": 43.3,
     "over_2_5_pct": 56.7
   },
-  "bootstrap_ci": {
-    "home_win": {
-      "median": 22.8,
-      "mean": 23.1,
-      "ci50_low": 20.2,
-      "ci50_high": 26.0,
-      "ci95_low": 15.8,
-      "ci95_high": 30.8,
-      "std": 4.0,
-      "raw_median": 0.22792206546392763,
-      "raw_mean": 0.23051563159483868,
-      "raw_ci95": [
-        0.1580092381361176,
-        0.3079680939600548
-      ],
-      "base_in_95ci": true
-    },
-    "draw": {
-      "median": 27.9,
-      "mean": 27.9,
-      "ci50_low": 26.5,
-      "ci50_high": 29.3,
-      "ci95_low": 23.9,
-      "ci95_high": 31.9,
-      "std": 2.0,
-      "raw_median": 0.2792162698626407,
-      "raw_mean": 0.27863066619787374,
-      "raw_ci95": [
-        0.23863027565596925,
-        0.3188592212363573
-      ],
-      "base_in_95ci": false
-    },
-    "away_win": {
-      "median": 49.3,
-      "mean": 49.1,
-      "ci50_low": 45.4,
-      "ci50_high": 52.5,
-      "ci95_low": 39.3,
-      "ci95_high": 59.9,
-      "std": 5.5,
-      "raw_median": 0.4929227101203879,
-      "raw_mean": 0.49085370220728713,
-      "raw_ci95": [
-        0.3934781927203166,
-        0.5987901221238328
-      ],
-      "base_in_95ci": true
-    },
-    "xg_home": {
-      "median": 0.8,
-      "mean": 0.8,
-      "ci50_low": 0.8,
-      "ci50_high": 0.9,
-      "ci95_low": 0.7,
-      "ci95_high": 1.0,
-      "std": 0.1,
-      "raw_median": 0.8321251513542678,
-      "raw_mean": 0.8294969865611048,
-      "raw_ci95": [
-        0.6515743558972287,
-        1.0269132582296117
-      ]
-    },
-    "xg_away": {
-      "median": 1.3,
-      "mean": 1.4,
-      "ci50_low": 1.2,
-      "ci50_high": 1.5,
-      "ci95_low": 1.1,
-      "ci95_high": 1.7,
-      "std": 0.2,
-      "raw_median": 1.3451904731943571,
-      "raw_mean": 1.3574885853623342,
-      "raw_ci95": [
-        1.0517541177888658,
-        1.6873434633287734
-      ]
-    },
-    "n_samples": 500
-  },
+  "bootstrap_ci": null,
   "provenance": {
     "dc_hash": "345ceb9e55d8",
     "dc_teams": 296,
     "training_rows": 16706,
-    "version": "4.0.0-beta",
+    "version": "4.0.1-beta",
     "weight_label": "WORLD_CUP_V3.9.6"
   }
 }
