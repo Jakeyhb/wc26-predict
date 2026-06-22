@@ -99,6 +99,16 @@
     "dc_weight_adaptive": null,
     "shift_applied": null
   },
+  "weather": {
+    "temperature_c": 19.2,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 12.3,
+    "humidity_percent": 99.0,
+    "weather_code": 45,
+    "weather_description": "\u6709\u96fe",
+    "fetched_at": "2026-06-22T09:36:35.128742+00:00",
+    "forecast_available": true
+  },
   "overdispersion": {
     "poisson": {
       "home_win": 0.20039526192437876,

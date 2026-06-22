@@ -40,25 +40,25 @@
       "away_win_prob": 0.3899527107084878
     },
     "post_market": {
-      "home_win_prob": 0.4716313112018416,
-      "draw_prob": 0.2469024240420071,
-      "away_win_prob": 0.2814662647561514
+      "home_win_prob": 0.4736385960198854,
+      "draw_prob": 0.24486137718658468,
+      "away_win_prob": 0.28150002679352987
     },
     "final": {
-      "home_win_prob": 0.4716313112018416,
-      "draw_prob": 0.2469024240420071,
-      "away_win_prob": 0.2814662647561514
+      "home_win_prob": 0.4736385960198854,
+      "draw_prob": 0.24486137718658468,
+      "away_win_prob": 0.28150002679352987
     }
   },
   "market": {
     "provider": "the-odds-api",
     "live": true,
-    "home_odds": 1.45,
-    "draw_odds": 4.2,
+    "home_odds": 1.44,
+    "draw_odds": 4.3,
     "away_odds": 8.0,
-    "home_prob": 0.6550984597387405,
-    "draw_prob": 0.22616494443361276,
-    "away_prob": 0.1187365958276467,
+    "home_prob": 0.6601166717838501,
+    "draw_prob": 0.22106232729505682,
+    "away_prob": 0.11882100092109303,
     "market_weight": 0.4
   },
   "home_xg": 1.0521565326173385,
@@ -98,6 +98,16 @@
     "severity": "high",
     "dc_weight_adaptive": 0.61,
     "shift_applied": 0.09
+  },
+  "weather": {
+    "temperature_c": 12.5,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 5.2,
+    "humidity_percent": 96.0,
+    "weather_code": 1,
+    "weather_description": "\u5927\u81f4\u6674\u6717",
+    "fetched_at": "2026-06-22T09:35:08.265108+00:00",
+    "forecast_available": true
   },
   "overdispersion": {
     "poisson": {

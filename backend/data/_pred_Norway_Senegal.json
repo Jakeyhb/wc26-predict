@@ -99,6 +99,16 @@
     "dc_weight_adaptive": 0.55,
     "shift_applied": 0.15
   },
+  "weather": {
+    "temperature_c": 16.2,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 4.9,
+    "humidity_percent": 65.0,
+    "weather_code": 3,
+    "weather_description": "\u591a\u4e91",
+    "fetched_at": "2026-06-22T09:36:20.497465+00:00",
+    "forecast_available": true
+  },
   "overdispersion": {
     "poisson": {
       "home_win": 0.4022353692155339,

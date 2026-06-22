@@ -292,25 +292,53 @@ def main():
         pass
 
     # ── 7. Weather (Open-Meteo API) ──
-    weather_data = {
-        "temperature_c": None, "precipitation_mm": 0.0, "wind_speed_kmh": None,
-        "humidity_percent": None, "weather_code": None, "weather_description": "unknown",
-        "forecast_available": False, "source": "not fetched"
-    }
+    # V4.0.1: Always fetch weather for WC matches using venue from schedule DB.
+    # Falls back to WeatherService for non-WC / unknown venues.
+    weather_data = None
     try:
         from app.services.weather_service import WeatherService
         weather_svc = WeatherService()
+
+        # For World Cup matches, resolve venue from schedule DB for accurate weather
+        is_wc_comp = "world cup" in COMP.lower()
+        resolved_venue = None
+        if is_wc_comp:
+            try:
+                import sqlite3
+                db_path = str(BACKEND_DIR / "data" / "local_stage2.db")
+                db = sqlite3.connect(db_path)
+                cur = db.cursor()
+                cur.execute(
+                    """SELECT venue, city FROM wc26_schedule
+                       WHERE home_team = ? AND away_team = ? AND match_status = 'SCHEDULED'
+                       ORDER BY match_date LIMIT 1""",
+                    (HOME, AWAY),
+                )
+                row = cur.fetchone()
+                db.close()
+                if row:
+                    resolved_venue = row[0]
+            except Exception:
+                pass  # DB lookup best-effort
+
         weather_data = weather_svc.get_weather_for_match_sync(
-            venue=None, home_team=HOME, away_team=AWAY
+            venue=resolved_venue, home_team=HOME, away_team=AWAY
         )
         if weather_data and weather_data.get("forecast_available"):
             print(f"Weather: {weather_data.get('weather_description', '?')} "
                   f"{weather_data.get('temperature_c', '?')}°C "
-                  f"humidity={weather_data.get('humidity_percent', '?')}%")
+                  f"humidity={weather_data.get('humidity_percent', '?')}% "
+                  f"venue={resolved_venue or 'unknown'}")
         else:
-            print(f"Weather: unavailable ({weather_data.get('reason', 'no data')})")
+            print(f"Weather: unavailable (venue={resolved_venue or 'unknown'}, "
+                  f"reason={weather_data.get('reason', 'no data') if weather_data else 'fetch failed'})")
     except Exception as e:
         print(f"Weather: error — {e}")
+        weather_data = {
+            "temperature_c": None, "precipitation_mm": 0.0, "wind_speed_kmh": None,
+            "humidity_percent": None, "weather_code": None, "weather_description": "unknown",
+            "forecast_available": False, "source": "fetch_error"
+        }
 
     # ── Output ──
     print(f"DC:        H={dc_raw['home_win_prob']:.4f} D={dc_raw['draw_prob']:.4f} A={dc_raw['away_win_prob']:.4f}")
@@ -360,6 +388,7 @@ def main():
         "calibration_applied": calibration_applied,
         "calibration_stats": calibration_stats,
         "dc_enhancer_divergence": divergence,
+        "weather": weather_data,
         "overdispersion": od_scoreline,
         "bootstrap_ci": None,
         "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
