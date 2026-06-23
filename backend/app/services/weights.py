@@ -24,11 +24,17 @@ class WeightConfig:
 
     All weights are in [0, 1]. They are applied sequentially in the pipeline:
       DC → +Enhancer (1-dc) → +Weibull → +Elo → +Pi → +Market → +Signal
+
+    IMPORTANT: The ``enhancer`` field is INFORMATIONAL only — used by
+    learning_engine.py for margin-attribution, NOT by predict_match_full.py
+    for controlling the enhancer blend.  The actual enhancer weight in the
+    DC+Enhancer fusion step is ``1 - dc``.  To reduce enhancer influence,
+    INCREASE ``dc`` (not decrease ``enhancer``).
     """
 
     version: str = "1.0"
-    dc: float = 0.55  # Dixon-Coles base weight in DC+Enhancer fusion
-    enhancer: float = 0.25  # TabularMatchEnhancer weight (1-dc in first blend)
+    dc: float = 0.55  # Dixon-Coles base weight in DC+Enhancer fusion (enhancer blend = 1-dc)
+    enhancer: float = 0.25  # INFORMATIONAL: used by learning_engine margin attribution only
     elo: float = 0.05  # Elo kappa-Davidson weight
     pi: float = 0.05  # Pi-Rating weight
     weibull: float = 0.10  # Weibull Copula weight
@@ -72,7 +78,7 @@ class WeightConfig:
 _WORLD_CUP = WeightConfig(
     version="4.0.3",
     dc=0.63,            # ↓ from 0.70 (V4.0.3: DC 5/5 direction correct but magnitudes conservative, trim to make room for Pi)
-    enhancer=0.10,      # ↓ from 0.45 (V4.0.3: 5/5 WC direction wrong, avg Brier 0.89 — minimum noise floor)
+    enhancer=0.37,      # Actual enhancer blend = 1-dc = 0.37 (for learning_engine margin attribution)
     elo=0.12,           # ↑ from 0.08 (V4.0.3: 4/5 WC direction correct, avg Brier 0.30 — first wrong on Norway-Senegal but still reliable)
     pi=0.08,            # ↑ from 0.02 (V4.0.3: Norway-Senegal proved Pi is BEST model in competitive fixtures — Brier 0.29 when 7/11 layers wrong)
     weibull=0.10,       # (unchanged)
@@ -80,10 +86,31 @@ _WORLD_CUP = WeightConfig(
     label="WORLD_CUP_V4.0.3",
 )
 
+# V4.0.3-knockout: Drastically reduce Enhancer influence for WC knockout matches.
+# Enhancer has been wrong 7/8 WC group matches (87.5% wrong direction, avg Brier ~0.89).
+# Knockout matches are even more competitive — Enhancer's underdog bias is MORE dangerous.
+#
+# The actual Enhancer blend weight is (1 - dc).  Group-stage dc=0.63 → enhancer_actual=0.37.
+# Knockout dc=0.78 → enhancer_actual=0.22 (40% reduction in Enhancer influence).
+#
+# Effective weights (6-model sequential, excluding Market; Weibull=0.10):
+#   Group:   DC=45.9%  Enh=27.0%  Wb=8.1%  Elo=11.0%  Pi=8.0%
+#   Knockout: DC=56.9%  Enh=16.1%  Wb=6.2%  Elo=14.5%  Pi=10.3%
+_WORLD_CUP_KNOCKOUT = WeightConfig(
+    version="4.0.3-knockout",
+    dc=0.78,            # ↑ from 0.63 → enhancer blend drops from 0.37 to 0.22
+    enhancer=0.22,      # Actual enhancer blend = 1-dc = 0.22 (for learning_engine margin attribution)
+    elo=0.20,           # ↑ from 0.12: 4/5 WC dir correct, reliable anchor
+    pi=0.15,            # ↑ from 0.08: Brier 0.29 best in competitive WC fixtures
+    weibull=0.10,       # (unchanged)
+    market_max=0.30,    # (unchanged)
+    label="WORLD_CUP_KNOCKOUT_V4.0.3",
+)
+
 _UCL_FINAL = WeightConfig(
     version="1.0",
     dc=0.42,
-    enhancer=0.30,
+    enhancer=0.58,      # = 1-dc
     elo=0.08,
     pi=0.12,
     weibull=0.08,
@@ -94,7 +121,7 @@ _UCL_FINAL = WeightConfig(
 _UCL_KNOCKOUT = WeightConfig(
     version="1.0",
     dc=0.45,
-    enhancer=0.28,
+    enhancer=0.55,      # = 1-dc
     elo=0.07,
     pi=0.10,
     weibull=0.10,
@@ -105,7 +132,7 @@ _UCL_KNOCKOUT = WeightConfig(
 _LEAGUE_DEFAULT = WeightConfig(
     version="1.0",
     dc=0.50,
-    enhancer=0.30,
+    enhancer=0.50,      # = 1-dc
     elo=0.05,
     pi=0.05,
     weibull=0.10,
@@ -125,7 +152,7 @@ _LEAGUE_DEFAULT = WeightConfig(
 _FRIENDLY = WeightConfig(
     version="2.7",
     dc=0.28,          # ↓ from 0.38 (DC 0/3 in friendlies — near total failure)
-    enhancer=0.42,    # ~ (still best at 2/3, but SG-CN proves it's not infallible)
+    enhancer=0.72,    # = 1-dc (DC fails in friendlies, enhancer blend is dominant)
     elo=0.02,         # ↓ from 0.04 (Elo 0/3 in friendlies — irrelevant)
     pi=0.16,          # ↑ from 0.04 (sole correct model on SG-CN, 4x weight increase)
     weibull=0.12,     # slight adjustment
@@ -166,6 +193,11 @@ def get_weight_config(
     #     with friendlies data where Enhancer performs well; WC group stage
     #     is fundamentally different: lopsided, superstar-driven matches)
     if "world cup" in c:
+        # V4.0.3-knockout: Enhancer=0 for knockout matches
+        # Enhancer 7/8 wrong direction in WC group stage (87.5% wrong),
+        # knockout matches are even more competitive — underdog bias is MORE dangerous.
+        if _is_knockout_stage(s):
+            return _WORLD_CUP_KNOCKOUT
         return _WORLD_CUP
 
     # 2. Try DB auto-optimized weights (for non-WC, non-friendly competitions)
@@ -186,8 +218,6 @@ def get_weight_config(
 
     # 3. Competition-aware defaults
 
-    if "world cup" in c:
-        return _WORLD_CUP
     if ("champions" in c or "ucl" in c):
         if s == "final":
             return _UCL_FINAL
@@ -277,6 +307,18 @@ def _apply_competition_market_max(
 
 
 # ── Convenience ──
+
+def _is_knockout_stage(stage: str) -> bool:
+    """Detect whether a stage string indicates a knockout (not group) match."""
+    s = (stage or "").lower()
+    knockout_keywords = [
+        "round of 32", "round of 16", "round of 8",
+        "quarter", "semi", "final",
+        "last 16", "last 32", "last 8",
+        "playoff", "knockout",
+    ]
+    return any(kw in s for kw in knockout_keywords)
+
 
 def get_world_cup_weights() -> WeightConfig:
     """Get the standard World Cup weight configuration."""

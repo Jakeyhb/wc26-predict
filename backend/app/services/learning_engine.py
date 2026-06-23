@@ -88,6 +88,54 @@ def _coerce_probs(probs: dict[str, Any]) -> dict[str, float]:
     }
 
 
+def _classify_signal_impact(signal_type: str) -> int:
+    """Classify signal direction: -1 (negative/hurts team), +1 (positive/helps team), 0 (neutral).
+
+    Used by _update_signal_track_records to determine which outcome a signal favors.
+    """
+    signal_upper = (signal_type or "").upper()
+    negative_signals = {
+        "INJURY", "SUSPENSION", "ILLNESS", "PERSONAL_LEAVE",
+        "INTERNAL_CONFLICT", "FATIGUE", "TRAVEL_DISRUPTION",
+    }
+    positive_signals = {
+        "MOTIVATION", "RETURN", "NEW_COACH_BOUNCE", "MOMENTUM",
+        "CROWD_SUPPORT", "ROTATION_HINT",
+    }
+    # Everything else (LINEUP_RUMOR, WEATHER, etc.) → neutral
+    if signal_upper in negative_signals:
+        return -1
+    if signal_upper in positive_signals:
+        return 1
+    return 0
+
+
+def _lookup_stage_for_match(home_team: str | None, away_team: str | None) -> str:
+    """Look up the competition stage from wc26_schedule by team names.
+
+    Returns the stage string or '' if not found.
+    """
+    if not home_team or not away_team:
+        return ""
+    try:
+        import sqlite3
+        from pathlib import Path
+        db_path = Path(__file__).resolve().parent.parent.parent / "data" / "local_stage2.db"
+        if not db_path.exists():
+            return ""
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT stage FROM wc26_schedule WHERE home_team=? AND away_team=?",
+            (home_team, away_team),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return str(row[0]) if row and row[0] else ""
+    except Exception:
+        return ""
+
+
 class LearningEngine:
     """Per-match learning: error attribution, signal tracking, context updates."""
 
@@ -169,7 +217,11 @@ class LearningEngine:
 
         # Weights from unified config source
         from app.services.weights import get_weight_config
-        wc = get_weight_config("FIFA World Cup 2026")
+        stage = _lookup_stage_for_match(snapshot.home_team, snapshot.away_team)
+        wc = get_weight_config(
+            snapshot.competition or "FIFA World Cup 2026",
+            stage,
+        )
         weights = {
             "dc": wc.dc,
             "enhancer": wc.enhancer,
@@ -338,6 +390,21 @@ class LearningEngine:
         """Fuse remaining components after excluding one layer.
 
         Returns {home, draw, away} or None if no components remain.
+
+        .. warning::
+
+           Uses simple weighted-average fusion rather than the actual sequential
+           normalized fusion from predict_match_full.py.  The real pipeline is:
+
+              DC → +Enhancer(1-dc) → +Weibull(wb) → +Elo(elo) → +Pi(pi)
+
+           Each step normalizes independently.  This method weights all remaining
+           components in a single flat pass, so its marginal Brier scores are an
+           approximation — NOT exact "what if this component were removed" values.
+
+           Known bias: attributes too much blame to DC (high weight in flat avg)
+           and too little to later-stage components (Elo, Pi) whose sequential
+           effective weights are diluted by prior normalization steps.
         """
         remaining = {k: v for k, v in components.items() if k != exclude}
         if not remaining:
@@ -377,6 +444,9 @@ class LearningEngine:
         For each active signal in the snapshot, evaluates whether it was
         accurate/misleading/neutral based on the actual match outcome,
         then updates signal_track_record and recalculates dynamic weights.
+
+        V4.0.3-fix: Now actually evaluates signal direction vs actual result
+        instead of only incrementing total_used.
         """
         event_ids = snapshot.active_event_ids or []
         if not event_ids:
@@ -388,31 +458,103 @@ class LearningEngine:
             if existing is None:
                 db.add(SignalTrackRecord(**st))
 
-        # For now, increment total_used for all active signal types
-        # Full per-signal scoring needs the manual_events table join
-        # which will be implemented when manual_events have better metadata
         import sqlalchemy as sa
+
+        # Map actual_index to result direction
+        # actual_index: 0=home_win, 1=draw, 2=away_win
+        actual_result_map = {0: "H", 1: "D", 2: "A"}
+
         for evt_id in event_ids:
-            # Best-effort: try to find matching signal type from manual_events
             try:
                 result = await db.execute(
                     sa.text(
-                        "SELECT event_type FROM manual_events WHERE id = :eid"
+                        "SELECT event_type, team_name, severity, note "
+                        "FROM manual_events WHERE id = :eid"
                     ),
                     {"eid": evt_id},
                 )
                 row = result.fetchone()
-                if row:
-                    signal_type = str(row[0]).upper()
+                if not row:
+                    continue
+
+                signal_type = str(row[0]).upper()
+                team_name = str(row[1]) if row[1] else ""
+
+                # Determine signal direction: which outcome does it favor?
+                # Negative events (INJURY, SUSPENSION) hurt the affected team
+                # → signal is "accurate" if that team LOSES (away_win when team=home, home_win when team=away)
+                # Positive events (MOTIVATION, RETURN) help the affected team
+                # → signal is "accurate" if that team WINS
+
+                signal_impact = _classify_signal_impact(signal_type)
+                if signal_impact == 0:
+                    # Neutral — can't evaluate directionally
                     await db.execute(
                         sa.text(
                             "UPDATE signal_track_record SET total_used = total_used + 1, "
+                            "neutral_count = neutral_count + 1, "
                             "last_updated = datetime('now') WHERE signal_type = :st"
                         ),
                         {"st": signal_type},
                     )
+                    continue
+
+                # Determine if signal favors home or away
+                home_team = (snapshot.home_team or "").lower()
+                away_team = (snapshot.away_team or "").lower()
+                team_lower = team_name.lower()
+
+                # Does the signal affect the home team or away team?
+                affects_home = team_lower and home_team and team_lower in home_team
+                affects_away = team_lower and away_team and team_lower in away_team
+
+                if not affects_home and not affects_away:
+                    # Can't determine which team — count as neutral
+                    await db.execute(
+                        sa.text(
+                            "UPDATE signal_track_record SET total_used = total_used + 1, "
+                            "neutral_count = neutral_count + 1, "
+                            "last_updated = datetime('now') WHERE signal_type = :st"
+                        ),
+                        {"st": signal_type},
+                    )
+                    continue
+
+                # Negative impact on home team → favors away_win
+                # Negative impact on away team → favors home_win
+                # Positive impact on home team → favors home_win
+                # Positive impact on away team → favors away_win
+                if signal_impact < 0:  # Negative event (injury, suspension)
+                    favored_outcome = "A" if affects_home else "H"
+                else:  # Positive event (motivation, return)
+                    favored_outcome = "H" if affects_home else "A"
+
+                actual_outcome = actual_result_map.get(actual_index, "D")
+
+                # Score: accurate if favored outcome matches actual result
+                if favored_outcome == actual_outcome:
+                    await db.execute(
+                        sa.text(
+                            "UPDATE signal_track_record SET total_used = total_used + 1, "
+                            "accurate_count = accurate_count + 1, "
+                            "last_updated = datetime('now') WHERE signal_type = :st"
+                        ),
+                        {"st": signal_type},
+                    )
+                else:
+                    await db.execute(
+                        sa.text(
+                            "UPDATE signal_track_record SET total_used = total_used + 1, "
+                            "misleading_count = misleading_count + 1, "
+                            "last_updated = datetime('now') WHERE signal_type = :st"
+                        ),
+                        {"st": signal_type},
+                    )
+
             except Exception:
-                logger.warning("Signal track record update failed for event %s", evt_id, exc_info=True)
+                logger.warning(
+                    "Signal track record update failed for event %s", evt_id, exc_info=True
+                )
 
         # Recalculate weights after updates
         await self._recalculate_signal_weights(db)
@@ -427,32 +569,48 @@ class LearningEngine:
         Range: [0.4, 1.0]
         - Perfect accuracy (100%): multiplier = 1.0 (full impact)
         - Complete failure (0%): multiplier = 0.4 (60% reduction)
-        - Minimum 5 scored signals required to update
+        - Minimum 3 scored signals required to update multiplier
+        - accuracy_rate is ALWAYS updated (even with < 3 samples) to fix display
         """
         import sqlalchemy as sa
 
+        # V4.0.3-fix: Always fetch ALL signal records (not just >= threshold)
+        # to update accuracy_rate display value
         result = await db.execute(
             sa.text(
                 "SELECT signal_type, accurate_count, misleading_count "
-                "FROM signal_track_record "
-                "WHERE (accurate_count + misleading_count) >= 5"
+                "FROM signal_track_record"
             )
         )
         rows = result.fetchall()
 
         for signal_type, accurate, misleading in rows:
             total_scored = accurate + misleading
+            # Always recalculate accuracy_rate (fixes stale 0.5 display)
             accuracy_rate = accurate / total_scored if total_scored > 0 else 0.5
-            new_multiplier = 0.4 + 0.6 * accuracy_rate
 
+            # Update accuracy_rate unconditionally (display fix)
             await db.execute(
                 sa.text(
                     "UPDATE signal_track_record "
-                    "SET current_weight_multiplier = :mul, last_updated = datetime('now') "
+                    "SET accuracy_rate = :ar, last_updated = datetime('now') "
                     "WHERE signal_type = :st"
                 ),
-                {"mul": new_multiplier, "st": signal_type},
+                {"ar": accuracy_rate, "st": signal_type},
             )
+
+            # Only update weight_multiplier with >= 3 scored samples
+            # (lowered from 5 — we're data-starved in early tournament phase)
+            if total_scored >= 3:
+                new_multiplier = 0.4 + 0.6 * accuracy_rate
+                await db.execute(
+                    sa.text(
+                        "UPDATE signal_track_record "
+                        "SET current_weight_multiplier = :mul, last_updated = datetime('now') "
+                        "WHERE signal_type = :st"
+                    ),
+                    {"mul": new_multiplier, "st": signal_type},
+                )
 
     async def _log_market_divergence(
         self,

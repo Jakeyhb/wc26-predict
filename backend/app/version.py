@@ -7,9 +7,9 @@ from this file. Never hardcode a version string elsewhere.
 import subprocess
 from pathlib import Path
 
-VERSION = "4.0.3-beta"
-TAG = "v4.0.3-beta"
-BUILD_NAME = "V4.0.3 测试版 — Pi↑8% (均势对决唯一可靠模型, Norway-Senegal验证)"
+VERSION = "4.1-beta"
+TAG = "v4.1-beta"
+BUILD_NAME = "V4.1 测试版 — 30处Bug修复 + 管线一致性 + Weibull全接入 + 淘汰赛权重"
 
 
 def get_git_commit() -> str:

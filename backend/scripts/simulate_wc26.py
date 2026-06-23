@@ -37,6 +37,7 @@ from app.services.tabular_match_model import (
     fuse_outcome_probabilities,
 )
 from app.services.weights import get_weight_config
+from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 
 # ── Constants ──────────────────────────────────────────────────────────
 
@@ -95,6 +96,19 @@ def load_pi() -> PiRatingWrapper:
     return pi_model
 
 
+def load_weibull(training_df: pd.DataFrame) -> WeibullWrapper | None:
+    """Fit Weibull once for reuse across all 72 match predictions.
+    Returns None if fitting fails — simulation continues without Weibull.
+    """
+    try:
+        wb = WeibullWrapper()
+        if wb.fit(training_df):
+            return wb
+    except Exception:
+        pass
+    return None
+
+
 def load_training_df() -> pd.DataFrame:
     if DF_PATH.exists():
         return pd.read_pickle(str(DF_PATH))
@@ -149,6 +163,7 @@ def predict_group_match(
     enhancer: TabularMatchEnhancer | None,
     elo: EloRatingSystem | None,
     pi_model: PiRatingWrapper | None,
+    weibull: WeibullWrapper | None,
     training_df: pd.DataFrame,
     home: str,
     away: str,
@@ -171,16 +186,23 @@ def predict_group_match(
         match_date = training_df["match_date"].max()
         enh_pred = enhancer.predict_match(
             home_team=home, away_team=away, match_date=match_date,
-            competition_weight=0.5, is_neutral_venue=is_neutral,
+            competition_weight=1.0, is_neutral_venue=is_neutral,
             training_df=training_df,
         )
         fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=weight_config.dc)
+
+    # Step 2.5: Weibull (standard+, applied after Enhancer for consistency)
+    # V4.0.3-fix: Weibull was missing from tournament simulation pipeline.
+    if mode in ("standard", "full") and weibull is not None and weibull._fitted:
+        wb_pred = weibull.predict(home, away, is_neutral)
+        if wb_pred is not None:
+            fused = fuse_weibull_probs(fused, wb_pred, wb_weight=weight_config.weibull)
 
     # Step 3: Elo (standard+)
     if mode in ("standard", "full") and elo is not None:
         elo_pred = elo.predict(
             home, away, is_neutral=is_neutral,
-            competition_weight=0.5, competition="FIFA World Cup 2026",
+            competition_weight=1.0, competition="FIFA World Cup 2026",
         )
         fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=weight_config.elo)
 
@@ -258,10 +280,17 @@ def main() -> None:
     training_df = load_training_df()
     print(f"  Training data loaded: {len(training_df)} matches")
 
+    # 2.5. Load Weibull (fit once for all matches, best-effort)
+    weibull = load_weibull(training_df) if args.mode in ("standard", "full") else None
+    if weibull and weibull._fitted:
+        print(f"  Weibull fitted OK")
+    else:
+        print(f"  Weibull: unavailable (continuing without)")
+
     # 3. Load weight config
-    weight_config = get_weight_config("FIFA World Cup 2026")
+    weight_config = get_weight_config("FIFA World Cup 2026", "Group Stage")
     print(f"  Weights: DC={weight_config.dc:.2f}  Enh={weight_config.enhancer:.2f}  "
-          f"Elo={weight_config.elo:.2f}  Pi={weight_config.pi:.2f}")
+          f"Wb={weight_config.weibull:.2f}  Elo={weight_config.elo:.2f}  Pi={weight_config.pi:.2f}")
 
     # 4. Load group teams
     print("\n[3] Loading group assignments...")
@@ -285,7 +314,7 @@ def main() -> None:
             away = teams[away_slot - 1]
             try:
                 probs = predict_group_match(
-                    dc, enhancer, elo, pi_model,
+                    dc, enhancer, elo, pi_model, weibull,
                     training_df, home, away, args.mode, weight_config,
                 )
                 match_probs[(home, away)] = probs

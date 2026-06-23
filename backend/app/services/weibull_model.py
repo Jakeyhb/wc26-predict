@@ -27,10 +27,12 @@ class WeibullWrapper:
         self._model: Any | None = None
         self._fitted: bool = False
 
-    def fit(self, df: pd.DataFrame, timeout: int = 60) -> bool:
+    def fit(self, df: pd.DataFrame) -> bool:
         """Fit the Weibull model on training data.
 
         Returns True if fitting succeeded, False otherwise.
+        NOTE: WeibullCopulaGoalsModel.fit() has no timeout mechanism; on large
+        datasets this may block for minutes.  Callers should budget accordingly.
         """
         try:
             from penaltyblog.models import WeibullCopulaGoalsModel
@@ -40,7 +42,7 @@ class WeibullWrapper:
                 goals_away=df["away_goals"].values,
                 teams_home=df["home_team"].values,
                 teams_away=df["away_team"].values,
-                weights=df.get("weight", None),
+                weights=df.get("competition_weight", None),
             )
             wc.fit()
             self._model = wc
@@ -74,7 +76,7 @@ def fuse_weibull_probs(base_probs: dict, wb_pred: dict | None, wb_weight: float 
     If Weibull failed to fit/predict, returns base_probs unchanged.
     """
     if wb_pred is None:
-        return {**base_probs, "weibull_applied": False}
+        return dict(base_probs)
 
     fused = {}
     for key in ("home_win_prob", "draw_prob", "away_win_prob"):
@@ -83,4 +85,4 @@ def fuse_weibull_probs(base_probs: dict, wb_pred: dict | None, wb_weight: float 
     for key in fused:
         fused[key] /= total
 
-    return {**fused, "weibull_applied": True}
+    return fused

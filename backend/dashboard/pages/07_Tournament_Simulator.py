@@ -89,11 +89,21 @@ if st.button("开始模拟", type="primary", key="sim_run"):
         from app.services.tabular_match_model import fuse_outcome_probabilities
         from app.services.elo_ratings import fuse_elo_probabilities
         from app.services.pi_ratings import fuse_pi_probabilities
+        from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 
         timer = PredictionTimer()
         training_df = _load_training_df(timer)
         match_date = training_df["match_date"].max().to_pydatetime()
-        wc = get_weight_config("FIFA World Cup 2026")
+        wc = get_weight_config("FIFA World Cup 2026", "Group Stage")
+
+        # Fit Weibull once for all matches (best-effort)
+        weibull = None
+        try:
+            wb = WeibullWrapper()
+            if wb.fit(training_df):
+                weibull = wb
+        except Exception:
+            pass
 
         dc = _load_dc(timer)
         enhancer = _load_enhancer(timer) if sim_mode in ("standard", "full") else None
@@ -116,12 +126,17 @@ if st.button("开始模拟", type="primary", key="sim_run"):
                 if enhancer is not None:
                     enh_pred = enhancer.predict_match(
                         home_team=home, away_team=away, match_date=match_date,
-                        competition_weight=0.5, is_neutral_venue=True, training_df=training_df,
+                        competition_weight=1.0, is_neutral_venue=True, training_df=training_df,
                     )
                     fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
 
+                if weibull is not None and weibull._fitted:
+                    wb_pred = weibull.predict(home, away, True)
+                    if wb_pred is not None:
+                        fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
+
                 if elo is not None:
-                    elo_pred = elo.predict(home, away, is_neutral=True, competition_weight=0.5, competition="FIFA World Cup 2026")
+                    elo_pred = elo.predict(home, away, is_neutral=True, competition_weight=1.0, competition="FIFA World Cup 2026")
                     fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=wc.elo)
 
                 if pi_model is not None:

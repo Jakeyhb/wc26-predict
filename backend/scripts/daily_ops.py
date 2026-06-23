@@ -162,23 +162,64 @@ async def task_backup():
 
 
 async def task_pregenerate():
-    """Regenerate predictions for WC26 group matches that need updating."""
+    """Regenerate predictions for WC26 group matches that need updating.
+
+    Uses predict_match_full.py for each upcoming match with SCHEDULED/PREDICTED status.
+    """
     log("Pregenerate starting...")
-    script = SCRIPTS_DIR / "pregenerate_wc26.py"
-    if script.exists():
-        try:
-            result = subprocess.run(
-                [sys.executable, str(script)],
-                cwd=str(PROJECT_ROOT),
-                capture_output=True, text=True, timeout=600,
-            )
-            log(f"  Exit: {result.returncode}")
-            for line in result.stdout.strip().split("\n")[-5:]:
-                log(f"    {line}")
-        except subprocess.TimeoutExpired:
-            log("  TIMEOUT after 600s")
-        except Exception as e:
-            log(f"  Error: {e}")
+
+    try:
+        import sqlite3
+        db_path = PROJECT_ROOT / "data" / "local_stage2.db"
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+
+        # Find upcoming WC matches (next 48 hours) that need predictions
+        cur.execute("""
+            SELECT home_team, away_team, match_date, match_status
+            FROM wc26_schedule
+            WHERE match_date >= date('now')
+              AND match_status IN ('SCHEDULED', 'PREDICTED')
+            ORDER BY match_date, match_number
+            LIMIT 10
+        """)
+        matches = cur.fetchall()
+        conn.close()
+
+        if not matches:
+            log("  No upcoming WC matches to predict")
+            log("Pregenerate done.")
+            return
+
+        predict_script = SCRIPTS_DIR / "predict_match_full.py"
+        if not predict_script.exists():
+            log(f"  ERROR: predict_match_full.py not found at {predict_script}")
+            log("Pregenerate done (error).")
+            return
+
+        for home, away, match_date, status in matches:
+            log(f"  Predicting: {home} vs {away} ({match_date}) [{status}]")
+            try:
+                # predict_match_full.py uses positional args:
+                #   python scripts/predict_match_full.py "$home" "$away" "FIFA World Cup 2026"
+                result = subprocess.run(
+                    [sys.executable, str(predict_script),
+                     home, away, "FIFA World Cup 2026"],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True, text=True, timeout=600,
+                )
+                if result.returncode == 0:
+                    log(f"    OK: {home} vs {away}")
+                else:
+                    log(f"    FAIL ({result.returncode}): {result.stderr.strip()[-200:]}")
+            except subprocess.TimeoutExpired:
+                log(f"    TIMEOUT: {home} vs {away}")
+            except Exception as e:
+                log(f"    Error: {e}")
+
+    except Exception as e:
+        log(f"  Setup error: {e}")
+
     log("Pregenerate done.")
 
 

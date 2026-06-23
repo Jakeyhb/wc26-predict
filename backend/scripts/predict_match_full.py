@@ -22,6 +22,7 @@ from app.services.pi_ratings import fuse_pi_probabilities
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
 from app.services.calibration import IsotonicCalibrator
+from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.version import VERSION
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -117,6 +118,30 @@ def overdispersed_poisson_scoreline(hxg: float, axg: float, max_g: int = 20) -> 
     }
 
 
+def _lookup_wc_stage(home: str, away: str) -> str:
+    """Look up the stage for a World Cup match from the schedule DB.
+
+    Returns the stage string (e.g. 'Group A - Matchday 1', 'Round of 16')
+    or '' if not found / not a WC match.
+    """
+    try:
+        import sqlite3
+        db_path = BACKEND_DIR / "data" / "local_stage2.db"
+        if not db_path.exists():
+            return ""
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT stage FROM wc26_schedule WHERE home_team=? AND away_team=?",
+            (home, away),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return str(row[0]) if row and row[0] else ""
+    except Exception:
+        return ""
+
+
 def main():
     HOME = sys.argv[1] if len(sys.argv) > 1 else "Saudi Arabia"
     AWAY = sys.argv[2] if len(sys.argv) > 2 else "Uruguay"
@@ -132,7 +157,7 @@ def main():
     elo = _load_elo(timer)
     pi_model = _load_pi(timer)
     df = _load_training_df(timer)
-    wc = get_weight_config(COMP)
+    wc = get_weight_config(COMP, _lookup_wc_stage(HOME, AWAY))
 
     # ── 1. DC ──
     dc_pred = dc.predict_match(HOME, AWAY, is_neutral_venue=IS_NEUTRAL)
@@ -190,6 +215,25 @@ def main():
     else:
         divergence["dc_weight_adaptive"] = None
         divergence["shift_applied"] = None
+
+    # ── 2.7. Weibull Copula ──
+    # V4.0.3-fix: Weibull was missing from predict_match_full pipeline
+    # (weight=0.10 was configured but never applied). Added after DC+Enhancer.
+    wb_pred_raw = None
+    wb_fitted = False
+    try:
+        wb = WeibullWrapper()
+        wb_fitted = wb.fit(df)
+        if wb_fitted:
+            wb_pred_raw = wb.predict(HOME, AWAY, IS_NEUTRAL)
+            if wb_pred_raw and wb_pred_raw.get("home_win_prob") is not None:
+                fused = fuse_weibull_probs(fused, wb_pred_raw, wb_weight=wc.weibull)
+                print(f"Weibull:  fitted OK, wb_weight={wc.weibull}")
+            else:
+                wb_pred_raw = None
+    except Exception as e:
+        print(f"Weibull:  skipped ({e})")
+    dc_enh_wb = dict(fused)
 
     # ── 3. Elo ──
     elo_obj = elo.predict(HOME, AWAY, is_neutral=IS_NEUTRAL, competition_weight=1.0, competition=COMP)
@@ -320,7 +364,7 @@ def main():
                 cur = db.cursor()
                 cur.execute(
                     """SELECT venue, city FROM wc26_schedule
-                       WHERE home_team = ? AND away_team = ? AND match_status = 'SCHEDULED'
+                       WHERE home_team = ? AND away_team = ?
                        ORDER BY match_date LIMIT 1""",
                     (HOME, AWAY),
                 )
@@ -354,6 +398,8 @@ def main():
     print(f"DC:        H={dc_raw['home_win_prob']:.4f} D={dc_raw['draw_prob']:.4f} A={dc_raw['away_win_prob']:.4f}")
     print(f"Enhancer:  H={enh_raw['home_win_prob']:.4f} D={enh_raw['draw_prob']:.4f} A={enh_raw['away_win_prob']:.4f}")
     print(f"DC+Enh:    H={dc_enh['home_win_prob']:.4f} D={dc_enh['draw_prob']:.4f} A={dc_enh['away_win_prob']:.4f}")
+    if wb_pred_raw:
+        print(f"+Weibull:  H={dc_enh_wb['home_win_prob']:.4f} D={dc_enh_wb['draw_prob']:.4f} A={dc_enh_wb['away_win_prob']:.4f}")
     print(f"+Elo:      H={dc_enh_elo['home_win_prob']:.4f} D={dc_enh_elo['draw_prob']:.4f} A={dc_enh_elo['away_win_prob']:.4f}")
     print(f"+Pi:       H={pre_market['home_win_prob']:.4f} D={pre_market['draw_prob']:.4f} A={pre_market['away_win_prob']:.4f}")
     if market_live:
@@ -382,9 +428,9 @@ def main():
     dc_params_sorted = json.dumps(sorted(dc.attack_params.items()), sort_keys=True).encode()
     result = {
         "home_team": HOME, "away_team": AWAY, "competition": COMP, "is_neutral": IS_NEUTRAL,
-        "layers": {"dc": dc_raw, "enhancer": enh_raw, "elo": elo_raw, "pi": pi_raw,
-                   "dc_enh": dc_enh, "dc_enh_elo": dc_enh_elo, "pre_market": pre_market,
-                   "post_market": post_market, "final": final},
+        "layers": {"dc": dc_raw, "enhancer": enh_raw, "weibull": wb_pred_raw, "elo": elo_raw, "pi": pi_raw,
+                   "dc_enh": dc_enh, "dc_enh_wb": dc_enh_wb, "dc_enh_elo": dc_enh_elo,
+                   "pre_market": pre_market, "post_market": post_market, "final": final},
         "market": {"provider": market_provider, "live": market_live,
                    "home_odds": home_odds, "draw_odds": draw_odds, "away_odds": away_odds,
                    "home_prob": market_home, "draw_prob": market_draw, "away_prob": market_away,

@@ -292,10 +292,7 @@ class PredictionPipeline:
         match_date = df["match_date"].max().to_pydatetime()
 
         # ── 2. Weight config ──
-        stage = ""
-        if lookup_match_id:
-            # Stage will be resolved later; use empty for now
-            pass
+        stage = _lookup_wc_stage(home_team, away_team) if (home_team and away_team) else ""
         wc = get_weight_config(competition, stage)
 
         # ── 3. Dixon-Coles (3-tier cache) ──
@@ -317,7 +314,7 @@ class PredictionPipeline:
         )
 
         # ── 5. Weibull Copula ──
-        wb_fitted = self._weibull.fit(df, timeout=60)
+        wb_fitted = self._weibull.fit(df)
         wb_pred = self._weibull.predict(home_team, away_team, is_neutral) if wb_fitted else None
 
         # ── 6. Fuse DC + Enhancer ──
@@ -525,6 +522,35 @@ class PredictionPipeline:
         if market_applied:
             components_used.append("market")
 
+        # Build dc_provenance for pipeline_params (V4.0.3-fix: was undefined)
+        dc_provenance: dict[str, object] = {}
+        try:
+            if hasattr(self, "_dc") and self._dc is not None:
+                dc_params_sorted = json.dumps(
+                    sorted(self._dc.attack_params.items()),
+                    sort_keys=True,
+                ).encode()
+                dc_provenance["dc_params_hash"] = hashlib.md5(dc_params_sorted).hexdigest()
+                dc_provenance["dc_teams"] = len(self._dc.attack_params)
+            else:
+                dc_provenance["dc_params_hash"] = "unavailable"
+        except Exception:
+            dc_provenance["dc_params_hash"] = "unavailable"
+
+        try:
+            df_fp = (
+                str(rows),
+                str(df["match_date"].min()),
+                str(df["match_date"].max()),
+            )
+            dc_provenance["training_df_fingerprint"] = hashlib.md5(
+                str(df_fp).encode()
+            ).hexdigest()
+            dc_provenance["training_rows"] = rows
+        except Exception:
+            dc_provenance["training_df_fingerprint"] = "batch_snapshot_db"
+            dc_provenance["training_rows"] = rows
+
         result = PredictionResult(
             home_team=home_team,
             away_team=away_team,
@@ -703,7 +729,8 @@ class PredictionPipeline:
         )
 
         # ── Weight config ──
-        wc = get_weight_config(competition)
+        stage = _lookup_wc_stage(home_team, away_team) if (home_team and away_team) else ""
+        wc = get_weight_config(competition, stage)
         fg = FusionGraph(blend_params={
             "dc_weight": wc.dc, "elo_weight": wc.elo, "pi_weight": wc.pi,
         })
@@ -738,9 +765,10 @@ class PredictionPipeline:
         has_enhancer = hasattr(self, "_enhancer") and self._enhancer is not None
         if mode in ("standard", "full", "research-full") and has_enhancer:
             quality.model_components["tabular_enhancer"] = "loaded_from_artifact"
+            enh_weight = _default_competition_weight(competition)
             enh_pred = self._enhancer.predict_match(
                 home_team=home_team, away_team=away_team,
-                match_date=effective_match_date, competition_weight=0.5,
+                match_date=effective_match_date, competition_weight=enh_weight,
                 is_neutral_venue=is_neutral, training_df=training_df,
             )
             component_probs["enhancer"] = {
@@ -755,13 +783,34 @@ class PredictionPipeline:
             fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
             fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
 
+        # ── 2.5. Weibull (research-full only, applied after Enhancer for consistency) ──
+        has_weibull = hasattr(self, "_weibull") and self._weibull is not None
+        if mode == "research-full" and has_weibull:
+            quality.model_components["weibull"] = "loaded_from_artifact"
+            try:
+                wb_pred = self._weibull.predict(home_team, away_team, is_neutral)
+                if wb_pred is not None:
+                    component_probs["weibull"] = {
+                        "home": wb_pred.get("home_win_prob", wb_pred.get("home", 0)),
+                        "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
+                        "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
+                    }
+                    before_wb = {
+                        "dc+enhancer": probs_dict_to_list(fused),
+                        "weibull": probs_dict_to_list(component_probs["weibull"]),
+                    }
+                    fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
+                    fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_wb, probs_dict_to_list(fused))
+            except Exception as exc:
+                logger.warning(f"Weibull prediction failed: {exc}")
+
         # ── 3. Elo (standard+) ──
         has_elo = hasattr(self, "_elo") and self._elo is not None
         if mode in ("standard", "full", "research-full") and has_elo:
             quality.model_components["elo"] = "loaded_from_artifact"
             elo_pred = self._elo.predict(
                 home_team, away_team, is_neutral=is_neutral,
-                competition_weight=0.5, competition=competition,
+                competition_weight=_default_competition_weight(competition), competition=competition,
             )
             component_probs["elo"] = {
                 "home": elo_pred.home_win_prob,
@@ -799,27 +848,6 @@ class PredictionPipeline:
                     source="pi_rating", reason="fitting_failed",
                     severity="warning", detail=str(exc),
                 ))
-
-        # ── 5. Weibull (research-full only) ──
-        has_weibull = hasattr(self, "_weibull") and self._weibull is not None
-        if mode == "research-full" and has_weibull:
-            quality.model_components["weibull"] = "loaded_from_artifact"
-            try:
-                wb_pred = self._weibull.predict(home_team, away_team, is_neutral)
-                if wb_pred is not None:
-                    component_probs["weibull"] = {
-                        "home": wb_pred.get("home_win_prob", wb_pred.get("home", 0)),
-                        "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
-                        "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
-                    }
-                    before_wb = {
-                        "dc+enhancer+elo+pi": probs_dict_to_list(fused),
-                        "weibull": probs_dict_to_list(component_probs["weibull"]),
-                    }
-                    fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
-                    fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_wb, probs_dict_to_list(fused))
-            except Exception as exc:
-                logger.warning(f"Weibull prediction failed: {exc}")
 
         # ── 6. Fusion diagnostics ──
         fg.compute_disagreement(component_probs)
@@ -1344,6 +1372,27 @@ def _is_national_competition(competition: str) -> bool:
     ]
     c = competition.lower()
     return any(kw in c for kw in keywords)
+
+
+def _lookup_wc_stage(home_team: str, away_team: str) -> str:
+    """Look up WC match stage from schedule DB by team names."""
+    try:
+        import sqlite3
+        from pathlib import Path
+        db_path = Path(__file__).resolve().parent.parent.parent / "data" / "local_stage2.db"
+        if not db_path.exists():
+            return ""
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT stage FROM wc26_schedule WHERE home_team=? AND away_team=?",
+            (home_team, away_team),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return str(row[0]) if row and row[0] else ""
+    except Exception:
+        return ""
 
 
 def _default_competition_weight(competition: str) -> float:
