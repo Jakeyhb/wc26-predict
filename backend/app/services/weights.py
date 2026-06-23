@@ -71,13 +71,13 @@ class WeightConfig:
 
 _WORLD_CUP = WeightConfig(
     version="3.9.7",
-    dc=0.65,            # ↓ from 0.70 (V3.9.7: 3/3 WC direction correct but xG severe underestimate, light trim)
-    enhancer=0.10,      # ↓ from 0.30 (V3.9.7: 0/3 WC direction correct, avg Brier 0.92 — systematically overrates underdogs in group stage)
-    elo=0.12,           # ↑ from 0.08 (V3.9.7: 3/3 WC direction correct, avg Brier 0.24 — most efficient signal, severely underutilized)
-    pi=0.05,            # ↑ from 0.02 (V3.9.7: 2/3 WC direction correct, weak but positive complement to Elo)
+    dc=0.63,            # ↓ from 0.65 (V3.9.8: trim to accommodate Pi 5%→8% — DC 5/5 direction correct but magnitudes conservative)
+    enhancer=0.10,      # (V3.9.7: 5/5 WC direction wrong, avg Brier 0.89 — kept at minimum as noise floor)
+    elo=0.12,           # (V3.9.7: 4/5 WC direction correct, avg Brier 0.30 — first wrong on Norway-Senegal but still reliable)
+    pi=0.08,            # ↑ from 0.05 (V3.9.8: Norway-Senegal proved Pi is BEST model in competitive fixtures — Brier 0.29 when 7/11 layers wrong. Critical for upcoming knockout matches)
     weibull=0.10,       # (unchanged)
-    market_max=0.30,    # ↑ from 0.28 (V3.9.7: 3/3 WC direction correct, avg Brier 0.14 — best signal, raise baseline)
-    label="WORLD_CUP_V3.9.7",
+    market_max=0.30,    # (V3.9.7: 5/5 WC direction correct, avg Brier 0.16 — anchor point)
+    label="WORLD_CUP_V3.9.8",
 )
 
 _UCL_FINAL = WeightConfig(
