@@ -35,6 +35,10 @@ from app.version import VERSION
 # V3.9.7: Argentina-Austria post-match: DC predicted 1.05 xG vs actual 2.63 (2.5x).
 # Spain-Saudi: DC 1.23 vs actual ~3.0 (2.4x). Brazil-Haiti was the exception
 # (coast mode), not the norm. Revert to 1.35 for stronger teams in group stage.
+# V4.0.3: 5-match WC validation — DC xG median 2.0x underestimate. 1.35 is still
+# conservative (observed 2.0-2.5x in blowouts, 1.6x in competitive matches).
+# Norway-Senegal 3-2: first match where BOTH teams' xG underestimated. Hold at 1.35
+# until knockout-stage data confirms need for further adjustment.
 WC_XG_CALIBRATION_FACTOR = 1.35
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -224,10 +228,10 @@ def main():
 
     market_weight = wc.market_max
 
-    # V3.9.7: Dynamic market boost when model-market divergence is extreme.
+    # V4.0.3: Dynamic market boost when model-market divergence is extreme.
     # When model (pre-market) and market disagree by >15pp on the favorite,
     # the model is likely suffering from component bias (e.g. Enhancer extreme).
-    # Boost market_weight up to 0.50 (raised from 0.40 in V3.9.7).
+    # Boost market_weight up to 0.50 (raised from 0.40 in V4.0.3).
     # Argentina-Austria: 30.6pp divergence, market_weight 0.40 was correct but
     # borderline. With Enhancer cut to 10%, model should be less biased but
     # when divergence still exceeds 25pp, market deserves more trust.
@@ -298,7 +302,7 @@ def main():
         pass
 
     # ── 7. Weather (Open-Meteo API) ──
-    # V4.0.1: Always fetch weather for WC matches using venue from schedule DB.
+    # V4.0.3: Always fetch weather for WC matches using venue from schedule DB.
     # Falls back to WeatherService for non-WC / unknown venues.
     weather_data = None
     try:

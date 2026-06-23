@@ -9,7 +9,7 @@ from pathlib import Path
 
 VERSION = "4.0.3-beta"
 TAG = "v4.0.3-beta"
-BUILD_NAME = "V4.0.3 测试版 — V3.9.8: Pi↑8% (均势对决唯一可靠模型, Norway-Senegal验证)"
+BUILD_NAME = "V4.0.3 测试版 — Pi↑8% (均势对决唯一可靠模型, Norway-Senegal验证)"
 
 
 def get_git_commit() -> str:

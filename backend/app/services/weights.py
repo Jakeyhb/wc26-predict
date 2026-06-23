@@ -70,14 +70,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="3.9.7",
-    dc=0.63,            # ↓ from 0.65 (V3.9.8: trim to accommodate Pi 5%→8% — DC 5/5 direction correct but magnitudes conservative)
-    enhancer=0.10,      # (V3.9.7: 5/5 WC direction wrong, avg Brier 0.89 — kept at minimum as noise floor)
-    elo=0.12,           # (V3.9.7: 4/5 WC direction correct, avg Brier 0.30 — first wrong on Norway-Senegal but still reliable)
-    pi=0.08,            # ↑ from 0.05 (V3.9.8: Norway-Senegal proved Pi is BEST model in competitive fixtures — Brier 0.29 when 7/11 layers wrong. Critical for upcoming knockout matches)
+    version="4.0.3",
+    dc=0.63,            # ↓ from 0.70 (V4.0.3: DC 5/5 direction correct but magnitudes conservative, trim to make room for Pi)
+    enhancer=0.10,      # ↓ from 0.45 (V4.0.3: 5/5 WC direction wrong, avg Brier 0.89 — minimum noise floor)
+    elo=0.12,           # ↑ from 0.08 (V4.0.3: 4/5 WC direction correct, avg Brier 0.30 — first wrong on Norway-Senegal but still reliable)
+    pi=0.08,            # ↑ from 0.02 (V4.0.3: Norway-Senegal proved Pi is BEST model in competitive fixtures — Brier 0.29 when 7/11 layers wrong)
     weibull=0.10,       # (unchanged)
-    market_max=0.30,    # (V3.9.7: 5/5 WC direction correct, avg Brier 0.16 — anchor point)
-    label="WORLD_CUP_V3.9.8",
+    market_max=0.30,    # ↑ from 0.28 (V4.0.3: 5/5 WC direction correct, avg Brier 0.16 — anchor point)
+    label="WORLD_CUP_V4.0.3",
 )
 
 _UCL_FINAL = WeightConfig(
@@ -161,7 +161,7 @@ def get_weight_config(
     if any(kw in c for kw in ["friendly", "international friendly", "warm-up"]):
         return _FRIENDLY
 
-    # 1b. V3.9.7: World Cup ALWAYS uses WC-specific weights
+    # 1b. V4.0.3: World Cup ALWAYS uses WC-specific weights
     #    (overrides DB auto-optimized — global optimizer is contaminated
     #     with friendlies data where Enhancer performs well; WC group stage
     #     is fundamentally different: lopsided, superstar-driven matches)
