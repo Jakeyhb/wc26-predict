@@ -70,14 +70,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="3.9.6",
-    dc=0.70,            # ↑ from 0.55 (V3.9.6: 18-match WC review: DC net positive +0.041 avg, 61% positivity rate)
-    enhancer=0.30,      # ↓ from 0.45 (V3.9.6: 12/18 matches negative marginal, -0.024 avg → reduce exposure)
-    elo=0.08,           # ↑ from 0.03 (V3.9.6: +0.073 avg marginal — highest per-unit, severely undervalued at 0.03)
-    pi=0.02,            # (unchanged: high variance, use as weak prior only)
+    version="3.9.7",
+    dc=0.65,            # ↓ from 0.70 (V3.9.7: 3/3 WC direction correct but xG severe underestimate, light trim)
+    enhancer=0.10,      # ↓ from 0.30 (V3.9.7: 0/3 WC direction correct, avg Brier 0.92 — systematically overrates underdogs in group stage)
+    elo=0.12,           # ↑ from 0.08 (V3.9.7: 3/3 WC direction correct, avg Brier 0.24 — most efficient signal, severely underutilized)
+    pi=0.05,            # ↑ from 0.02 (V3.9.7: 2/3 WC direction correct, weak but positive complement to Elo)
     weibull=0.10,       # (unchanged)
-    market_max=0.28,    # (unchanged: dynamic boost mechanism validated in Brazil-Haiti)
-    label="WORLD_CUP_V3.9.6",
+    market_max=0.30,    # ↑ from 0.28 (V3.9.7: 3/3 WC direction correct, avg Brier 0.14 — best signal, raise baseline)
+    label="WORLD_CUP_V3.9.7",
 )
 
 _UCL_FINAL = WeightConfig(
@@ -161,7 +161,14 @@ def get_weight_config(
     if any(kw in c for kw in ["friendly", "international friendly", "warm-up"]):
         return _FRIENDLY
 
-    # 2. Try DB auto-optimized weights
+    # 1b. V3.9.7: World Cup ALWAYS uses WC-specific weights
+    #    (overrides DB auto-optimized — global optimizer is contaminated
+    #     with friendlies data where Enhancer performs well; WC group stage
+    #     is fundamentally different: lopsided, superstar-driven matches)
+    if "world cup" in c:
+        return _WORLD_CUP
+
+    # 2. Try DB auto-optimized weights (for non-WC, non-friendly competitions)
     db_weights = _read_db_auto_weights()
     if db_weights:
         config = WeightConfig(

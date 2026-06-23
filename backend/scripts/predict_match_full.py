@@ -31,8 +31,11 @@ from app.version import VERSION
 # DC systematically under-predicts xG for national teams: avg 2.02 vs WC 2.81.
 # Factor: 2.81/2.02 ≈ 1.39. Initial choice: 1.35.
 # V3.9.6: Brazil-Haiti post-match shows both teams' xG overestimated (+74% rel).
-# Brazil "early-kill" effect (3 goals in 45min, coast 2H) → calibrate down.
-WC_XG_CALIBRATION_FACTOR = 1.20
+# Brazil "early-kill" effect (3 goals in 45min, coast 2H) → calibrate down to 1.20.
+# V3.9.7: Argentina-Austria post-match: DC predicted 1.05 xG vs actual 2.63 (2.5x).
+# Spain-Saudi: DC 1.23 vs actual ~3.0 (2.4x). Brazil-Haiti was the exception
+# (coast mode), not the norm. Revert to 1.35 for stronger teams in group stage.
+WC_XG_CALIBRATION_FACTOR = 1.35
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Overdispersion correction: Negative Binomial
@@ -221,10 +224,13 @@ def main():
 
     market_weight = wc.market_max
 
-    # V3.9.5.3: Dynamic market boost when model-market divergence is extreme.
+    # V3.9.7: Dynamic market boost when model-market divergence is extreme.
     # When model (pre-market) and market disagree by >15pp on the favorite,
     # the model is likely suffering from component bias (e.g. Enhancer extreme).
-    # Boost market_weight up to 0.40 to provide a stronger anchor.
+    # Boost market_weight up to 0.50 (raised from 0.40 in V3.9.7).
+    # Argentina-Austria: 30.6pp divergence, market_weight 0.40 was correct but
+    # borderline. With Enhancer cut to 10%, model should be less biased but
+    # when divergence still exceeds 25pp, market deserves more trust.
     if market_live:
         model_market_div = max(
             abs(pre_market["home_win_prob"] - market_home),
@@ -232,9 +238,9 @@ def main():
             abs(pre_market["away_win_prob"] - market_away),
         )
         if model_market_div > 0.15:
-            # Linear boost: at 15pp divergence → no boost, at 30pp → +0.12
-            boost = min(0.12, (model_market_div - 0.15) * 0.8)
-            market_weight = min(0.40, wc.market_max + boost)
+            # Linear boost: at 15pp divergence → no boost, at 35pp → +0.20 cap
+            boost = min(0.20, (model_market_div - 0.15) * 1.0)
+            market_weight = min(0.50, wc.market_max + boost)
             print(f"[MARKET_BOOST] model-market divergence={model_market_div:.1%}, "
                   f"market_weight {wc.market_max:.2f}→{market_weight:.2f} (+{boost:.2f})",
                   file=sys.stderr)
