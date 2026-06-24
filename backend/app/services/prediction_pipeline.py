@@ -63,7 +63,7 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
         wc_path = str(artifacts_dir / "calibrator_wc.json")
         try:
             calibrator.load(wc_path)
-            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+            if calibrator.is_fitted and calibrator.training_sample_count >= 50:
                 logger.info("Pipeline: using WC calibrator (%d samples)",
                             calibrator.training_sample_count)
                 return calibrator
@@ -573,6 +573,10 @@ class PredictionPipeline:
             market_probs = await market.fetch_market_probs(
                 home_team, away_team, competition_weight, competition=competition
             )
+            # Fallback: manual odds when all APIs are down
+            if market_probs is None:
+                from app.services.market.sync_provider import _lookup_manual_odds
+                market_probs = _lookup_manual_odds(home_team, away_team)
             market_result = market.calibrate(
                 {"home_win_prob": clean["home_win_prob"],
                  "draw_prob": clean["draw_prob"],
@@ -643,7 +647,12 @@ class PredictionPipeline:
         calibration_applied = False
         try:
             calibrator = _load_isotonic_calibrator(competition)
-            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+            # Skip isotonic calibration when market data is available:
+            # market IS the calibration signal. WC calibrator has too few
+            # samples (21) and can warp well-calibrated probabilities.
+            if market_applied or (market_probs is not None):
+                calibrator = None  # disable — market already calibrated
+            if calibrator is not None and calibrator.is_fitted and calibrator.training_sample_count >= 50:
                 pre_cal = {
                     "home_win_prob": clean["home_win_prob"],
                     "draw_prob": clean["draw_prob"],
@@ -661,12 +670,16 @@ class PredictionPipeline:
                     "pre_calibration_probs": pre_cal,
                 }
             else:
-                cal_monitor = {
-                    "enabled": False,
-                    "reason": (
+                if calibrator is None:
+                    cal_reason = "skipped: market data available (market IS calibration)"
+                else:
+                    cal_reason = (
                         f"calibrator not fitted (fitted={calibrator.is_fitted}, "
                         f"samples={calibrator.training_sample_count})"
-                    ),
+                    )
+                cal_monitor = {
+                    "enabled": False,
+                    "reason": cal_reason,
                     "baseline_probs": dict(clean),
                 }
         except Exception as exc:
@@ -1312,18 +1325,66 @@ class PredictionPipeline:
                         required=require_full_context,
                     )
                 else:
-                    quality.model_components["market"] = "unavailable"
-                    source_status["market"] = SourceStatus(
-                        status="unavailable",
-                        reason="no_market_data_for_match",
-                        attempted=True,
-                        required=require_full_context,
-                    )
-                    degraded_reasons.append(DegradedReason(
-                        source="market_calibration",
-                        reason="no_odds_for_match",
-                        severity="warning",
-                    ))
+                    # ── Fallback: sync_provider (checks _manual_odds.json first) ──
+                    # MarketCalibrator goes apifootball.com → The Odds API (both
+                    # often dead). sync_provider checks manual web-verified odds
+                    # BEFORE hitting APIs, so it succeeds even when APIs are down.
+                    try:
+                        from app.services.market.sync_provider import (
+                            fetch_market_consensus_sync,
+                        )
+                        market_probs_data = fetch_market_consensus_sync(
+                            home_team, away_team, competition
+                        )
+                    except Exception:
+                        market_probs_data = None
+
+                    if market_probs_data:
+                        market_available = True
+                        quality.model_components["market"] = "loaded"
+                        market_result = market.calibrate(
+                            {"home_win_prob": fused["home_win_prob"],
+                             "draw_prob": fused["draw_prob"],
+                             "away_win_prob": fused["away_win_prob"]},
+                            market_probs_data,
+                            sample_size=len(training_df),
+                        )
+                        if market_result.get("market_applied"):
+                            fused["home_win_prob"] = market_result["home_win_prob"]
+                            fused["draw_prob"] = market_result["draw_prob"]
+                            fused["away_win_prob"] = market_result["away_win_prob"]
+                            market_applied = True
+                            market_weight_used = float(market_result.get("market_weight_used", 0))
+                            divergence = float(market_result.get("divergence", 0))
+                        market_probs = market_probs_data
+                        if market_result.get("risk_tags"):
+                            signal_risk_tags.extend(market_result["risk_tags"])
+                        logger.info(
+                            f"Market (manual fallback): "
+                            f"H={market_probs_data.get('home_prob',0):.3f} "
+                            f"D={market_probs_data.get('draw_prob',0):.3f} "
+                            f"A={market_probs_data.get('away_prob',0):.3f}"
+                        )
+                        source_status["market"] = SourceStatus(
+                            status="used",
+                            reason="manual_odds_fallback",
+                            detail=str(market_probs_data.get("provider", "")),
+                            attempted=True,
+                            required=require_full_context,
+                        )
+                    else:
+                        quality.model_components["market"] = "unavailable"
+                        source_status["market"] = SourceStatus(
+                            status="unavailable",
+                            reason="no_market_data_for_match",
+                            attempted=True,
+                            required=require_full_context,
+                        )
+                        degraded_reasons.append(DegradedReason(
+                            source="market_calibration",
+                            reason="no_odds_for_match",
+                            severity="warning",
+                        ))
             except Exception as exc:
                 logger.warning(f"Market calibration failed: {exc}")
                 source_status["market"] = SourceStatus(
@@ -1388,7 +1449,12 @@ class PredictionPipeline:
         calibration_monitor: dict[str, object] = {"enabled": False}
         try:
             calibrator = _load_isotonic_calibrator(competition)
-            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+            # Skip isotonic calibration when market data is available:
+            # market IS the calibration signal. WC calibrator has too few
+            # samples (21) and can warp well-calibrated probabilities.
+            if market_applied or (market_probs is not None):
+                calibrator = None  # disable — market already calibrated
+            if calibrator is not None and calibrator.is_fitted and calibrator.training_sample_count >= 50:
                 pre_cal = {
                     "home_win_prob": fused["home_win_prob"],
                     "draw_prob": fused["draw_prob"],
@@ -1406,12 +1472,16 @@ class PredictionPipeline:
                     "pre_calibration_probs": pre_cal,
                 }
             else:
-                calibration_monitor = {
-                    "enabled": False,
-                    "reason": (
+                if calibrator is None:
+                    cal_reason = "skipped: market data available (market IS calibration)"
+                else:
+                    cal_reason = (
                         f"calibrator not fitted (fitted={calibrator.is_fitted}, "
                         f"samples={calibrator.training_sample_count})"
-                    ),
+                    )
+                calibration_monitor = {
+                    "enabled": False,
+                    "reason": cal_reason,
                 }
         except Exception as exc:
             logger.warning("Isotonic calibration failed — continuing without", exc_info=True)

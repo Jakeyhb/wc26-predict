@@ -103,7 +103,15 @@ def fetch_market_consensus_sync(
         or None if all providers failed.
         Returns degraded flag if called from within an existing event loop.
     """
-    # Check for existing event loop before calling asyncio.run()
+    # ── Primary: manual odds file (fastest, no API cost) ──
+    # Check FIRST (before any event-loop guard) — manual odds lookup is
+    # pure file I/O, works in both sync and async contexts.
+    result = _lookup_manual_odds(home_team, away_team)
+    if result is not None:
+        return result
+
+    # ── Fallback: apifootball.com + The Odds API (requires asyncio.run) ──
+    # Only reachable when no manual odds exist.
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -111,23 +119,13 @@ def fetch_market_consensus_sync(
 
     if loop is not None:
         logger.warning(
-            "Market consensus fetch skipped — asyncio.run() cannot be called "
-            "from existing event loop (match: %s vs %s). Returning degraded result.",
+            "Market consensus async fetch skipped — asyncio.run() cannot be called "
+            "from existing event loop (match: %s vs %s).",
             home_team,
             away_team,
         )
-        return {
-            "degraded": True,
-            "source": "market_consensus",
-            "reason": "event_loop_conflict",
-        }
+        return None  # No manual odds, no async API possible — graceful None
 
-    # ── Primary: manual odds file (fastest, no API cost) ──
-    result = _lookup_manual_odds(home_team, away_team)
-    if result is not None:
-        return result
-
-    # ── Secondary: apifootball.com + The Odds API ──
     result = asyncio.run(
         _fetch_consensus_async(home_team, away_team, competition, timeout)
     )
