@@ -259,7 +259,8 @@ async def check_schedule_seed() -> CheckResult:
 async def check_calibrator_service() -> CheckResult:
     try:
         calibrator = IsotonicCalibrator()
-        calibrator_path = settings.model_artifact_dir / "calibrator.json"
+        # R4-C2 audit: calibrators live in backend/artifacts/, NOT model_artifacts/
+        calibrator_path = BACKEND_DIR / "artifacts" / "calibrator.json"
         if calibrator_path.exists():
             calibrator.load(str(calibrator_path))
         stats = calibrator.calibration_stats()

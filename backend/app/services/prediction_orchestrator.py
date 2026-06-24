@@ -393,6 +393,49 @@ class PredictionOrchestrator:
                         base_prediction["home_win_prob"] = calibrated["home_win_prob"]
                         base_prediction["draw_prob"] = calibrated["draw_prob"]
                         base_prediction["away_win_prob"] = calibrated["away_win_prob"]
+                    # R4-H7: Dynamic market boost — when calibrator doesn't
+                    # auto-apply but model-market divergence exceeds 15pp,
+                    # blend manually with boosted weight (matches pipeline).
+                    elif isinstance(market_probs, dict) and all(
+                        k in market_probs for k in ("home_prob", "draw_prob", "away_prob")
+                    ):
+                        model_market_div = max(
+                            abs(base_prediction["home_win_prob"] - market_probs["home_prob"]),
+                            abs(base_prediction["draw_prob"] - market_probs["draw_prob"]),
+                            abs(base_prediction["away_win_prob"] - market_probs["away_prob"]),
+                        )
+                        if model_market_div > 0.15:
+                            boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                            boosted_weight = min(0.50, wc.market_max + boost)
+                            base_prediction["home_win_prob"] = (
+                                base_prediction["home_win_prob"] * (1 - boosted_weight)
+                                + market_probs["home_prob"] * boosted_weight
+                            )
+                            base_prediction["draw_prob"] = (
+                                base_prediction["draw_prob"] * (1 - boosted_weight)
+                                + market_probs["draw_prob"] * boosted_weight
+                            )
+                            base_prediction["away_win_prob"] = (
+                                base_prediction["away_win_prob"] * (1 - boosted_weight)
+                                + market_probs["away_prob"] * boosted_weight
+                            )
+                            total = (
+                                base_prediction["home_win_prob"]
+                                + base_prediction["draw_prob"]
+                                + base_prediction["away_win_prob"]
+                            )
+                            if total > 0:
+                                base_prediction["home_win_prob"] /= total
+                                base_prediction["draw_prob"] /= total
+                                base_prediction["away_win_prob"] /= total
+                            market_result["market_applied"] = True
+                            market_result["market_weight_used"] = boosted_weight
+                            market_result["divergence_triggered"] = True
+                            logger.info(
+                                "Orchestrator dynamic market boost: divergence=%.1f%%, "
+                                "weight=%.2f",
+                                model_market_div * 100, boosted_weight,
+                            )
             except Exception:
                 logger.warning("Market calibration failed for %s vs %s — continuing without",
                                match.home_team.name, match.away_team.name, exc_info=True)
