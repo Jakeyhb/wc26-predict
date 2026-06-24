@@ -49,9 +49,9 @@ async def check_postgres() -> CheckResult:
     try:
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT 1"))
-        return CheckResult("PostgreSQL连接正常", True, "数据库查询成功")
+        return CheckResult("SQLite连接正常", True, "数据库查询成功")
     except Exception as exc:
-        return CheckResult("PostgreSQL连接正常", False, str(exc))
+        return CheckResult("SQLite连接正常", False, str(exc))
 
 
 async def check_redis() -> CheckResult:

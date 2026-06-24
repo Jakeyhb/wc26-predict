@@ -297,7 +297,7 @@ def fuse_elo_probabilities(
 ) -> dict[str, float]:
     """Blend Elo probabilities into Dixon-Coles output.
 
-    Default 20% Elo weight — Elo is a useful prior but shouldn't dominate
+    Default 15% Elo weight — Elo is a useful prior but shouldn't dominate
     the statistical model.
     """
     dixon_weight = 1.0 - elo_weight
