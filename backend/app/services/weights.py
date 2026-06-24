@@ -245,7 +245,8 @@ def _read_db_auto_weights() -> dict[str, float] | None:
         conn = sqlite3.connect(str(db_path))
         c = conn.cursor()
 
-        key_map = {
+        # Primary keys: auto-optimized (RPS output)
+        primary_map = {
             "auto_optimized_dc": "dc",
             "auto_optimized_enhancer": "enhancer",
             "auto_optimized_elo": "elo",
@@ -254,12 +255,21 @@ def _read_db_auto_weights() -> dict[str, float] | None:
             "market_max_blend": "market_max",
         }
 
+        # Fallback keys: manually-adjusted weights (audit R4-C8: were dead data)
+        fallback_map = {
+            "dc_weight": "dc",
+            "enhancer_weight": "enhancer",
+            "elo_blend": "elo",
+            "pi_weight": "pi",
+        }
+
+        all_keys = list(primary_map.keys()) + list(fallback_map.keys())
         c.execute(
             "SELECT config_key, config_value FROM model_weight_config "
             "WHERE config_key IN ({})".format(
-                ",".join("?" for _ in key_map)
+                ",".join("?" for _ in all_keys)
             ),
-            list(key_map.keys()),
+            all_keys,
         )
         rows = c.fetchall()
         conn.close()
@@ -269,9 +279,23 @@ def _read_db_auto_weights() -> dict[str, float] | None:
 
         result: dict[str, float] = {}
         for key, value in rows:
-            mapped = key_map.get(key)
+            # Primary keys take priority
+            mapped = primary_map.get(key)
             if mapped:
                 result[mapped] = float(value)
+
+        # Fallback: for any missing component, check non-prefixed keys
+        for fb_key, fb_mapped in fallback_map.items():
+            if fb_mapped not in result:
+                for key, value in rows:
+                    if key == fb_key:
+                        result[fb_mapped] = float(value)
+                        logger.debug("Using fallback DB weight: %s=%.3f", fb_key, float(value))
+                        break
+
+        # R4-C8: market_max_blend is the only non-prefixed key that WAS read.
+        # It's now in primary_map for consistency.  elo_blend, dc_weight,
+        # enhancer_weight, pi_weight are fallbacks that were previously dead.
 
         # Only return if we found at least dc (minimum viable config)
         if "dc" in result:
