@@ -9,9 +9,9 @@ Provides:
         -> dict | None
 
 Graceful degradation:
-    1. apifootball.com       (primary)
-    2. The Odds API           (fallback)
-    3. _manual_odds.json      (tertiary — manually verified odds when API down)
+    1. apifootball.com       (primary — live API)
+    2. The Odds API          (secondary — live API)
+    3. _manual_odds.json     (last resort — cached odds when all APIs down)
 """
 
 from __future__ import annotations
@@ -84,10 +84,10 @@ def fetch_market_consensus_sync(
 ) -> dict[str, Any] | None:
     """Fetch 1X2 market implied probabilities synchronously.
 
-    Tries providers in order:
-    1. _manual_odds.json (fastest - web-verified odds, no API cost)
-    2. apifootball.com (API key configured)
-    3. The Odds API (fallback)
+    Priority (V4.1.4 — APIs restored, now primary):
+    1. apifootball.com (live API — key configured)
+    2. The Odds API (live API — key configured)
+    3. _manual_odds.json (last resort — cached odds when all APIs down)
 
     Returns:
         {
@@ -101,36 +101,38 @@ def fetch_market_consensus_sync(
             "away_odds": 4.00,
         }
         or None if all providers failed.
-        Returns degraded flag if called from within an existing event loop.
     """
-    # ── Primary: manual odds file (fastest, no API cost) ──
-    # Check FIRST (before any event-loop guard) — manual odds lookup is
-    # pure file I/O, works in both sync and async contexts.
-    result = _lookup_manual_odds(home_team, away_team)
-    if result is not None:
-        return result
-
-    # ── Fallback: apifootball.com + The Odds API (requires asyncio.run) ──
-    # Only reachable when no manual odds exist.
+    # ── Primary: live APIs (apifootball.com → The Odds API) ──
+    # Both APIs are operational as of V4.1.4. Try them first for fresh odds.
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
 
-    if loop is not None:
-        logger.warning(
-            "Market consensus async fetch skipped — asyncio.run() cannot be called "
-            "from existing event loop (match: %s vs %s).",
-            home_team,
-            away_team,
+    if loop is None:
+        result = asyncio.run(
+            _fetch_consensus_async(home_team, away_team, competition, timeout)
         )
-        return None  # No manual odds, no async API possible — graceful None
+        if result is not None:
+            return result
+    else:
+        logger.debug(
+            "fetch_market_consensus_sync: running event loop detected — "
+            "skipping async API calls for %s vs %s",
+            home_team, away_team,
+        )
 
-    result = asyncio.run(
-        _fetch_consensus_async(home_team, away_team, competition, timeout)
-    )
+    # ── Fallback: manual odds file (last resort) ──
+    # Pure file I/O — works in both sync and async contexts.
+    result = _lookup_manual_odds(home_team, away_team)
+    if result is not None:
+        logger.info(
+            "Market odds from manual file (API fallback): %s vs %s",
+            home_team, away_team,
+        )
+        return result
 
-    return result
+    return None
 
 
 async def _fetch_consensus_async(
