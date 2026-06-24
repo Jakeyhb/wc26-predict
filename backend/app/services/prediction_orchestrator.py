@@ -283,7 +283,7 @@ class PredictionOrchestrator:
             competition_name = getattr(match, "competition", "")
             wc = get_weight_config(competition_name, getattr(match, "stage", ""))
 
-            enhancer_meta = await self._build_enhancer_prediction(match, training_df, match_context)
+            enhancer_meta = await self._build_enhancer_prediction(match, training_df, match_context, _comp_weight)
             if enhancer_meta["enabled"]:
                 base_prediction = {
                     **base_prediction,
@@ -312,6 +312,7 @@ class PredictionOrchestrator:
                         match.away_team.name,
                         is_neutral=match.is_neutral_venue,
                         competition_weight=_comp_weight,
+                        competition=match.competition,
                     )
                     base_prediction = {
                         **base_prediction,
@@ -413,6 +414,7 @@ class PredictionOrchestrator:
         match: Match,
         training_df: pd.DataFrame,
         match_context: dict[str, object],
+        comp_weight: float = 0.9,
     ) -> dict[str, object]:
         enhancer = TabularMatchEnhancer()
         try:
@@ -421,7 +423,7 @@ class PredictionOrchestrator:
                 home_team=match.home_team.name,
                 away_team=match.away_team.name,
                 match_date=match.match_date,
-                competition_weight=_comp_weight,
+                competition_weight=comp_weight,
                 is_neutral_venue=match.is_neutral_venue,
                 training_df=training_df,
                 rest_days=match_context.get("rest_days") if isinstance(match_context.get("rest_days"), dict) else None,

@@ -137,7 +137,7 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
             # Source 2: auto_postmatch batch verification (tier 4)
             # Audit R4-C10: auto_postmatch had only 1 source → consensus
             # never reached is_verified=True.  Add a second automatic source
-            # at NEWS_AGGREGATOR tier so automated batch learning works.
+            # at REPUTABLE_MEDIA tier so automated batch learning works.
             try:
                 await verification_service.add_source_result(
                     db=db,
