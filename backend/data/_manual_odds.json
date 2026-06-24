@@ -1,9 +1,44 @@
 {
+  "Switzerland|Canada": {
+    "home_odds": 2.21,
+    "draw_odds": 2.71,
+    "away_odds": 3.25,
+    "source": "China-Sports-Lottery (web-verified 2026-06-24)",
+    "verified_at": "2026-06-24T12:00:00+00:00"
+  },
   "Bosnia and Herzegovina|Qatar": {
     "home_odds": 1.44,
     "draw_odds": 5.0,
     "away_odds": 8.0,
     "source": "BetOnline/FoxSports/RacingPost (web-verified 2026-06-23)",
     "verified_at": "2026-06-23T15:45:00+00:00"
+  },
+  "Scotland|Brazil": {
+    "home_odds": 7.00,
+    "draw_odds": 5.25,
+    "away_odds": 1.40,
+    "source": "DraftKings (web-verified 2026-06-24)",
+    "verified_at": "2026-06-24T12:00:00+00:00"
+  },
+  "Morocco|Haiti": {
+    "home_odds": 1.20,
+    "draw_odds": 7.50,
+    "away_odds": 17.00,
+    "source": "bet365/Eurosport (web-verified 2026-06-24)",
+    "verified_at": "2026-06-24T12:00:00+00:00"
+  },
+  "Czech Republic|Mexico": {
+    "home_odds": 3.45,
+    "draw_odds": 3.70,
+    "away_odds": 1.35,
+    "source": "Taiwan-Sports-Lottery (web-verified 2026-06-24)",
+    "verified_at": "2026-06-24T12:00:00+00:00"
+  },
+  "South Africa|South Korea": {
+    "home_odds": 4.75,
+    "draw_odds": 3.70,
+    "away_odds": 1.42,
+    "source": "TNT-Sports/Taiwan-Lottery (web-verified 2026-06-24)",
+    "verified_at": "2026-06-24T12:00:00+00:00"
   }
 }

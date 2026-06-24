@@ -37,10 +37,9 @@ class MarketCalibrator:
     Supports multiple provider backends:
     - The Odds API (ODDS_API_KEY) — sports odds aggregator
     - apifootball.com (APIFOOTBALL_COM_KEY) — match-level odds
-    - API-Sports / api-football.com (API_FOOTBALL_KEY) — match-level odds
 
-    Provider selection (R4-H6 fix — unified with sync_provider.py):
-    apifootball.com → API-Sports → The Odds API.
+    Provider selection (unified with sync_provider.py):
+    apifootball.com → The Odds API.
     """
 
     def __init__(self, shadow_mode: bool = True) -> None:
@@ -55,7 +54,6 @@ class MarketCalibrator:
         self._odds_provider: MarketProvider | None = None
         self._odds_provider_resolved: bool = False
         self._apifootball_key: str | None = settings.apifootball_com_key
-        self._api_sports_key: str | None = settings.api_football_key
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -91,9 +89,9 @@ class MarketCalibrator:
     async def _resolve_odds_provider(self) -> MarketProvider | None:
         """Resolve the best available odds-specific provider from configured keys.
 
-        Priority: apifootball.com (if odds available) > API-Sports.
+        Priority: apifootball.com (if odds available).
         The Odds API is handled separately in fetch_market_probs() as a
-        tertiary fallback after these providers are exhausted.
+        secondary fallback after the odds provider is exhausted.
 
         Returns None if no provider is configured or no provider has odds available.
         Logs the reason for transparency.
@@ -127,29 +125,6 @@ class MarketCalibrator:
                     await provider.close()
             except Exception as e:
                 logger.warning(f"market provider: apifootball.com error: {e}")
-                try:
-                    await provider.close()
-                except Exception as exc:
-                    logger.debug("Best-effort provider close failed: %s", exc)
-
-        # ── Try API-Sports ──
-        if self._api_sports_key:
-            from app.services.market.api_football_provider import \
-                ApiFootballProvider
-            provider = ApiFootballProvider()
-            try:
-                if await provider.is_available():
-                    self._odds_provider = provider
-                    self._odds_provider_resolved = True
-                    logger.info("market provider: API-Sports (available)")
-                    return self._odds_provider
-                else:
-                    logger.info(
-                        "market provider: API-Sports unavailable — no_provider"
-                    )
-                    await provider.close()
-            except Exception as e:
-                logger.warning(f"market provider: API-Sports error: {e}")
                 try:
                     await provider.close()
                 except Exception as exc:

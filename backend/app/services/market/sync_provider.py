@@ -85,9 +85,9 @@ def fetch_market_consensus_sync(
     """Fetch 1X2 market implied probabilities synchronously.
 
     Tries providers in order:
-    1. apifootball.com (API key configured)
-    2. The Odds API (fallback)
-    3. _manual_odds.json (tertiary — web-verified odds)
+    1. _manual_odds.json (fastest - web-verified odds, no API cost)
+    2. apifootball.com (API key configured)
+    3. The Odds API (fallback)
 
     Returns:
         {
@@ -122,13 +122,15 @@ def fetch_market_consensus_sync(
             "reason": "event_loop_conflict",
         }
 
+    # ── Primary: manual odds file (fastest, no API cost) ──
+    result = _lookup_manual_odds(home_team, away_team)
+    if result is not None:
+        return result
+
+    # ── Secondary: apifootball.com + The Odds API ──
     result = asyncio.run(
         _fetch_consensus_async(home_team, away_team, competition, timeout)
     )
-
-    # ── Tertiary fallback: manual odds file ──
-    if result is None:
-        result = _lookup_manual_odds(home_team, away_team)
 
     return result
 
