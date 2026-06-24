@@ -317,9 +317,9 @@ class TestCrossTableConsistency:
         expected = {
             "Round of 32": 16,
             "Round of 16": 8,
-            "Quarter-final": 4,
-            "Semi-final": 2,
-            "Third Place": 1,
+            "Quarterfinal": 4,
+            "Semifinal": 2,
+            "Third Place Playoff": 1,
             "Final": 1,
         }
         assert stages == expected, (

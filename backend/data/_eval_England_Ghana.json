@@ -1,0 +1,33 @@
+{
+  "match": "England vs Ghana",
+  "score": "0-0",
+  "outcome": "draw",
+  "predicted_final": "H=66.9% D=22.5% A=10.6%",
+  "brier": 1.0594,
+  "log_loss": 1.4914,
+  "rps": 0.2294,
+  "direction_correct": false,
+  "grade": "B",
+  "all_components_wrong": true,
+  "component_brier": {
+    "dc": 1.0351,
+    "enhancer": 0.9219,
+    "elo": 1.2938,
+    "pi": 1.1091,
+    "dc_enh": 0.9361,
+    "dc_enh_elo": 0.9746,
+    "pre_market": 0.9834,
+    "post_market": 1.1347,
+    "market": 1.41
+  },
+  "elo_update": {
+    "england": 1731.9,
+    "ghana": 1571.0
+  },
+  "pi_update": {
+    "england": 1.154,
+    "ghana": 0.468
+  },
+  "structural_issue": "Systematic draw underestimation. All components under 22.5% draw.",
+  "recommendation": "V4.0.5: Add draw probability floor, refine divergence penalty logic. No weight changes."
+}

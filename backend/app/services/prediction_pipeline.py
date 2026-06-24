@@ -317,23 +317,54 @@ class PredictionPipeline:
         wb_fitted = self._weibull.fit(df)
         wb_pred = self._weibull.predict(home_team, away_team, is_neutral) if wb_fitted else None
 
-        # ── 6. Fuse DC + Enhancer ──
-        dc_enh = {
+        # ── 6. Fuse DC + Enhancer (with adaptive divergence adjustment) ──
+        dc_raw = {
             "home_win_prob": float(dc_pred["home_win_prob"]),
             "draw_prob": float(dc_pred["draw_prob"]),
             "away_win_prob": float(dc_pred["away_win_prob"]),
         }
-        dc_enh.update(
-            fuse_outcome_probabilities(
-                dc_enh,
-                {
-                    "home_win_prob": float(enh_pred["home_win_prob"]),
-                    "draw_prob": float(enh_pred["draw_prob"]),
-                    "away_win_prob": float(enh_pred["away_win_prob"]),
-                },
-                base_weight=wc.dc_enhancer_blend,
+        enh_raw = {
+            "home_win_prob": float(enh_pred["home_win_prob"]),
+            "draw_prob": float(enh_pred["draw_prob"]),
+            "away_win_prob": float(enh_pred["away_win_prob"]),
+        }
+
+        # V4.0.5: Compute DC-Enhancer divergence and adapt DC weight.
+        # When divergence exceeds 20pp, DC weight is reduced by up to 0.15
+        # (Enhancer is 0/6 WC direction-correct; its extreme outputs should
+        # not dominate when they diverge strongly from the base model).
+        dc_weight_ef = float(wc.dc_enhancer_blend)
+        divergence_pp = 0.0
+        div_detail: dict[str, object] = {}
+        for key, label in [("home_win_prob", "home"), ("draw_prob", "draw"), ("away_win_prob", "away")]:
+            div_pp = abs(dc_raw[key] - enh_raw[key]) * 100
+            div_detail[label] = round(div_pp, 1)
+        max_div = float(max(div_detail.values()))  # type: ignore[arg-type]
+        if max_div > 20:
+            shift = min(0.15, (max_div - 20) * 0.015)
+            dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
+            logger.info(
+                "Adaptive DC weight: divergence=%.1fpp > 20pp threshold, "
+                "dc %.2f→%.2f (shift=%.2f)",
+                max_div, wc.dc_enhancer_blend, dc_weight_ef, shift,
             )
-        )
+            # Re-fuse with adjusted weights
+            enh_w = 1.0 - dc_weight_ef
+            dc_enh = {
+                "home_win_prob": dc_raw["home_win_prob"] * dc_weight_ef + enh_raw["home_win_prob"] * enh_w,
+                "draw_prob": dc_raw["draw_prob"] * dc_weight_ef + enh_raw["draw_prob"] * enh_w,
+                "away_win_prob": dc_raw["away_win_prob"] * dc_weight_ef + enh_raw["away_win_prob"] * enh_w,
+            }
+        else:
+            dc_enh = dict(dc_raw)
+            dc_enh.update(
+                fuse_outcome_probabilities(
+                    dc_enh,
+                    enh_raw,
+                    base_weight=wc.dc_enhancer_blend,
+                )
+            )
+        divergence_pp = max_div
 
         # ── 7. Fuse Weibull ──
         dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=wc.weibull))
@@ -780,8 +811,31 @@ class PredictionPipeline:
                 "dixon_coles": probs_dict_to_list(component_probs["dixon_coles"]),
                 "enhancer": probs_dict_to_list(component_probs["enhancer"]),
             }
-            fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
-            fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
+
+            # V4.0.5: Adaptive DC weight on divergence > 20pp
+            dc_w_ef = float(wc.dc)
+            max_div_sync = max(
+                abs(component_probs["dixon_coles"]["home"] - component_probs["enhancer"]["home"]),
+                abs(component_probs["dixon_coles"]["draw"] - component_probs["enhancer"]["draw"]),
+                abs(component_probs["dixon_coles"]["away"] - component_probs["enhancer"]["away"]),
+            ) * 100
+            if max_div_sync > 20:
+                shift = min(0.15, (max_div_sync - 20) * 0.015)
+                dc_w_ef = max(0.30, wc.dc - shift)
+                enh_w_ef = 1.0 - dc_w_ef
+                logger.info(
+                    "predict_sync adaptive DC: divergence=%.1fpp > 20pp, "
+                    "dc %.2f→%.2f", max_div_sync, wc.dc, dc_w_ef,
+                )
+                fused = {
+                    "home_win_prob": component_probs["dixon_coles"]["home"] * dc_w_ef + component_probs["enhancer"]["home"] * enh_w_ef,
+                    "draw_prob": component_probs["dixon_coles"]["draw"] * dc_w_ef + component_probs["enhancer"]["draw"] * enh_w_ef,
+                    "away_win_prob": component_probs["dixon_coles"]["away"] * dc_w_ef + component_probs["enhancer"]["away"] * enh_w_ef,
+                }
+                fg.add_step("dc+enhancer", f"base_weight={dc_w_ef} (adaptive, divergence={max_div_sync:.1f}pp)", before_step1, probs_dict_to_list(fused))
+            else:
+                fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+                fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
 
         # ── 2.5. Weibull (research-full only, applied after Enhancer for consistency) ──
         has_weibull = hasattr(self, "_weibull") and self._weibull is not None

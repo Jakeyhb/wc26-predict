@@ -326,7 +326,7 @@ def main():
             if os.path.exists(wc_path):
                 wc_cal = IsotonicCalibrator()
                 wc_cal.load(wc_path)
-                if wc_cal.is_fitted and wc_cal.training_sample_count >= 20:
+                if wc_cal.is_fitted and wc_cal.training_sample_count >= 50:
                     calibrated_final = wc_cal.calibrate(final)
                     calibration_applied = True
                     calibration_stats = wc_cal.calibration_stats()

@@ -1,0 +1,209 @@
+{
+  "home_team": "Bosnia and Herzegovina",
+  "away_team": "Qatar",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.4689416416191443,
+      "draw_prob": 0.2897786569736502,
+      "away_win_prob": 0.2412797014072055
+    },
+    "enhancer": {
+      "home_win_prob": 0.15814896576856358,
+      "draw_prob": 0.23713659522267022,
+      "away_win_prob": 0.6047144390087662
+    },
+    "weibull": null,
+    "elo": {
+      "home_win_prob": 0.3964808645165804,
+      "draw_prob": 0.11940430722910103,
+      "away_win_prob": 0.48411482825431856
+    },
+    "pi": {
+      "home_win_prob": 0.45462041914559387,
+      "draw_prob": 0.20524854537928927,
+      "away_win_prob": 0.3401310354751169
+    },
+    "dc_enh": {
+      "home_win_prob": 0.3073294501768423,
+      "draw_prob": 0.2624047848631406,
+      "away_win_prob": 0.43026576496001706
+    },
+    "dc_enh_wb": {
+      "home_win_prob": 0.3073294501768423,
+      "draw_prob": 0.2624047848631406,
+      "away_win_prob": 0.43026576496001706
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.3180276198976109,
+      "draw_prob": 0.24524472754705587,
+      "away_win_prob": 0.43672765255533325
+    },
+    "pre_market": {
+      "home_win_prob": 0.32895504383744956,
+      "draw_prob": 0.24204503297363456,
+      "away_win_prob": 0.42899992318891594
+    },
+    "post_market": {
+      "home_win_prob": 0.5050769769595967,
+      "draw_prob": 0.2191151595385884,
+      "away_win_prob": 0.2758078635018149
+    },
+    "final": {
+      "home_win_prob": 0.5050769769595967,
+      "draw_prob": 0.2191151595385884,
+      "away_win_prob": 0.2758078635018149
+    }
+  },
+  "market": {
+    "provider": "web-verified (BetOnline/Fox Sports)",
+    "live": true,
+    "home_odds": 1.44,
+    "draw_odds": 5.0,
+    "away_odds": 8.0,
+    "home_prob": 0.6811989100817439,
+    "draw_prob": 0.19618528610354227,
+    "away_prob": 0.1226158038147139,
+    "market_weight": 0.5,
+    "note": "API quota exhausted; odds sourced from web verification"
+  },
+  "home_xg": 1.2194048310164096,
+  "away_xg": 0.784739817920697,
+  "elo": {
+    "home": 1485.5641561817256,
+    "away": 1520.254617563853
+  },
+  "pi": {
+    "home": 0.17577292963119645,
+    "away": 0.009983280876629808
+  },
+  "dc_params": {
+    "home_atk": 1.222965622613879,
+    "home_def": 0.7722589262487312,
+    "away_atk": 1.0173183186792865,
+    "away_def": 1.00393764103409
+  },
+  "calibrated": {
+    "home_win_prob": 0.5942571785268415,
+    "draw_prob": 0.2759051186017478,
+    "away_win_prob": 0.12983770287141075
+  },
+  "calibration_applied": true,
+  "calibration_stats": {
+    "is_fitted": true,
+    "training_samples": 30,
+    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
+    "expected_calibration_error": 0.12791184850008377
+  },
+  "dc_enhancer_divergence": {
+    "home": 31.1,
+    "draw": 5.3,
+    "away": 36.3,
+    "max_pp": 36.3,
+    "warning": "Large divergence (36.3pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "severity": "high",
+    "dc_weight_adaptive": 0.48,
+    "shift_applied": 0.15
+  },
+  "weather": {
+    "temperature_c": 30.2,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 3.8,
+    "humidity_percent": 72.0,
+    "weather_code": 95,
+    "weather_description": "\u96f7\u66b4",
+    "fetched_at": "2026-06-23T15:09:55.732407+00:00",
+    "forecast_available": true
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.4636484225341297,
+      "draw": 0.2980817061644588,
+      "away_win": 0.2382698713014117
+    },
+    "negbin": {
+      "home_win": 0.489443274512263,
+      "draw": 0.24254262880365737,
+      "away_win": 0.2680140966840796
+    },
+    "overdispersion_r": 3.5,
+    "wc_xg_calibration_factor": 1.35,
+    "calibrated_xg": {
+      "home": 1.65,
+      "away": 1.06
+    },
+    "top_15_scorelines": [
+      {
+        "score": "1-0",
+        "prob_pct": 11.5
+      },
+      {
+        "score": "0-0",
+        "prob_pct": 10.3
+      },
+      {
+        "score": "1-1",
+        "prob_pct": 9.4
+      },
+      {
+        "score": "0-1",
+        "prob_pct": 8.4
+      },
+      {
+        "score": "2-0",
+        "prob_pct": 8.3
+      },
+      {
+        "score": "2-1",
+        "prob_pct": 6.7
+      },
+      {
+        "score": "1-2",
+        "prob_pct": 4.9
+      },
+      {
+        "score": "3-0",
+        "prob_pct": 4.9
+      },
+      {
+        "score": "0-2",
+        "prob_pct": 4.4
+      },
+      {
+        "score": "3-1",
+        "prob_pct": 4.0
+      },
+      {
+        "score": "2-2",
+        "prob_pct": 3.5
+      },
+      {
+        "score": "4-0",
+        "prob_pct": 2.5
+      },
+      {
+        "score": "1-3",
+        "prob_pct": 2.1
+      },
+      {
+        "score": "3-2",
+        "prob_pct": 2.1
+      },
+      {
+        "score": "4-1",
+        "prob_pct": 2.1
+      }
+    ],
+    "under_2_5_pct": 52.2,
+    "over_2_5_pct": 47.8
+  },
+  "bootstrap_ci": null,
+  "provenance": {
+    "dc_hash": "345ceb9e55d8",
+    "dc_teams": 296,
+    "training_rows": 16706,
+    "version": "4.1-beta",
+    "weight_label": "WORLD_CUP_V4.0.3"
+  }
+}

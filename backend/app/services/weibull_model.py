@@ -20,46 +20,160 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+# ── Session-level model cache ──
+# penaltyblog WeibullCopulaGoalsModel.fit() takes ~69s for 500 rows (16706 total).
+# Re-fitting per match is wasteful → cache the fitted model at module level so
+# predict_match_full.py, prediction_pipeline.py, and tournament simulators all
+# reuse the same instance within a single process.
+_WEIBULL_CACHE: dict[str, Any] = {}
+
+
 class WeibullWrapper:
-    """Wrapper around penaltyblog WeibullCopulaGoalsModel."""
+    """Wrapper around penaltyblog WeibullCopulaGoalsModel.
+
+    Session-level caching: the first call to fit() trains the model; subsequent
+    calls across the same process reuse the cached instance (keyed by df hash).
+    """
+
+    # ── Performance constants (benchmarked 2026-06-23) ──
+    # Rows | Fit time
+    #   100 |   2.3s
+    #   200 |  13.2s
+    #   500 |  68.8s
+    #  1000 | ~138s  (extrapolated)
+    # We cap at 500 rows with a 2-minute timeout.
+    MAX_ROWS = 500
+    FIT_TIMEOUT = 120.0
 
     def __init__(self):
         self._model: Any | None = None
         self._fitted: bool = False
+        self._fit_thread: object | None = None  # Track active fit thread
+        self._fit_cancelled: bool = False
+
+    @staticmethod
+    def _df_key(df: pd.DataFrame) -> str:
+        """Stable hash: (row count, last match_date, hash of sorted team names)."""
+        import hashlib
+
+        payload = f"{len(df)}|{df['match_date'].max()}|{','.join(sorted(df['home_team'].unique()))}"
+        return hashlib.md5(payload.encode()).hexdigest()[:16]
 
     def fit(self, df: pd.DataFrame) -> bool:
         """Fit the Weibull model on training data.
 
         Returns True if fitting succeeded, False otherwise.
-        NOTE: WeibullCopulaGoalsModel.fit() has no timeout mechanism; on large
-        datasets this may block for minutes.  Callers should budget accordingly.
-        """
-        try:
-            from penaltyblog.models import WeibullCopulaGoalsModel
 
-            wc = WeibullCopulaGoalsModel(
-                goals_home=df["home_goals"].values,
-                goals_away=df["away_goals"].values,
-                teams_home=df["home_team"].values,
-                teams_away=df["away_team"].values,
-                weights=df.get("competition_weight", None),
+        Uses a thread-based timeout and limits training data to the most recent
+        ``MAX_ROWS`` rows.  The fitted model is cached at module level so that
+        multiple prediction calls within the same process share a single fit.
+
+        Thread safety: if a previous fit is still running, it is abandoned and
+        a new thread is started. The daemon threads will terminate when the
+        process exits, but they cannot be interrupted mid-fit (penaltyblog does
+        not support cancellation). This is acceptable for a best-effort model
+        component with an existing 30% error rate.
+        """
+        import threading
+
+        # ── Session-level cache check ──
+        key = self._df_key(df)
+        cached = _WEIBULL_CACHE.get(key)
+        if cached is not None:
+            self._model = cached["model"]
+            self._fitted = cached["fitted"]
+            logger.info("Weibull: using cached model (key=%s)", key)
+            return self._fitted
+
+        # ── Abandon previous fit thread if still running ──
+        if self._fit_thread is not None and getattr(self._fit_thread, "is_alive", lambda: False)():
+            logger.warning(
+                "Weibull: abandoning previous fit thread (still running after timeout)"
             )
-            wc.fit()
-            self._model = wc
-            self._fitted = True
-            logger.info("Weibull model fitted successfully")
-            return True
-        except Exception as e:
-            logger.warning("Weibull model fit failed: %s", e)
+            self._fit_cancelled = True
+        self._fit_cancelled = False
+
+        # Trim to most recent rows
+        if len(df) > self.MAX_ROWS:
+            df = df.sort_values("match_date", ascending=False).head(self.MAX_ROWS)
+
+        result_ok = [False]
+        result_model: list[Any] = [None]
+        result_exc: list[Exception] = [None]
+
+        def _fit():
+            try:
+                from penaltyblog.models import WeibullCopulaGoalsModel
+
+                # Use np.array(..., copy=True) to avoid "buffer source array
+                # is read-only" error from penaltyblog internals.
+                weights_col = df.get("competition_weight", None)
+                wc = WeibullCopulaGoalsModel(
+                    goals_home=np.array(df["home_goals"].values, copy=True),
+                    goals_away=np.array(df["away_goals"].values, copy=True),
+                    teams_home=np.array(df["home_team"].values, copy=True),
+                    teams_away=np.array(df["away_team"].values, copy=True),
+                    weights=(
+                        np.array(weights_col.values, copy=True)
+                        if weights_col is not None
+                        else None
+                    ),
+                )
+                wc.fit()
+                result_model[0] = wc
+                result_ok[0] = True
+                logger.info("Weibull model fitted successfully (%d rows)", len(df))
+            except Exception as e:
+                result_exc[0] = e
+                logger.warning("Weibull model fit failed: %s", e)
+
+        t = threading.Thread(target=_fit, daemon=True, name=f"weibull-fit-{key}")
+        self._fit_thread = t
+        t.start()
+        t.join(timeout=self.FIT_TIMEOUT)
+
+        if t.is_alive():
+            # Thread did not complete within timeout — penaltyblog is still
+            # running.  Daemon thread will be abandoned (cleaned up at process
+            # exit, not before).
+            logger.warning(
+                "Weibull model fit timed out after %.0fs (%d rows) — "
+                "thread %s abandoned (daemon=true, will exit with process)",
+                self.FIT_TIMEOUT,
+                len(df),
+                t.name,
+            )
             self._fitted = False
+            _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
             return False
 
-    def predict(self, home_team: str, away_team: str, neutral: bool = True) -> dict[str, float] | None:
-        """Predict win/draw/loss probabilities using fitted Weibull model."""
+        self._fit_thread = None
+        if result_ok[0]:
+            self._model = result_model[0]
+            self._fitted = True
+            _WEIBULL_CACHE[key] = {"model": result_model[0], "fitted": True}
+            return True
+
+        if result_exc[0]:
+            logger.debug(
+                "Weibull fit exception detail: %s", result_exc[0], exc_info=result_exc[0]
+            )
+        _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
+        return False
+
+    def predict(
+        self, home_team: str, away_team: str, neutral: bool = True
+    ) -> dict[str, float] | None:
+        """Predict win/draw/loss probabilities using fitted Weibull model.
+
+        Note: penaltyblog uses ``neutral_venue=`` keyword, **not** ``neutral=``.
+        """
         if not self._fitted or self._model is None:
             return None
         try:
-            grid = self._model.predict(home_team, away_team, neutral=neutral)
+            grid = self._model.predict(
+                home_team, away_team, neutral_venue=neutral
+            )
             return {
                 "home_win_prob": float(grid.home_win),
                 "draw_prob": float(grid.draw),
@@ -68,6 +182,12 @@ class WeibullWrapper:
         except Exception as e:
             logger.warning("Weibull predict failed: %s", e)
             return None
+
+    @property
+    def is_fitting(self) -> bool:
+        """True if a background fit thread is still running."""
+        t = self._fit_thread
+        return t is not None and getattr(t, "is_alive", lambda: False)()
 
 
 def fuse_weibull_probs(base_probs: dict, wb_pred: dict | None, wb_weight: float = 0.15) -> dict:

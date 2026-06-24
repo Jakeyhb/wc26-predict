@@ -1,0 +1,21 @@
+{
+  "match": "Portugal vs Uzbekistan",
+  "score": "5-0",
+  "outcome": "home",
+  "predicted_final": "H=64.8% D=23.9% A=11.3%",
+  "brier": 0.1939,
+  "log_loss": 0.4338,
+  "rps": 0.0683,
+  "direction_correct": true,
+  "exact_score_hit": false,
+  "top3_score_hit": false,
+  "grade": "B+",
+  "grade_reason": "方向正确但比分未命中",
+  "enhancer_brier": 0.8892,
+  "market_brier": 0.0471,
+  "pi_brier": 0.121,
+  "dc_brier": 0.3555,
+  "elo_brier": 0.3308,
+  "xc_error": 4.39,
+  "ou_correct": false
+}

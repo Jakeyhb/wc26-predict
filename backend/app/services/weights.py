@@ -76,35 +76,35 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="4.0.3",
-    dc=0.63,            # ↓ from 0.70 (V4.0.3: DC 5/5 direction correct but magnitudes conservative, trim to make room for Pi)
-    enhancer=0.37,      # Actual enhancer blend = 1-dc = 0.37 (for learning_engine margin attribution)
-    elo=0.12,           # ↑ from 0.08 (V4.0.3: 4/5 WC direction correct, avg Brier 0.30 — first wrong on Norway-Senegal but still reliable)
-    pi=0.08,            # ↑ from 0.02 (V4.0.3: Norway-Senegal proved Pi is BEST model in competitive fixtures — Brier 0.29 when 7/11 layers wrong)
+    version="4.0.4",
+    dc=0.68,            # ↑ from 0.63 (V4.0.4: Enhancer 1/6 WC correct, Portugal-Uzbekistan Brier 0.89 — reduce enhancer blend 37%→32%)
+    enhancer=0.32,      # Actual enhancer blend = 1-dc = 0.32 (for learning_engine margin attribution)
+    elo=0.12,           # (unchanged: 5/6 WC direction correct, avg Brier 0.30)
+    pi=0.12,            # ↑ from 0.08 (V4.0.4: Portugal-Uzbekistan Brier 0.12, best pre-market component in WC mismatches — +50%)
     weibull=0.10,       # (unchanged)
-    market_max=0.30,    # ↑ from 0.28 (V4.0.3: 5/5 WC direction correct, avg Brier 0.16 — anchor point)
-    label="WORLD_CUP_V4.0.3",
+    market_max=0.30,    # (unchanged: 6/6 WC direction correct, avg Brier 0.13 — anchor point)
+    label="WORLD_CUP_V4.0.4",
 )
 
-# V4.0.3-knockout: Drastically reduce Enhancer influence for WC knockout matches.
-# Enhancer has been wrong 7/8 WC group matches (87.5% wrong direction, avg Brier ~0.89).
+# V4.0.4-knockout: Drastically reduce Enhancer influence for WC knockout matches.
+# Enhancer has been wrong 6/7 WC group matches (86% wrong direction, avg Brier ~0.82).
 # Knockout matches are even more competitive — Enhancer's underdog bias is MORE dangerous.
 #
-# The actual Enhancer blend weight is (1 - dc).  Group-stage dc=0.63 → enhancer_actual=0.37.
-# Knockout dc=0.78 → enhancer_actual=0.22 (40% reduction in Enhancer influence).
+# The actual Enhancer blend weight is (1 - dc).  Group-stage dc=0.68 → enhancer_actual=0.32.
+# Knockout dc=0.78 → enhancer_actual=0.22 (31% reduction from group stage).
 #
 # Effective weights (6-model sequential, excluding Market; Weibull=0.10):
-#   Group:   DC=45.9%  Enh=27.0%  Wb=8.1%  Elo=11.0%  Pi=8.0%
-#   Knockout: DC=56.9%  Enh=16.1%  Wb=6.2%  Elo=14.5%  Pi=10.3%
+#   Group:   DC=48.6%  Enh=22.9%  Wb=7.7%  Elo=13.4%  Pi=7.4%
+#   Knockout: DC=57.6%  Enh=16.2%  Wb=6.0%  Elo=14.8%  Pi=5.5%
 _WORLD_CUP_KNOCKOUT = WeightConfig(
-    version="4.0.3-knockout",
+    version="4.0.4-knockout",
     dc=0.78,            # ↑ from 0.63 → enhancer blend drops from 0.37 to 0.22
     enhancer=0.22,      # Actual enhancer blend = 1-dc = 0.22 (for learning_engine margin attribution)
     elo=0.20,           # ↑ from 0.12: 4/5 WC dir correct, reliable anchor
     pi=0.15,            # ↑ from 0.08: Brier 0.29 best in competitive WC fixtures
     weibull=0.10,       # (unchanged)
     market_max=0.30,    # (unchanged)
-    label="WORLD_CUP_KNOCKOUT_V4.0.3",
+    label="WORLD_CUP_KNOCKOUT_V4.0.4",
 )
 
 _UCL_FINAL = WeightConfig(
@@ -275,6 +275,19 @@ def _read_db_auto_weights() -> dict[str, float] | None:
 
         # Only return if we found at least dc (minimum viable config)
         if "dc" in result:
+            # ── Sanity check ──
+            # The RPS auto-optimizer was trained on predominantly friendly data
+            # where Enhancer dominates (DC 0/3 direction correct).  It can produce
+            # extreme values like dc=0.026 that are valid for friendlies but
+            # dangerous for any serious competition.  Reject configurations where
+            # DC falls below 0.20 — such extreme underweighting of the base model
+            # indicates overfitting to the friendly-heavy training set.
+            if result["dc"] < 0.20:
+                logger.info(
+                    "Rejecting auto-optimized weights: dc=%.3f below sanity floor "
+                    "(0.20) — falling back to competition defaults", result["dc"]
+                )
+                return None
             return result
         return None
 

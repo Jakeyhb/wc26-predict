@@ -175,15 +175,55 @@ class IsotonicCalibrator:
             "expected_calibration_error": self._expected_calibration_error,
         }
 
+    # ── Safety floor ──
+    # Isotonic regression with small samples (30) can map low probabilities
+    # to exactly 0.0 or 1.0.  This is statistically correct given the training
+    # data but presentationally jarring and risks downstream division-by-zero
+    # issues.  A 2% floor preserves calibration integrity while preventing
+    # zero-probability outputs.
+    MIN_PROB = 0.02
+
     def _normalize_output(self, probs: dict[str, float]) -> dict[str, float]:
-        safe = {key: float(np.clip(value, 0.0, 1.0)) for key, value in probs.items()}
-        total = sum(safe.values())
-        if total <= 0:
-            return {
-                "home_win_prob": 1 / 3,
-                "draw_prob": 1 / 3,
-                "away_win_prob": 1 / 3,
+        """Normalize probabilities to sum to 1.0 while respecting MIN_PROB floor.
+
+        Uses iterative clipping-and-renormalizing to guarantee that no output
+        value falls below ``MIN_PROB`` after normalization.  Without iteration,
+        values clipped to 0.02 can be pushed below 0.02 when the pre-clipping
+        total exceeds 1.0 (e.g. (0.02, 0.5, 0.5) normalized to total 1.02
+        pushes the 0.02 down to 0.0196, breaking the floor).
+
+        Convergence: 3-way vectors with a 2% floor converge in ~3 iterations.
+        A hard cap at 8 prevents infinite loops.
+        """
+        safe = {
+            key: float(np.clip(value, self.MIN_PROB, 1.0 - self.MIN_PROB))
+            for key, value in probs.items()
+        }
+        # Iterative reclip+renormalize to guarantee floor
+        for _ in range(8):
+            total = sum(safe.values())
+            if total <= 0:
+                return {
+                    "home_win_prob": 1 / 3,
+                    "draw_prob": 1 / 3,
+                    "away_win_prob": 1 / 3,
+                }
+            # Normalize
+            safe = {key: value / total for key, value in safe.items()}
+            # Re-apply floor. If nothing changed, we have converged.
+            reclipped = {
+                key: float(np.clip(value, self.MIN_PROB, 1.0 - self.MIN_PROB))
+                for key, value in safe.items()
             }
+            if all(abs(reclipped[k] - safe[k]) < 1e-9 for k in safe):
+                # Converged.  Return reclipped values directly — the sum
+                # error is < 1e-9, which is an acceptable floating-point
+                # tolerance.  Normalizing again can push values below MIN_PROB
+                # (e.g. 0.02 / 1.000000003 = 0.01999999994).
+                return reclipped
+            safe = reclipped
+        # Fallback -- should be unreachable
+        total = sum(safe.values())
         return {key: value / total for key, value in safe.items()}
 
     def _estimate_ece(self, raw_probs: np.ndarray, calibrated_probs: np.ndarray, labels: np.ndarray, bins: int = 10) -> float:

@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-06-24T18:00:00.000000+00:00",
+  "code_issues": [
+    "B1-CRITICAL: 32 past-due WC matches still 'scheduled' in matches table — auto_postmatch won't detect, training data stale",
+    "B2-CRITICAL: Pipeline divergence — predict_match_full.py has adaptive DC shift, prediction_pipeline.py does NOT",
+    "B3-HIGH: calibrator_wc.json deleted (21 WC samples), threshold raised to 50, now falling back to 30-sample pre-WC calibrator",
+    "B4-HIGH: 5 prediction JSONs contain 0.0% calibrated probabilities (pre-MIN_PROB fix era)",
+    "B5-HIGH: Calibrator flat output — 3 different matches get identical calibrated values (0.528/0.357/0.115)",
+    "B6-MEDIUM: test_schedule_stage_distribution fails — DB has 'Quarterfinal' but test expects 'Quarter-final'",
+    "B7-MEDIUM: Weibull daemon thread no cleanup — penaltyblog thread safety unknown",
+    "B8-MEDIUM: 9/10 recent learning logs orphaned (prediction_run_id=NULL, model_was_right=NULL)"
+  ],
+  "db_issues": [
+    "32 WC 2026 matches with match_date < 2026-06-25 still status='scheduled'",
+    "Only 8/19 known finished WC matches have their status updated",
+    "calibrator_wc.json deleted (backup exists as .bak)",
+    "Most prediction_learning_log entries have NULL prediction_run_id and model_was_right"
+  ],
+  "pre_existing_count": 8,
+  "newly_discovered_count": 8,
+  "caused_by_us_count": 1,
+  "test_results": "195 passed, 1 failed (test_schedule_stage_distribution)",
+  "verdict": "System is exposing issues through growth, not degradation. B1 (32 stale matches) is the most impactful. B2 (pipeline divergence) is architectural debt from patching CLI script without updating API pipeline."
+}

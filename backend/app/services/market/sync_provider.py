@@ -8,16 +8,72 @@ Provides:
     fetch_market_consensus_sync(home_team, away_team, competition)
         -> dict | None
 
-Graceful degradation: returns None if all providers are unavailable.
+Graceful degradation:
+    1. apifootball.com       (primary)
+    2. The Odds API           (fallback)
+    3. _manual_odds.json      (tertiary — manually verified odds when API down)
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Path to manual odds cache — populated via web search when API is exhausted.
+# Format: {"Switzerland|Canada": {"home_odds": 2.45, "draw_odds": 3.10, ...}}
+_MANUAL_ODDS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "_manual_odds.json"
+
+
+def _lookup_manual_odds(home_team: str, away_team: str) -> dict[str, Any] | None:
+    """Check the manual odds file for web-verified odds.
+
+    Used as a tertiary fallback when both apifootball.com and The Odds API
+    are unavailable or have exhausted their quotas.
+    """
+    if not _MANUAL_ODDS_PATH.exists():
+        return None
+    try:
+        manual = json.loads(_MANUAL_ODDS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    key = f"{home_team}|{away_team}"
+    entry = manual.get(key)
+    if not entry:
+        return None
+
+    home_odds = float(entry.get("home_odds", 0))
+    draw_odds = float(entry.get("draw_odds", 0))
+    away_odds = float(entry.get("away_odds", 0))
+    if not (home_odds > 1 and draw_odds > 1 and away_odds > 1):
+        return None
+
+    raw_h = 1 / home_odds
+    raw_d = 1 / draw_odds
+    raw_a = 1 / away_odds
+    total = raw_h + raw_d + raw_a
+
+    logger.info(
+        "Market odds from manual file: H=%.4f D=%.4f A=%.4f (%s)",
+        raw_h / total, raw_d / total, raw_a / total, entry.get("source", "manual"),
+    )
+    return {
+        "home_prob": raw_h / total,
+        "draw_prob": raw_d / total,
+        "away_prob": raw_a / total,
+        "provider": entry.get("source", "manual-odds"),
+        "overround": total - 1.0,
+        "home_odds": home_odds,
+        "draw_odds": draw_odds,
+        "away_odds": away_odds,
+        "bookmaker": entry.get("source", "web-verified"),
+        "manual_entry": True,
+    }
 
 
 def fetch_market_consensus_sync(
@@ -31,6 +87,7 @@ def fetch_market_consensus_sync(
     Tries providers in order:
     1. apifootball.com (API key configured)
     2. The Odds API (fallback)
+    3. _manual_odds.json (tertiary — web-verified odds)
 
     Returns:
         {
@@ -65,9 +122,15 @@ def fetch_market_consensus_sync(
             "reason": "event_loop_conflict",
         }
 
-    return asyncio.run(
+    result = asyncio.run(
         _fetch_consensus_async(home_team, away_team, competition, timeout)
     )
+
+    # ── Tertiary fallback: manual odds file ──
+    if result is None:
+        result = _lookup_manual_odds(home_team, away_team)
+
+    return result
 
 
 async def _fetch_consensus_async(
