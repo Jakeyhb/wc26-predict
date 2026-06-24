@@ -1,1 +1,5 @@
-[]
+[
+  {
+    "_comment": "Intentionally empty. Injury data requires live API/manual source. System degrades gracefully (skips injury signals when empty). See app/services/injury_data.py for schema."
+  }
+]

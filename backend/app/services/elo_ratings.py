@@ -28,8 +28,6 @@ DEFAULT_RATING = 1500.0
 HOME_ADVANTAGE = 100.0          # Elo points for home team
 K_LEAGUE = 20                    # K-factor for regular league matches
 K_KNOCKOUT = 32                  # K-factor for knockout / World Cup matches
-DRAW_BANDWIDTH = 80.0            # Elo difference window where draws are common (deprecated, kept for compat)
-DRAW_PROB_BASELINE = 0.26        # Base draw probability (deprecated, kept for compat)
 
 
 def _elo_davidson_draw(elo_diff: float, kappa: float = 0.24) -> float:

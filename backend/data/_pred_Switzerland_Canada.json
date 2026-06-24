@@ -10,15 +10,15 @@
       "away_win_prob": 0.2880710458511587
     },
     "enhancer": {
-      "home_win_prob": 0.1844898346177522,
-      "draw_prob": 0.29704826649018873,
-      "away_win_prob": 0.5184618988920592
+      "home_win_prob": 0.17804241185673786,
+      "draw_prob": 0.32121709864919656,
+      "away_win_prob": 0.5007404894940656
     },
     "weibull": null,
     "elo": {
-      "home_win_prob": 0.46188034844923603,
-      "draw_prob": 0.11985258394998981,
-      "away_win_prob": 0.4182670676007742
+      "home_win_prob": 0.39898457414156346,
+      "draw_prob": 0.23970516789997962,
+      "away_win_prob": 0.3613102579584569
     },
     "pi": {
       "home_win_prob": 0.797811335792991,
@@ -26,45 +26,45 @@
       "away_win_prob": 0.06576992732568118
     },
     "dc_enh": {
-      "home_win_prob": 0.2952470743748985,
-      "draw_prob": 0.3210696757619691,
-      "away_win_prob": 0.3836832498631324
+      "home_win_prob": 0.3111701175134747,
+      "draw_prob": 0.33270461466963647,
+      "away_win_prob": 0.3561252678168889
     },
     "dc_enh_wb": {
-      "home_win_prob": 0.2952470743748985,
-      "draw_prob": 0.3210696757619691,
-      "away_win_prob": 0.3836832498631324
+      "home_win_prob": 0.3111701175134747,
+      "draw_prob": 0.33270461466963647,
+      "away_win_prob": 0.3561252678168889
     },
     "dc_enh_elo": {
-      "home_win_prob": 0.315243067263819,
-      "draw_prob": 0.2969236247445316,
-      "away_win_prob": 0.38783330799164945
+      "home_win_prob": 0.3217078523088453,
+      "draw_prob": 0.3215446810572777,
+      "away_win_prob": 0.3567474666338771
     },
     "pre_market": {
-      "home_win_prob": 0.3538485287461528,
-      "draw_prob": 0.28408323371547534,
-      "away_win_prob": 0.362068237538372
+      "home_win_prob": 0.3788402703269428,
+      "draw_prob": 0.2993295677561637,
+      "away_win_prob": 0.32183016191689356
     },
     "post_market": {
-      "home_win_prob": 0.3676715339252423,
-      "draw_prob": 0.2936792414450881,
-      "away_win_prob": 0.3386492246296696
+      "home_win_prob": 0.38372886627774455,
+      "draw_prob": 0.3037553381604793,
+      "away_win_prob": 0.31251579556177617
     },
     "final": {
-      "home_win_prob": 0.3676715339252423,
-      "draw_prob": 0.2936792414450881,
-      "away_win_prob": 0.3386492246296696
+      "home_win_prob": 0.38372886627774455,
+      "draw_prob": 0.3037553381604793,
+      "away_win_prob": 0.31251579556177617
     }
   },
   "market": {
     "provider": "the-odds-api",
     "live": true,
-    "home_odds": 2.45,
-    "draw_odds": 3.1,
-    "away_odds": 3.45,
-    "home_prob": 0.3999252126764513,
-    "draw_prob": 0.316069926147518,
-    "away_prob": 0.2840048611760307,
+    "home_odds": 2.48,
+    "draw_odds": 3.12,
+    "away_odds": 3.37,
+    "home_prob": 0.3951355901629487,
+    "draw_prob": 0.31408213577054894,
+    "away_prob": 0.29078227406650226,
     "market_weight": 0.3
   },
   "home_xg": 0.8974186835222435,
@@ -83,36 +83,32 @@
     "away_atk": 1.1566374321522934,
     "away_def": 0.5134714674674884
   },
-  "calibrated": {
-    "home_win_prob": 0.5280354981847519,
-    "draw_prob": 0.3565954013715208,
-    "away_win_prob": 0.11536910044372731
-  },
-  "calibration_applied": true,
+  "calibrated": null,
+  "calibration_applied": false,
   "calibration_stats": {
-    "is_fitted": true,
-    "training_samples": 30,
-    "fitted_at": "2026-06-17T12:28:38.633337+00:00",
-    "expected_calibration_error": 0.12791184850008377
+    "is_fitted": false,
+    "training_samples": 0,
+    "ece": 0.0
   },
   "dc_enhancer_divergence": {
-    "home": 18.9,
-    "draw": 4.1,
-    "away": 23.0,
-    "max_pp": 23.0,
-    "warning": "Large divergence (23.0pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "home": 19.6,
+    "draw": 1.7,
+    "away": 21.3,
+    "max_pp": 21.3,
+    "warning": "Large divergence (21.3pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
     "severity": "high",
-    "dc_weight_adaptive": 0.58,
-    "shift_applied": 0.04
+    "dc_weight_adaptive": null,
+    "shift_applied": null,
+    "direction_conflict": true
   },
   "weather": {
-    "temperature_c": 20.1,
+    "temperature_c": 15.1,
     "precipitation_mm": 0.0,
-    "wind_speed_kmh": 3.6,
-    "humidity_percent": 60.0,
+    "wind_speed_kmh": 9.9,
+    "humidity_percent": 79.0,
     "weather_code": 3,
     "weather_description": "\u591a\u4e91",
-    "fetched_at": "2026-06-23T15:08:05.988250+00:00",
+    "fetched_at": "2026-06-24T15:12:31.908308+00:00",
     "forecast_available": true
   },
   "overdispersion": {
@@ -201,8 +197,8 @@
   "provenance": {
     "dc_hash": "345ceb9e55d8",
     "dc_teams": 296,
-    "training_rows": 16706,
-    "version": "4.1-beta",
-    "weight_label": "WORLD_CUP_V4.0.3"
+    "training_rows": 16737,
+    "version": "4.1.5-beta",
+    "weight_label": "WORLD_CUP_V4.0.4"
   }
 }

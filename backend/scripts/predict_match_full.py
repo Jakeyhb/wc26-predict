@@ -323,37 +323,54 @@ def main():
     final = {"home_win_prob": signal_home / total_s, "draw_prob": signal_draw / total_s, "away_win_prob": signal_away / total_s}
 
     # ── 6.5. Probability Calibration ──
-    # V3.9.5.3: WC-first, fallback to main calibrator if WC has < 20 samples.
-    # calibrator_wc.json auto-activates once ≥20 WC postmatch pairs accumulate.
+    # V4.1.4: Skip isotonic calibration when market data is available.
+    # Market odds ARE the calibration signal — no further isotonic needed.
+    # V4.1.5: synced with prediction_pipeline.py (was missing this guard,
+    # causing 21-sample calibrator_wc.json to crush draw probabilities to
+    # 2-10% and produce duplicate outputs for different inputs).
     calibrated_final = None
     calibration_applied = False
     calibration_stats = {"is_fitted": False, "training_samples": 0, "ece": 0.0}
+    cal_reason = "disabled: market data available (market IS calibration)"
     try:
-        is_wc = "world cup" in COMP.lower()
+        # ── Skip calibration when market data is present ──
+        if market_live:
+            calibrator = None
+            print(f"Calibration: skipped — market data available")
+        else:
+            is_wc = "world cup" in COMP.lower()
 
-        # Try WC-specific calibrator first (requires ≥20 WC samples)
-        if is_wc:
-            wc_path = str(BACKEND_DIR / "artifacts" / "calibrator_wc.json")
-            if os.path.exists(wc_path):
-                wc_cal = IsotonicCalibrator()
-                wc_cal.load(wc_path)
-                if wc_cal.is_fitted and wc_cal.training_sample_count >= 20:
-                    calibrated_final = wc_cal.calibrate(final)
-                    calibration_applied = True
-                    calibration_stats = wc_cal.calibration_stats()
+            # Try WC-specific calibrator first (requires >=50 WC samples)
+            if is_wc:
+                wc_path = str(BACKEND_DIR / "artifacts" / "calibrator_wc.json")
+                if os.path.exists(wc_path):
+                    wc_cal = IsotonicCalibrator()
+                    wc_cal.load(wc_path)
+                    if wc_cal.is_fitted and wc_cal.training_sample_count >= 50:
+                        calibrated_final = wc_cal.calibrate(final)
+                        calibration_applied = True
+                        calibration_stats = wc_cal.calibration_stats()
+                        cal_reason = "wc calibrator applied"
 
-        # Fallback: use main calibrator for ALL competitions (including WC)
-        # when WC-specific calibrator isn't ready yet
-        if not calibration_applied:
-            cal_path = str(BACKEND_DIR / "artifacts" / "calibrator.json")
-            if os.path.exists(cal_path):
-                calibrator = IsotonicCalibrator()
-                calibrator.load(cal_path)
-                if calibrator.is_fitted and calibrator.training_sample_count >= 20:
-                    calibrated_final = calibrator.calibrate(final)
-                    calibration_applied = True
-                    calibration_stats = calibrator.calibration_stats()
+            # Fallback: use main calibrator for ALL competitions (including WC)
+            # when WC-specific calibrator isn't ready yet (requires >=50 samples)
+            if not calibration_applied:
+                cal_path = str(BACKEND_DIR / "artifacts" / "calibrator.json")
+                if os.path.exists(cal_path):
+                    calibrator = IsotonicCalibrator()
+                    calibrator.load(cal_path)
+                    if calibrator.is_fitted and calibrator.training_sample_count >= 50:
+                        calibrated_final = calibrator.calibrate(final)
+                        calibration_applied = True
+                        calibration_stats = calibrator.calibration_stats()
+                        cal_reason = "main calibrator applied"
+                    else:
+                        cal_reason = (f"calibrator not fitted or {calibrator.training_sample_count} "
+                                    f"samples < 50 threshold")
+                else:
+                    cal_reason = "calibrator.json not found"
     except Exception as exc:
+        cal_reason = f"error: {exc}"
         print(f"Calibration: error — {exc}")
 
     # ── 7. Weather (Open-Meteo API) ──
