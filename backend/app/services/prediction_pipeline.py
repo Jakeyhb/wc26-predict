@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from app.services.calibration import IsotonicCalibrator
 from app.services.dixon_coles import DixonColesModel
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.market_calibrator import MarketCalibrator, get_calibrator
@@ -40,6 +41,42 @@ logger = logging.getLogger(__name__)
 DEFAULT_COMPETITION_WEIGHT = 0.9
 WORLD_CUP_COMPETITION_WEIGHT = 1.5
 FRIENDLY_COMPETITION_WEIGHT = 0.5
+
+
+def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
+    """Load isotonic calibrator with WC-specific fallback.
+
+    Priority: calibrator_wc.json (if WC, ≥20 samples) → calibrator.json.
+
+    Audit R4-C7: pipeline paths had calibration stubbed out (enabled=False).
+    This function loads the calibrator artifact from disk — same logic as
+    predict_match_full.py and prediction_orchestrator.py.
+    """
+    from pathlib import Path as _Path
+
+    calibrator = IsotonicCalibrator()
+    backend_dir = _Path(__file__).resolve().parents[2]
+    artifacts_dir = backend_dir / "artifacts"
+    is_wc = "world cup" in (competition or "").lower()
+
+    if is_wc:
+        wc_path = str(artifacts_dir / "calibrator_wc.json")
+        try:
+            calibrator.load(wc_path)
+            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+                logger.info("Pipeline: using WC calibrator (%d samples)",
+                            calibrator.training_sample_count)
+                return calibrator
+        except Exception as exc:
+            logger.debug("WC calibrator load failed: %s", exc)
+
+    # Fallback: main calibrator
+    calibrator = IsotonicCalibrator()
+    try:
+        calibrator.load(str(artifacts_dir / "calibrator.json"))
+    except Exception as exc:
+        logger.warning("Failed to load calibrator artifact: %s", exc)
+    return calibrator
 
 
 class PredictionPipeline:
@@ -398,10 +435,12 @@ class PredictionPipeline:
         if pi_pred:
             clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=wc.pi))
 
-        # ── 10. Calibration monitor (record-only, no modification) ──
-        cal_monitor = {
+        # ── 10. Isotonic calibration (applied after market at step 13.5) ──
+        # Audit R4-C7: was a stub (enabled=False).  Calibrator is now applied
+        # after market blending so it calibrates the final probability vector.
+        cal_monitor: dict[str, object] = {
             "enabled": False,
-            "reason": "回测样本不足（< 20 条），校准器处于监控模式",
+            "reason": "calibrator not yet applied",
             "baseline_probs": dict(clean),
         }
 
@@ -543,6 +582,46 @@ class PredictionPipeline:
                 detail=str(exc),
             ))
 
+        # ── 13.5 Isotonic calibration (R4-C7: was disabled stub) ──
+        # Calibrates the final probability vector after market blending.
+        # Uses WC-specific calibrator (calibrator_wc.json) when available.
+        calibration_applied = False
+        try:
+            calibrator = _load_isotonic_calibrator(competition)
+            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+                pre_cal = {
+                    "home_win_prob": clean["home_win_prob"],
+                    "draw_prob": clean["draw_prob"],
+                    "away_win_prob": clean["away_win_prob"],
+                }
+                cal_result = calibrator.calibrate(pre_cal)
+                clean["home_win_prob"] = cal_result["home_win_prob"]
+                clean["draw_prob"] = cal_result["draw_prob"]
+                clean["away_win_prob"] = cal_result["away_win_prob"]
+                calibration_applied = True
+                cal_monitor = {
+                    "enabled": True,
+                    "sample_count": calibrator.training_sample_count,
+                    "calibration_stats": calibrator.calibration_stats(),
+                    "pre_calibration_probs": pre_cal,
+                }
+            else:
+                cal_monitor = {
+                    "enabled": False,
+                    "reason": (
+                        f"calibrator not fitted (fitted={calibrator.is_fitted}, "
+                        f"samples={calibrator.training_sample_count})"
+                    ),
+                    "baseline_probs": dict(clean),
+                }
+        except Exception as exc:
+            logger.warning("Isotonic calibration failed — continuing without", exc_info=True)
+            cal_monitor = {
+                "enabled": False,
+                "reason": f"calibration exception: {exc}",
+                "baseline_probs": dict(clean),
+            }
+
         # ── 14. Build result ──
         components_used = ["dc", "enhancer", "elo"]
         if pi_pred:
@@ -551,6 +630,8 @@ class PredictionPipeline:
             components_used.append("weibull")
         if market_applied:
             components_used.append("market")
+        if calibration_applied:
+            components_used.append("calibration")
 
         # Build dc_provenance for pipeline_params (V4.0.3-fix: was undefined)
         dc_provenance: dict[str, object] = {}
@@ -669,6 +750,7 @@ class PredictionPipeline:
                 "rating_gap": elo_pred.rating_gap,
             },
             calibration_monitor=cal_monitor,
+            calibration_applied=calibration_applied,
         )
 
         return result
@@ -1188,6 +1270,43 @@ class PredictionPipeline:
                 required=require_full_context,
             )
 
+        # ── 10.5 Isotonic calibration (R4-C7: was disabled stub) ──
+        calibration_applied = False
+        calibration_monitor: dict[str, object] = {"enabled": False}
+        try:
+            calibrator = _load_isotonic_calibrator(competition)
+            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+                pre_cal = {
+                    "home_win_prob": fused["home_win_prob"],
+                    "draw_prob": fused["draw_prob"],
+                    "away_win_prob": fused["away_win_prob"],
+                }
+                cal_result = calibrator.calibrate(pre_cal)
+                fused["home_win_prob"] = cal_result["home_win_prob"]
+                fused["draw_prob"] = cal_result["draw_prob"]
+                fused["away_win_prob"] = cal_result["away_win_prob"]
+                calibration_applied = True
+                calibration_monitor = {
+                    "enabled": True,
+                    "sample_count": calibrator.training_sample_count,
+                    "calibration_stats": calibrator.calibration_stats(),
+                    "pre_calibration_probs": pre_cal,
+                }
+            else:
+                calibration_monitor = {
+                    "enabled": False,
+                    "reason": (
+                        f"calibrator not fitted (fitted={calibrator.is_fitted}, "
+                        f"samples={calibrator.training_sample_count})"
+                    ),
+                }
+        except Exception as exc:
+            logger.warning("Isotonic calibration failed — continuing without", exc_info=True)
+            calibration_monitor = {
+                "enabled": False,
+                "reason": f"calibration exception: {exc}",
+            }
+
         # ── 11. Pipeline status ──
         used_components = [
             c for c, s in quality.model_components.items()
@@ -1323,7 +1442,8 @@ class PredictionPipeline:
             divergence=divergence,
             weibull_applied=has_weibull and "weibull" in component_probs,
             elo_detail=elo_detail,
-            calibration_monitor={"enabled": False, "reason": "sync artifact mode — calibration monitor disabled"},
+            calibration_monitor=calibration_monitor,
+            calibration_applied=calibration_applied,
         )
 
         # ── 15. Save pre-match snapshot (best-effort) ──

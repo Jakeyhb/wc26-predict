@@ -167,6 +167,7 @@ class PredictionResult:
 
     # ── Calibration ──
     calibration_monitor: dict[str, object] = field(default_factory=dict)
+    calibration_applied: bool = False  # R4-C7: true when isotonic calibration was applied
 
     # ── Sources ──
     sources: dict[str, str] = field(default_factory=dict)
@@ -244,6 +245,7 @@ class PredictionResult:
                 "detail": self.elo_detail,
             },
             "calibration_monitor": self.calibration_monitor,
+            "calibration_applied": self.calibration_applied,
             "pipeline_params": self.pipeline_params,
             "missing_inputs": self.missing_inputs,
             "active_event_ids": [e.get("id", "") for e in self.active_events],
@@ -308,6 +310,7 @@ class PredictionResult:
             weibull_applied=bool(pred.get("weibull_applied", False)),
             elo_detail=dict(elo.get("detail", {})),
             calibration_monitor=dict(data.get("calibration_monitor", {})),
+            calibration_applied=bool(data.get("calibration_applied", False)),
             sources=dict(data.get("sources", {})),
             source_status={
                 key: SourceStatus.from_dict(value) if isinstance(value, dict) else value

@@ -31,6 +31,8 @@ from app.services.market_calibrator import get_calibrator
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.tabular_match_model import TabularMatchEnhancer
 from app.services.tabular_match_model import fuse_outcome_probabilities
+from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
+from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
 from app.utils.datetime import utc_now
@@ -45,6 +47,10 @@ class PredictionOrchestrator:
         self.weather_service = WeatherService()
         self.elo = EloRatingSystem()
         self._elo_fitted = False
+        self.weibull = WeibullWrapper()
+        self._weibull_fitted = False
+        self.pi = PiRatingWrapper()
+        self._pi_fitted = False
         self.market_calibrator = get_calibrator()
         self.injury_service = InjuryDataService()
 
@@ -298,6 +304,29 @@ class PredictionOrchestrator:
                     ),
                 }
 
+            # Weibull blending (session-cached fit, applied after DC+Enhancer)
+            # Audit R4-C5: orchestrator was missing Weibull (0.10 weight = ~7% effective).
+            # Module-level cache (_WEIBULL_CACHE) prevents re-fitting on subsequent calls.
+            if not self._weibull_fitted:
+                try:
+                    self._weibull_fitted = self.weibull.fit(training_df)
+                except Exception:
+                    logger.warning("Weibull fitting failed — skipping Weibull", exc_info=True)
+            if self._weibull_fitted:
+                try:
+                    wb_pred = self.weibull.predict(
+                        match.home_team.name, match.away_team.name,
+                        neutral=match.is_neutral_venue,
+                    )
+                    if wb_pred is not None:
+                        base_prediction = {
+                            **base_prediction,
+                            **fuse_weibull_probs(base_prediction, wb_pred, wb_weight=wc.weibull),
+                        }
+                except Exception:
+                    logger.warning("Weibull prediction failed for %s vs %s — skipping",
+                                   match.home_team.name, match.away_team.name, exc_info=True)
+
             # Elo blending: fit once, blend every prediction
             if not self._elo_fitted:
                 try:
@@ -320,6 +349,28 @@ class PredictionOrchestrator:
                     }
                 except Exception:
                     logger.warning("Elo prediction failed for %s vs %s — skipping Elo blend",
+                                   match.home_team.name, match.away_team.name, exc_info=True)
+
+            # Pi-Rating blending (fit once per session, applied after Elo)
+            # Audit R4-C5: orchestrator was missing Pi-Rating (0.12 weight = ~7% effective).
+            if not self._pi_fitted:
+                try:
+                    self.pi.fit(training_df)
+                    self._pi_fitted = True
+                except Exception:
+                    logger.warning("Pi-Rating fitting failed — skipping Pi", exc_info=True)
+            if self._pi_fitted:
+                try:
+                    pi_pred = self.pi.predict(
+                        match.home_team.name, match.away_team.name,
+                        is_neutral=match.is_neutral_venue,
+                    )
+                    base_prediction = {
+                        **base_prediction,
+                        **fuse_pi_probabilities(base_prediction, pi_pred, pi_weight=wc.pi),
+                    }
+                except Exception:
+                    logger.warning("Pi-Rating prediction failed for %s vs %s — skipping",
                                    match.home_team.name, match.away_team.name, exc_info=True)
 
             # Market calibrator (gracefully skipped if no API key)
@@ -377,6 +428,10 @@ class PredictionOrchestrator:
                         "dixon_weight": wc.dc if enhancer_meta["enabled"] else 1.0,
                         "enhancer_weight": wc.enhancer if enhancer_meta["enabled"] else 0.0,
                         "enhancer_enabled": enhancer_meta["enabled"],
+                        "weibull_weight": wc.weibull if self._weibull_fitted else 0.0,
+                        "weibull_fitted": self._weibull_fitted,
+                        "pi_weight": wc.pi if self._pi_fitted else 0.0,
+                        "pi_fitted": self._pi_fitted,
                     },
                     "enhancer": enhancer_meta["snapshot"],
                     "market_result": market_result,
