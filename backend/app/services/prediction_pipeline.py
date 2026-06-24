@@ -1422,6 +1422,8 @@ class PredictionPipeline:
         components_used = list(used_components)
         if market_applied:
             components_used.append("market")
+        if calibration_applied:
+            components_used.append("calibration")
 
         # Parameter provenance — traceable fingerprint of model state
         dc_provenance: dict[str, object] = {}

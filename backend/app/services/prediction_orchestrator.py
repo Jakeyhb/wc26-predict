@@ -456,6 +456,10 @@ class PredictionOrchestrator:
                     "dixon_weight": 0.0,
                     "enhancer_weight": 0.0,
                     "enhancer_enabled": False,
+                    "weibull_weight": 0.0,
+                    "weibull_fitted": False,
+                    "pi_weight": 0.0,
+                    "pi_fitted": False,
                 },
                 "enhancer": {
                     "enabled": False,
