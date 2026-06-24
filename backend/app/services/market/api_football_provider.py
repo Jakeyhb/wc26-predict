@@ -48,6 +48,7 @@ class ApiFootballProvider(MarketProvider):
         self.base_url = "https://v3.football.api-sports.io"
         self._client: httpx.AsyncClient | None = None
         self._available: bool | None = None
+        self._available_checked_at: float = 0.0  # monotonic timestamp of last check
 
     @property
     def name(self) -> str:
@@ -62,10 +63,15 @@ class ApiFootballProvider(MarketProvider):
         return {"x-apisports-key": self.api_key or ""}
 
     async def is_available(self) -> bool:
+        """Check API status with 120 s retry cooldown on failure."""
+        import time as _time
         if self._available is not None:
-            return self._available
+            if self._available or _time.monotonic() - self._available_checked_at < 120:
+                return self._available
+            logger.info("API-Football: retrying availability check after cooldown")
         if not self.api_key:
             self._available = False
+            self._available_checked_at = _time.monotonic()
             return False
         try:
             client = await self._get_client()
@@ -83,6 +89,7 @@ class ApiFootballProvider(MarketProvider):
         except Exception as e:
             logger.warning(f"API-Football unavailable: {e}")
             self._available = False
+        self._available_checked_at = _time.monotonic()
         return self._available
 
     async def fetch(

@@ -389,7 +389,15 @@ class DixonColesModel:
             bounds=bounds,
             options={"maxiter": 2000, "maxfun": 10000},
         )
-        self.attack_params, self.defense_params, self.home_advantage, self.rho = self._unpack_params(result.x)
+        if result.success:
+            self.attack_params, self.defense_params, self.home_advantage, self.rho = self._unpack_params(result.x)
+        else:
+            logger.warning(
+                "Dixon-Coles optimizer did not converge (%s). "
+                "Keeping existing parameters to avoid corruption.",
+                result.message,
+            )
+
         self.trained_at = datetime.now(UTC)
 
         # Compute confederation-level priors for cold-start fallback

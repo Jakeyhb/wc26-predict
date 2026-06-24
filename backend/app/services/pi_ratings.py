@@ -40,8 +40,16 @@ class PiRatingWrapper:
             try:
                 home = str(row["home_team"])
                 away = str(row["away_team"])
-                hg = int(row["home_goals"]) if pd.notna(row.get("home_goals")) else 0
-                ag = int(row["away_goals"]) if pd.notna(row.get("away_goals")) else 0
+                # Skip rows with NaN/missing goals — recording a fake 0-0 draw
+                # would silently corrupt the rating database (audit R3 M1).
+                if pd.isna(row.get("home_goals")) or pd.isna(row.get("away_goals")):
+                    logger.warning(
+                        "Skipping Pi-rating row with NaN goals: %s vs %s",
+                        home, away,
+                    )
+                    continue
+                hg = int(row["home_goals"])
+                ag = int(row["away_goals"])
                 pi.update_ratings(home, away, hg, ag)
                 self._match_count += 1
             except Exception as exc:

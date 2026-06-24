@@ -200,7 +200,7 @@ def main():
     dc_weight_adaptive = wc.dc
     if max_div > 20:
         shift = min(0.15, (max_div - 20) * 0.015)
-        dc_weight_adaptive = wc.dc - shift
+        dc_weight_adaptive = max(0.30, wc.dc - shift)  # V4.0.5: floor at 0.30 (matching prediction_pipeline.py)
         enh_weight_adaptive = 1.0 - dc_weight_adaptive
         print(f"ADAPTIVE: Divergence {max_div:.1f}pp > 20pp threshold. "
               f"DC weight {wc.dc:.2f} -> {dc_weight_adaptive:.2f} (shift={shift:.2f})")
@@ -326,7 +326,7 @@ def main():
             if os.path.exists(wc_path):
                 wc_cal = IsotonicCalibrator()
                 wc_cal.load(wc_path)
-                if wc_cal.is_fitted and wc_cal.training_sample_count >= 50:
+                if wc_cal.is_fitted and wc_cal.training_sample_count >= 20:
                     calibrated_final = wc_cal.calibrate(final)
                     calibration_applied = True
                     calibration_stats = wc_cal.calibration_stats()
@@ -342,8 +342,8 @@ def main():
                     calibrated_final = calibrator.calibrate(final)
                     calibration_applied = True
                     calibration_stats = calibrator.calibration_stats()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"Calibration: error — {exc}")
 
     # ── 7. Weather (Open-Meteo API) ──
     # V4.0.3: Always fetch weather for WC matches using venue from schedule DB.

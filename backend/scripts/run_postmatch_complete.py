@@ -211,9 +211,16 @@ async def run_complete_postmatch(
         print(f"  STEP 2/7: Find Prediction Snapshot")
         print(f"{'─'*50}")
 
+        # Convert CHAR(32) match_id to UUID format (36-char with hyphens)
+        # for LIKE match against PredictionSnapshot.match_id (stored with hyphens).
+        if len(match_uuid) == 32:
+            match_uuid_fmt = f"{match_uuid[:8]}-{match_uuid[8:12]}-{match_uuid[12:16]}-{match_uuid[16:20]}-{match_uuid[20:]}"
+        else:
+            match_uuid_fmt = match_uuid
+
         snap_result = await db.execute(
             select(PredictionSnapshot)
-            .where(PredictionSnapshot.match_id.like(f"{match_uuid}%"))
+            .where(PredictionSnapshot.match_id.like(f"{match_uuid_fmt}%"))
             .order_by(PredictionSnapshot.generated_at.desc())
             .limit(1)
         )

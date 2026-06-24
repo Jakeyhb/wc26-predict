@@ -153,9 +153,14 @@ def optimize_weights(data):
     weights = {comp: float(optimal[i]) for i, comp in enumerate(COMPONENTS)}
     optimal_rps = ensemble_rps(optimal)
 
-    # Safety check: if any weight is at the boundary (degenerate), fallback to defaults
-    if any(abs(optimal[i] - MIN_WEIGHT) < 1e-4 for i in range(len(COMPONENTS))):
-        print("WARNING: Optimization hit minimum bound — result may be degenerate.")
+    # Safety check: reject degenerate weights where any component falls
+    # below or near MIN_WEIGHT.  The L-BFGS-B bounds apply to raw x, but
+    # post-normalization (np.abs / sum) can push values below the floor.
+    # Also reject weights where DC < 0.20 (overfitting to friendly-heavy data,
+    # same guard as weights.py _read_db_auto_weights).
+    if any(optimal[i] <= MIN_WEIGHT + 1e-4 for i in range(len(COMPONENTS))) \
+            or weights.get("dc", 0) < 0.20:
+        print("WARNING: Optimization produced degenerate weights (component at/near zero or DC < 0.20).")
         print("Falling back to sensible defaults (DC 0.50, Enhancer 0.30, Elo 0.10, Pi 0.10).")
         weights = {"dc": 0.50, "enhancer": 0.30, "elo": 0.10, "pi_rating": 0.10}
         return weights

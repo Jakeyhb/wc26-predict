@@ -57,7 +57,9 @@ class ApifootballComProvider(MarketProvider):
         self.base_url = "https://apiv3.apifootball.com/"
         self._client: httpx.AsyncClient | None = None
         self._available: bool | None = None
+        self._available_checked_at: float = 0.0  # monotonic timestamp of last check
         self._odds_available: bool | None = None
+        self._odds_available_checked_at: float = 0.0
         self._proxy: str | None = self._detect_proxy()
         self._use_proxy: bool | None = None  # None = not tested yet
         if self._proxy:
@@ -167,12 +169,22 @@ class ApifootballComProvider(MarketProvider):
     # ── availability checks ─────────────────────────────────
 
     async def is_available(self) -> bool:
-        """Check if basic API access works via get_countries."""
+        """Check if basic API access works via get_countries.
+
+        Re-checks after 120 s cooldown when previously unavailable (transient
+        failures like rate limits or network blips should not permanently
+        disable the provider).
+        """
+        import time as _time
         if self._available is not None:
-            return self._available
+            if self._available or _time.monotonic() - self._available_checked_at < 120:
+                return self._available
+            # Cooldown expired — re-check
+            logger.info("apifootball.com: retrying availability check after cooldown")
         if not self.api_key:
             logger.warning("apifootball.com: no API key configured")
             self._available = False
+            self._available_checked_at = _time.monotonic()
             return False
         try:
             client = await self._get_client()
@@ -191,6 +203,7 @@ class ApifootballComProvider(MarketProvider):
         except Exception as e:
             logger.warning(f"apifootball.com unavailable: {e}")
             self._available = False
+        self._available_checked_at = _time.monotonic()
         return self._available
 
     async def is_odds_available(self) -> bool:
@@ -198,11 +211,16 @@ class ApifootballComProvider(MarketProvider):
 
         Returns False does NOT mean the key is invalid — it may just mean
         no odds exist for today's date or the subscription plan doesn't cover odds.
+        Re-checks after 120 s cooldown on failure.
         """
+        import time as _time
         if self._odds_available is not None:
-            return self._odds_available
+            if self._odds_available or _time.monotonic() - self._odds_available_checked_at < 120:
+                return self._odds_available
+            logger.info("apifootball.com: retrying odds availability check after cooldown")
         if not await self.is_available():
             self._odds_available = False
+            self._odds_available_checked_at = _time.monotonic()
             return False
         try:
             client = await self._get_client()
@@ -238,6 +256,7 @@ class ApifootballComProvider(MarketProvider):
         except Exception as e:
             logger.warning(f"apifootball.com odds check error: {e}")
             self._odds_available = False
+        self._odds_available_checked_at = _time.monotonic()
         return self._odds_available
 
     # ── fetch ───────────────────────────────────────────────

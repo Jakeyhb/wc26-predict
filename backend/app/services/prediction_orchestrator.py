@@ -80,19 +80,9 @@ class PredictionOrchestrator:
             match_context,
             training_scope=training_scope,
         )
-        calibrator = self._load_calibrator()
+        calibrator = self._load_calibrator(match.competition)
         calibrator_stats = calibrator.calibration_stats()
         calibration_applied = False
-        if calibrator.is_fitted:
-            calibrated_probs = calibrator.calibrate(
-                {
-                    "home_win_prob": float(base_prediction["home_win_prob"]),
-                    "draw_prob": float(base_prediction["draw_prob"]),
-                    "away_win_prob": float(base_prediction["away_win_prob"]),
-                }
-            )
-            base_prediction = {**base_prediction, **calibrated_probs}
-            calibration_applied = True
 
         approved_result = await db.execute(
             select(NewsSignal)
@@ -576,7 +566,27 @@ class PredictionOrchestrator:
             },
         }
 
-    def _load_calibrator(self) -> IsotonicCalibrator:
+    def _load_calibrator(self, competition: str = "") -> IsotonicCalibrator:
+        """Load calibrator with WC-specific fallback.
+
+        Priority: calibrator_wc.json (if WC, ≥20 samples) → calibrator.json.
+        """
+        calibrator = IsotonicCalibrator()
+
+        # Try WC-specific calibrator first
+        is_wc = "world cup" in (competition or "").lower()
+        if is_wc:
+            wc_path = str(settings.model_artifact_dir / "calibrator_wc.json")
+            try:
+                calibrator.load(wc_path)
+                if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+                    logger.info("Using WC-specific calibrator (%d samples)",
+                                calibrator.training_sample_count)
+                    return calibrator
+            except Exception as exc:
+                logger.debug("WC calibrator load failed: %s", exc)
+
+        # Fallback: main calibrator
         calibrator = IsotonicCalibrator()
         try:
             calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))

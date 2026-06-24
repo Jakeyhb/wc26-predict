@@ -61,7 +61,7 @@ def get_kappa_for_competition(competition: str | None = None) -> float:
     """Read κ from model_weight_config based on competition type.
 
     Returns:
-        κ-Elo draw tendency parameter (0.18–0.28 typical range).
+        κ-Elo draw tendency parameter (0.18–0.50 typical range).
         Falls back to 0.24 if DB unavailable or no match.
     """
     if not competition:
@@ -70,7 +70,9 @@ def get_kappa_for_competition(competition: str | None = None) -> float:
     comp_lower = competition.lower()
 
     # Map competition → config key
-    if "premier league" in comp_lower or "epl" in comp_lower:
+    if "world cup" in comp_lower or "fifa" in comp_lower:
+        key = "kappa_elo_wc"
+    elif "premier league" in comp_lower or "epl" in comp_lower:
         key = "kappa_elo_epl"
     elif "champions league" in comp_lower or "ucl" in comp_lower:
         key = "kappa_elo_ucl"

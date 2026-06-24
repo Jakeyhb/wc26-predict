@@ -75,11 +75,17 @@ async def auto_postmatch(days: int = 1, dry_run: bool = False) -> dict:
             if home_goals is None or away_goals is None:
                 continue
 
-            # Find prediction snapshots — use raw UUID format for CHAR(32) compatibility
+            # Find prediction snapshots — convert CHAR(32) match_id to
+            # UUID format (36-char with hyphens) for LIKE match against
+            # PredictionSnapshot.match_id which stores hyphenated UUIDs.
             match_id_raw = row.m_id
+            if len(match_id_raw) == 32:
+                match_id_fmt = f"{match_id_raw[:8]}-{match_id_raw[8:12]}-{match_id_raw[12:16]}-{match_id_raw[16:20]}-{match_id_raw[20:]}"
+            else:
+                match_id_fmt = match_id_raw
             snap_stmt = (
                 select(PredictionSnapshot)
-                .where(PredictionSnapshot.match_id.like(f"{match_id_raw}%"))
+                .where(PredictionSnapshot.match_id.like(f"{match_id_fmt}%"))
                 .order_by(PredictionSnapshot.generated_at.desc())
                 .limit(1)
             )

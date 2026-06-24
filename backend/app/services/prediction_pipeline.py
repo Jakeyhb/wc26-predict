@@ -523,7 +523,7 @@ class PredictionPipeline:
                 {"home_win_prob": clean["home_win_prob"],
                  "draw_prob": clean["draw_prob"],
                  "away_win_prob": clean["away_win_prob"]},
-                market_probs,
+                market_probs if market_probs is not None else None,
                 sample_size=rows,
             )
             if market_result.get("market_applied"):
@@ -1117,7 +1117,8 @@ class PredictionPipeline:
             try:
                 market = get_calibrator(shadow_mode=True)
                 market_probs_data = _run_async_in_thread(
-                    market.fetch_market_probs(home_team, away_team, 1.5, competition=competition)
+                    market.fetch_market_probs(home_team, away_team,
+                        _default_competition_weight(competition), competition=competition)
                 )
                 if market_probs_data:
                     market_available = True

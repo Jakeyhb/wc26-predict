@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # predict_match_full.py, prediction_pipeline.py, and tournament simulators all
 # reuse the same instance within a single process.
 _WEIBULL_CACHE: dict[str, Any] = {}
+_WEIBULL_CACHE_LOCK = __import__("threading").Lock()  # guards concurrent access
 
 
 class WeibullWrapper:
@@ -49,15 +50,21 @@ class WeibullWrapper:
         self._model: Any | None = None
         self._fitted: bool = False
         self._fit_thread: object | None = None  # Track active fit thread
-        self._fit_cancelled: bool = False
 
     @staticmethod
     def _df_key(df: pd.DataFrame) -> str:
-        """Stable hash: (row count, last match_date, hash of sorted team names)."""
+        """Stable hash keyed on row count, max match_date, and sorted unique team names.
+
+        Includes BOTH home and away teams to prevent collisions between DFs that
+        happen to share home-team sets but differ on away opponents (e.g. the
+        same home side playing different visiting sides).
+        """
         import hashlib
 
-        payload = f"{len(df)}|{df['match_date'].max()}|{','.join(sorted(df['home_team'].unique()))}"
-        return hashlib.md5(payload.encode()).hexdigest()[:16]
+        home_unique = ",".join(sorted(df["home_team"].unique()))
+        away_unique = ",".join(sorted(df["away_team"].unique()))
+        payload = f"{len(df)}|{df['match_date'].max()}|{home_unique}|{away_unique}"
+        return hashlib.md5(payload.encode()).hexdigest()[:32]
 
     def fit(self, df: pd.DataFrame) -> bool:
         """Fit the Weibull model on training data.
@@ -76,9 +83,10 @@ class WeibullWrapper:
         """
         import threading
 
-        # ── Session-level cache check ──
+        # ── Session-level cache check (thread-safe) ──
         key = self._df_key(df)
-        cached = _WEIBULL_CACHE.get(key)
+        with _WEIBULL_CACHE_LOCK:
+            cached = _WEIBULL_CACHE.get(key)
         if cached is not None:
             self._model = cached["model"]
             self._fitted = cached["fitted"]
@@ -90,8 +98,7 @@ class WeibullWrapper:
             logger.warning(
                 "Weibull: abandoning previous fit thread (still running after timeout)"
             )
-            self._fit_cancelled = True
-        self._fit_cancelled = False
+        self._fit_thread = None
 
         # Trim to most recent rows
         if len(df) > self.MAX_ROWS:
@@ -144,21 +151,25 @@ class WeibullWrapper:
                 t.name,
             )
             self._fitted = False
-            _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
+            self._fit_thread = None  # clear so is_fitting() doesn't report stale state
+            with _WEIBULL_CACHE_LOCK:
+                _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
             return False
 
         self._fit_thread = None
         if result_ok[0]:
             self._model = result_model[0]
             self._fitted = True
-            _WEIBULL_CACHE[key] = {"model": result_model[0], "fitted": True}
+            with _WEIBULL_CACHE_LOCK:
+                _WEIBULL_CACHE[key] = {"model": result_model[0], "fitted": True}
             return True
 
         if result_exc[0]:
             logger.debug(
                 "Weibull fit exception detail: %s", result_exc[0], exc_info=result_exc[0]
             )
-        _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
+        with _WEIBULL_CACHE_LOCK:
+            _WEIBULL_CACHE[key] = {"model": None, "fitted": False}
         return False
 
     def predict(
