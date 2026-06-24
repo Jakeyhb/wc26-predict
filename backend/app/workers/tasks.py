@@ -148,6 +148,7 @@ async def _news_ingest() -> dict[str, int]:
 
 
 async def _trigger_predictions() -> dict[str, int]:
+    from app.version import VERSION as CURRENT_VERSION
     now = utc_now()
     orchestrator = PredictionOrchestrator()
     created = 0
@@ -180,8 +181,19 @@ async def _trigger_predictions() -> dict[str, int]:
                         PredictionRun.run_type == run_type,
                     )
                 )
-                if existing.scalar_one_or_none() is not None:
-                    continue
+                old = existing.scalar_one_or_none()
+                if old is not None:
+                    # V4.1.1: allow regeneration when model version changes
+                    if old.model_version == CURRENT_VERSION:
+                        continue
+                    logger.info(
+                        "Replacing stale prediction: match=%s run_type=%s "
+                        "old_version=%s -> %s",
+                        match.id, run_type, old.model_version, CURRENT_VERSION,
+                    )
+                    from sqlalchemy import delete as sa_delete
+                    await db.execute(sa_delete(PredictionRun).where(PredictionRun.id == old.id))
+                    await db.flush()
                 await orchestrator.run_prediction(match.id, run_type.value, db)
                 created += 1
     logger.info("prediction_trigger_task checked_matches=%s created=%s", checked_matches, created)

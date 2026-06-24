@@ -151,8 +151,8 @@ class PredictionPipeline:
         if mode in ("full", "research-full"):
             pipeline._pi = _load_pi_artifact(timer)
 
-        # ── Load Weibull (research-full only, optional) ──
-        if mode == "research-full":
+        # ── Load Weibull (standard+, optional) ──
+        if mode in ("standard", "full", "research-full"):
             pipeline._weibull = _try_load_weibull_artifact(timer)
 
         loaded = ["dc"]
@@ -369,6 +369,9 @@ class PredictionPipeline:
         # When divergence exceeds 20pp, DC weight is reduced by up to 0.15
         # (Enhancer is 0/6 WC direction-correct; its extreme outputs should
         # not dominate when they diverge strongly from the base model).
+        # V4.1.1: direction-conflict guard — when DC and Enhancer disagree
+        # on the favorite, skip weight reduction entirely. Enhancer is
+        # empirically wrong in WC (5/6+), so don't let it override DC.
         dc_weight_ef = float(wc.dc_enhancer_blend)
         divergence_pp = 0.0
         div_detail: dict[str, object] = {}
@@ -376,7 +379,12 @@ class PredictionPipeline:
             div_pp = abs(dc_raw[key] - enh_raw[key]) * 100
             div_detail[label] = round(div_pp, 1)
         max_div = float(max(div_detail.values()))  # type: ignore[arg-type]
-        if max_div > 20:
+
+        dc_fav_key = max(dc_raw, key=dc_raw.get)
+        enh_fav_key = max(enh_raw, key=enh_raw.get)
+        direction_conflict = (dc_fav_key != enh_fav_key)
+
+        if max_div > 20 and not direction_conflict:
             shift = min(0.15, (max_div - 20) * 0.015)
             dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
             logger.info(
@@ -384,7 +392,15 @@ class PredictionPipeline:
                 "dc %.2f→%.2f (shift=%.2f)",
                 max_div, wc.dc_enhancer_blend, dc_weight_ef, shift,
             )
-            # Re-fuse with adjusted weights
+        elif max_div > 20 and direction_conflict:
+            logger.warning(
+                "predict_match: DC-Enhancer direction conflict "
+                "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
+                "keeping DC weight %.2f",
+                dc_fav_key, enh_fav_key, max_div, wc.dc_enhancer_blend,
+            )
+        if max_div > 20:
+            # Re-fuse with adjusted weights (dc_weight_ef was set above)
             enh_w = 1.0 - dc_weight_ef
             dc_enh = {
                 "home_win_prob": dc_raw["home_win_prob"] * dc_weight_ef + enh_raw["home_win_prob"] * enh_w,
@@ -883,7 +899,8 @@ class PredictionPipeline:
         stage = _lookup_wc_stage(home_team, away_team) if (home_team and away_team) else ""
         wc = get_weight_config(competition, stage)
         fg = FusionGraph(blend_params={
-            "dc_weight": wc.dc, "elo_weight": wc.elo, "pi_weight": wc.pi,
+            "dc_weight": wc.dc, "weibull_weight": wc.weibull,
+            "elo_weight": wc.elo, "pi_weight": wc.pi,
         })
         fg.compute_effective_weights()
 
@@ -933,13 +950,30 @@ class PredictionPipeline:
             }
 
             # V4.0.5: Adaptive DC weight on divergence > 20pp
+            # V4.1.1: majority-consensus guard — when DC and Enhancer
+            # disagree on the favorite direction, Enhancer is empirically
+            # wrong (5/6 WC). Skip weight reduction to prevent a
+            # known-bad model from hijacking the prediction.
             dc_w_ef = float(wc.dc)
+            dc_fav = max(
+                ("home", component_probs["dixon_coles"]["home"]),
+                ("draw", component_probs["dixon_coles"]["draw"]),
+                ("away", component_probs["dixon_coles"]["away"]),
+                key=lambda x: x[1],
+            )[0]
+            enh_fav = max(
+                ("home", enh_pred["home_win_prob"]),
+                ("draw", enh_pred["draw_prob"]),
+                ("away", enh_pred["away_win_prob"]),
+                key=lambda x: x[1],
+            )[0]
+            direction_conflict = (dc_fav != enh_fav)
             max_div_sync = max(
                 abs(component_probs["dixon_coles"]["home"] - component_probs["enhancer"]["home"]),
                 abs(component_probs["dixon_coles"]["draw"] - component_probs["enhancer"]["draw"]),
                 abs(component_probs["dixon_coles"]["away"] - component_probs["enhancer"]["away"]),
             ) * 100
-            if max_div_sync > 20:
+            if max_div_sync > 20 and not direction_conflict:
                 shift = min(0.15, (max_div_sync - 20) * 0.015)
                 dc_w_ef = max(0.30, wc.dc - shift)
                 enh_w_ef = 1.0 - dc_w_ef
@@ -947,19 +981,23 @@ class PredictionPipeline:
                     "predict_sync adaptive DC: divergence=%.1fpp > 20pp, "
                     "dc %.2f→%.2f", max_div_sync, wc.dc, dc_w_ef,
                 )
-                fused = {
-                    "home_win_prob": component_probs["dixon_coles"]["home"] * dc_w_ef + component_probs["enhancer"]["home"] * enh_w_ef,
-                    "draw_prob": component_probs["dixon_coles"]["draw"] * dc_w_ef + component_probs["enhancer"]["draw"] * enh_w_ef,
-                    "away_win_prob": component_probs["dixon_coles"]["away"] * dc_w_ef + component_probs["enhancer"]["away"] * enh_w_ef,
-                }
-                fg.add_step("dc+enhancer", f"base_weight={dc_w_ef} (adaptive, divergence={max_div_sync:.1f}pp)", before_step1, probs_dict_to_list(fused))
+            elif max_div_sync > 20 and direction_conflict:
+                logger.warning(
+                    "predict_sync: DC-Enhancer direction conflict "
+                    "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
+                    "keeping DC weight %.2f",
+                    dc_fav, enh_fav, max_div_sync, wc.dc,
+                )
+                # Use normal fusion (no weight reduction) — fall through to else
+                fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+                fg.add_step("dc+enhancer", f"base_weight={wc.dc} (direction-conflict override, divergence={max_div_sync:.1f}pp)", before_step1, probs_dict_to_list(fused))
             else:
                 fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
                 fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
 
-        # ── 2.5. Weibull (research-full only, applied after Enhancer for consistency) ──
+        # ── 2.5. Weibull (standard+, applied after Enhancer for consistency) ──
         has_weibull = hasattr(self, "_weibull") and self._weibull is not None
-        if mode == "research-full" and has_weibull:
+        if mode in ("standard", "full", "research-full") and has_weibull:
             quality.model_components["weibull"] = "loaded_from_artifact"
             try:
                 wb_pred = self._weibull.predict(home_team, away_team, is_neutral)

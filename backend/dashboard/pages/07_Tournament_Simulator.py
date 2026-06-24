@@ -90,6 +90,8 @@ if st.button("开始模拟", type="primary", key="sim_run"):
         from app.services.elo_ratings import fuse_elo_probabilities
         from app.services.pi_ratings import fuse_pi_probabilities
         from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
+        from app.services.tournament_simulator import TournamentSimulator
+        from app.services.market.sync_provider import fetch_market_consensus_sync
 
         timer = PredictionTimer()
         training_df = _load_training_df(timer)
@@ -110,6 +112,7 @@ if st.button("开始模拟", type="primary", key="sim_run"):
         elo = _load_elo(timer) if sim_mode in ("standard", "full") else None
         pi_model = _load_pi(timer) if sim_mode == "full" else None
 
+        market_count = 0
         for i, match in enumerate(group_matches):
             home = match.get("home_team", "")
             away = match.get("away_team", "")
@@ -123,12 +126,29 @@ if st.button("开始模拟", type="primary", key="sim_run"):
                 dc_pred = dc.predict_match(home, away, is_neutral_venue=True)
                 fused = dict(dc_pred)
 
+                # V4.0.5: Adaptive DC weight on divergence > 20pp
                 if enhancer is not None:
                     enh_pred = enhancer.predict_match(
                         home_team=home, away_team=away, match_date=match_date,
                         competition_weight=1.0, is_neutral_venue=True, training_df=training_df,
                     )
-                    fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
+                    dc_w_ef = float(wc.dc)
+                    max_div_sim = max(
+                        abs(dc_pred["home_win_prob"] - enh_pred["home_win_prob"]),
+                        abs(dc_pred["draw_prob"] - enh_pred["draw_prob"]),
+                        abs(dc_pred["away_win_prob"] - enh_pred["away_win_prob"]),
+                    ) * 100
+                    if max_div_sim > 20:
+                        shift = min(0.15, (max_div_sim - 20) * 0.015)
+                        dc_w_ef = max(0.30, wc.dc - shift)
+                        enh_w_ef = 1.0 - dc_w_ef
+                        fused = {
+                            "home_win_prob": dc_pred["home_win_prob"] * dc_w_ef + enh_pred["home_win_prob"] * enh_w_ef,
+                            "draw_prob": dc_pred["draw_prob"] * dc_w_ef + enh_pred["draw_prob"] * enh_w_ef,
+                            "away_win_prob": dc_pred["away_win_prob"] * dc_w_ef + enh_pred["away_win_prob"] * enh_w_ef,
+                        }
+                    else:
+                        fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
 
                 if weibull is not None and weibull._fitted:
                     wb_pred = weibull.predict(home, away, True)
@@ -142,6 +162,33 @@ if st.button("开始模拟", type="primary", key="sim_run"):
                 if pi_model is not None:
                     pi_pred = pi_model.predict(home, away, is_neutral=True)
                     fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=wc.pi)
+
+                # ── Market consensus (R5-5: was missing from dashboard simulator) ──
+                try:
+                    market_raw = fetch_market_consensus_sync(home, away, "FIFA World Cup 2026", timeout=8.0)
+                    if market_raw and not market_raw.get("degraded"):
+                        market_home = market_raw["home_prob"]
+                        market_draw = market_raw["draw_prob"]
+                        market_away = market_raw["away_prob"]
+                        model_market_div = max(
+                            abs(fused["home_win_prob"] - market_home),
+                            abs(fused["draw_prob"] - market_draw),
+                            abs(fused["away_win_prob"] - market_away),
+                        )
+                        market_weight = wc.market_max
+                        if model_market_div > 0.15:
+                            boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                            market_weight = min(0.50, wc.market_max + boost)
+                        fused_market = {
+                            "home_win_prob": fused["home_win_prob"] * (1 - market_weight) + market_home * market_weight,
+                            "draw_prob": fused["draw_prob"] * (1 - market_weight) + market_draw * market_weight,
+                            "away_win_prob": fused["away_win_prob"] * (1 - market_weight) + market_away * market_weight,
+                        }
+                        total_m = sum(fused_market.values())
+                        fused = {k: v / total_m for k, v in fused_market.items()}
+                        market_count += 1
+                except Exception:
+                    pass  # Market is best-effort — continue without it
 
                 total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
                 if abs(total - 1.0) > 0.001:
@@ -158,143 +205,77 @@ if st.button("开始模拟", type="primary", key="sim_run"):
                 match_probs[match_num] = {"home": 0.33, "draw": 0.34, "away": 0.33}
 
             progress_bar.progress((i + 1) / len(group_matches))
-            status_text.text(f"正在预测第 {i + 1}/{len(group_matches)} 场: {home} vs {away}")
+            status_text.text(f"正在预测第 {i + 1}/{len(group_matches)} 场: {home} vs {away}  [市场: {market_count}/{i+1}]")
 
-        status_text.text("正在运行 Monte Carlo 模拟...")
+        status_text.text(f"预测完成 ({market_count}/{len(group_matches)} 场有市场数据). 正在运行 Monte Carlo 模拟...")
         progress_bar.progress(1.0)
 
-        import random
-        random.seed(42)
-
-        team_advance = {}
-        team_group_win = {}
-        team_champion = {}
-        team_round16 = {}
-        team_quarter = {}
-        team_semi = {}
-        team_final = {}
-
-        all_teams = list(df_groups["team_name"].unique())
-        for t in all_teams:
-            team_advance[t] = 0
-            team_group_win[t] = 0
-            team_champion[t] = 0
-            team_round16[t] = 0
-            team_quarter[t] = 0
-            team_semi[t] = 0
-            team_final[t] = 0
-
+        # ── R5-4 fix: Use TournamentSimulator (proper bracket-based knockout)
+        # instead of random.shuffle() which made knockout stages pure-luck.
+        # TournamentSimulator uses probability-weighted Poisson scoring for both
+        # group and knockout stages, and follows the real WC26 bracket structure.
         group_teams = {}
         for gn in GROUPS:
             gt = df_groups[df_groups["group_name"] == gn]["team_name"].tolist()
             if gt:
                 group_teams[gn] = gt
 
-        group_match_map = {}
-        for m in group_matches:
-            gn = m.get("group_name", "")
-            if gn and gn in group_teams:
-                group_match_map.setdefault(gn, []).append(m)
+        all_teams = sorted(df_groups["team_name"].unique())
 
-        for run_idx in range(runs):
-            group_standings = {}
-            for gn, teams in group_teams.items():
-                standings = {t: {"pts": 0, "gd": 0, "gf": 0} for t in teams}
-                for gm in group_match_map.get(gn, []):
-                    h = gm.get("home_team", "")
-                    a = gm.get("away_team", "")
-                    mn = gm.get("match_number", 0)
-                    probs = match_probs.get(mn, {"home": 0.33, "draw": 0.34, "away": 0.33})
-                    r = random.random()
-                    if r < probs["home"]:
-                        home_g = random.choices([1, 2, 3], weights=[0.5, 0.3, 0.2])[0]
-                        away_g = random.choices([0, 1], weights=[0.7, 0.3])[0]
-                        if h in standings:
-                            standings[h]["pts"] += 3
-                            standings[h]["gd"] += (home_g - away_g)
-                            standings[h]["gf"] += home_g
-                        if a in standings:
-                            standings[a]["gd"] += (away_g - home_g)
-                            standings[a]["gf"] += away_g
-                    elif r < probs["home"] + probs["draw"]:
-                        g = random.choices([0, 1, 2, 3], weights=[0.2, 0.4, 0.3, 0.1])[0]
-                        if h in standings:
-                            standings[h]["pts"] += 1
-                            standings[h]["gf"] += g
-                        if a in standings:
-                            standings[a]["pts"] += 1
-                            standings[a]["gf"] += g
-                    else:
-                        away_g = random.choices([1, 2, 3], weights=[0.5, 0.3, 0.2])[0]
-                        home_g = random.choices([0, 1], weights=[0.7, 0.3])[0]
-                        if a in standings:
-                            standings[a]["pts"] += 3
-                            standings[a]["gd"] += (away_g - home_g)
-                            standings[a]["gf"] += away_g
-                        if h in standings:
-                            standings[h]["gd"] += (home_g - away_g)
-                            standings[h]["gf"] += home_g
+        sim = TournamentSimulator(runs=runs, seed=42)
+        sim.load_teams(group_teams)
+        # Minimal schedule — only needed for validation; group/knockout stages
+        # use hardcoded GROUP_MATCHUPS and R32_SPECS internally.
+        sim.schedule = {0: {"stage": "Group Stage"}}
 
-                sorted_teams = sorted(
-                    standings.items(),
-                    key=lambda x: (x[1]["pts"], x[1]["gd"], x[1]["gf"]),
-                    reverse=True,
-                )
-                group_standings[gn] = sorted_teams
+        # Set match probabilities for all 72 group matches from predictions
+        for gm in group_matches:
+            h = gm.get("home_team", "")
+            a = gm.get("away_team", "")
+            mn = gm.get("match_number", 0)
+            if h and a and mn in match_probs:
+                try:
+                    sim.set_match_probability(h, a, {
+                        "home_win": match_probs[mn]["home"],
+                        "draw": match_probs[mn]["draw"],
+                        "away_win": match_probs[mn]["away"],
+                    })
+                except ValueError:
+                    pass  # Already set or probabilities don't sum to 1
 
-            for gn, ranked in group_standings.items():
-                if len(ranked) >= 1:
-                    team_group_win[ranked[0][0]] = team_group_win.get(ranked[0][0], 0) + 1
-                for i, (team, _) in enumerate(ranked[:2]):
-                    team_advance[team] = team_advance.get(team, 0) + 1
-
-            advancing = []
-            for gn, ranked in group_standings.items():
-                for team, _ in ranked[:2]:
-                    advancing.append(team)
-
-            if len(advancing) >= 32:
-                random.shuffle(advancing)
-                r16 = advancing[:16]
-                for t in r16:
-                    team_round16[t] = team_round16.get(t, 0) + 1
-                random.shuffle(r16)
-                qf = r16[:8]
-                for t in qf:
-                    team_quarter[t] = team_quarter.get(t, 0) + 1
-                random.shuffle(qf)
-                sf = qf[:4]
-                for t in sf:
-                    team_semi[t] = team_semi.get(t, 0) + 1
-                random.shuffle(sf)
-                fin = sf[:2]
-                for t in fin:
-                    team_final[t] = team_final.get(t, 0) + 1
-                champion = fin[0]
-                team_champion[champion] = team_champion.get(champion, 0) + 1
-
-            if run_idx % max(1, runs // 10) == 0:
-                progress_bar.progress(min(1.0, (run_idx + 1) / runs))
-
-        progress_bar.progress(1.0)
+        results = sim.run()
         status_text.text(f"模拟完成: {runs:,} 次")
 
-        st.subheader(f"模拟结果 ({runs:,} 次)")
+        st.subheader(f"模拟结果 ({runs:,} 次 — 含概率对阵淘汰赛)")
 
         results_data = []
         for team in all_teams:
             group = df_groups[df_groups["team_name"] == team]["group_name"].values
             group_name = group[0] if len(group) > 0 else "?"
+            tp = results.get(team)
+            if tp is None:
+                results_data.append({
+                    "球队": team,
+                    "小组": group_name,
+                    "小组第一": "0.0%",
+                    "小组出线": "0.0%",
+                    "16 强": "0.0%",
+                    "8 强": "0.0%",
+                    "4 强": "0.0%",
+                    "决赛": "0.0%",
+                    "冠军": "0.0%",
+                })
+                continue
             results_data.append({
                 "球队": team,
                 "小组": group_name,
-                "小组第一": f"{team_group_win.get(team, 0) / runs * 100:.1f}%",
-                "小组出线": f"{team_advance.get(team, 0) / runs * 100:.1f}%",
-                "16 强": f"{team_round16.get(team, 0) / runs * 100:.1f}%",
-                "8 强": f"{team_quarter.get(team, 0) / runs * 100:.1f}%",
-                "4 强": f"{team_semi.get(team, 0) / runs * 100:.1f}%",
-                "决赛": f"{team_final.get(team, 0) / runs * 100:.1f}%",
-                "冠军": f"{team_champion.get(team, 0) / runs * 100:.1f}%",
+                "小组第一": f"{tp.group_win_prob * 100:.1f}%",
+                "小组出线": f"{tp.advance_prob * 100:.1f}%",
+                "16 强": f"{tp.round_of_32_prob * 100:.1f}%",
+                "8 强": f"{tp.round_of_16_prob * 100:.1f}%",
+                "4 强": f"{tp.quarter_final_prob * 100:.1f}%",
+                "决赛": f"{tp.semi_final_prob * 100:.1f}%",
+                "冠军": f"{tp.champion_prob * 100:.1f}%",
             })
 
         df_results = pd.DataFrame(results_data)
@@ -323,4 +304,4 @@ else:
         st.info("选择参数后点击「开始模拟」")
 
 st.divider()
-st.caption("Monte Carlo 模拟仅供研究参考。简化版淘汰赛模型 — 完整对阵模拟请使用 CLI。")
+st.caption("Monte Carlo 模拟 — 概率对阵淘汰赛。完整对阵模拟请使用 CLI: python scripts/simulate_wc26.py")

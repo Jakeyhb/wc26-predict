@@ -38,6 +38,7 @@ from app.services.tabular_match_model import (
 )
 from app.services.weights import get_weight_config
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
+from app.services.market.sync_provider import fetch_market_consensus_sync
 
 # ── Constants ──────────────────────────────────────────────────────────
 
@@ -213,6 +214,34 @@ def predict_group_match(
             fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=weight_config.pi)
         except Exception:
             pass
+
+    # Step 5: Market consensus (R5-5: was missing from tournament simulators)
+    try:
+        market_raw = fetch_market_consensus_sync(
+            home, away, "FIFA World Cup 2026", timeout=8.0,
+        )
+        if market_raw and not market_raw.get("degraded"):
+            market_home = market_raw["home_prob"]
+            market_draw = market_raw["draw_prob"]
+            market_away = market_raw["away_prob"]
+            model_market_div = max(
+                abs(fused["home_win_prob"] - market_home),
+                abs(fused["draw_prob"] - market_draw),
+                abs(fused["away_win_prob"] - market_away),
+            )
+            market_weight = weight_config.market_max
+            if model_market_div > 0.15:
+                boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                market_weight = min(0.50, weight_config.market_max + boost)
+            fused_market = {
+                "home_win_prob": fused["home_win_prob"] * (1 - market_weight) + market_home * market_weight,
+                "draw_prob": fused["draw_prob"] * (1 - market_weight) + market_draw * market_weight,
+                "away_win_prob": fused["away_win_prob"] * (1 - market_weight) + market_away * market_weight,
+            }
+            total_m = sum(fused_market.values())
+            fused = {k: v / total_m for k, v in fused_market.items()}
+    except Exception:
+        pass  # Market is best-effort
 
     return fused
 

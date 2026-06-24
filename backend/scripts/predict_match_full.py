@@ -197,8 +197,19 @@ def main():
         print(f"DIVERGENCE: {divergence['warning']}")
 
     # ── 2.6. Divergence-adaptive DC weight ──
+    # V4.1.1: direction-conflict guard — when DC and Enhancer disagree
+    # on the favorite, skip weight reduction (Enhancer empirically wrong in WC).
     dc_weight_adaptive = wc.dc
-    if max_div > 20:
+    dc_fav_outcome = max(dc_raw, key=dc_raw.get)
+    enh_fav_outcome = max(enh_raw, key=enh_raw.get)
+    dir_conflict = (dc_fav_outcome != enh_fav_outcome)
+    if max_div > 20 and dir_conflict:
+        print(f"DIRECTION CONFLICT: DC={dc_fav_outcome} Enhancer={enh_fav_outcome} "
+              f"(div={max_div:.1f}pp). Enhancer overridden — keeping DC weight {wc.dc:.2f}")
+        divergence["dc_weight_adaptive"] = None
+        divergence["shift_applied"] = None
+        divergence["direction_conflict"] = True
+    elif max_div > 20:
         shift = min(0.15, (max_div - 20) * 0.015)
         dc_weight_adaptive = max(0.30, wc.dc - shift)  # V4.0.5: floor at 0.30 (matching prediction_pipeline.py)
         enh_weight_adaptive = 1.0 - dc_weight_adaptive

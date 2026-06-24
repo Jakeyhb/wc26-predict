@@ -302,13 +302,29 @@ class PredictionOrchestrator:
                 # When DC and Enhancer disagree by >20pp, reduce DC weight
                 # (Enhancer is 0/6 WC direction-correct; extreme outputs
                 # should not dominate when they diverge strongly).
+                # V4.1.1: direction-conflict guard — when DC and Enhancer
+                # disagree on the favorite, skip weight reduction entirely.
                 dc_weight_ef = float(wc.dc_enhancer_blend)
                 max_div = max(
                     abs(dc_raw["home_win_prob"] - enh_raw["home_win_prob"]),
                     abs(dc_raw["draw_prob"] - enh_raw["draw_prob"]),
                     abs(dc_raw["away_win_prob"] - enh_raw["away_win_prob"]),
                 ) * 100
-                if max_div > 20:
+                dc_fav = max(dc_raw, key=dc_raw.get)
+                enh_fav = max(enh_raw, key=enh_raw.get)
+                direction_conflict = (dc_fav != enh_fav)
+                if max_div > 20 and direction_conflict:
+                    logger.warning(
+                        "Orchestrator: DC-Enhancer direction conflict "
+                        "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
+                        "keeping DC weight %.2f",
+                        dc_fav, enh_fav, max_div, wc.dc_enhancer_blend,
+                    )
+                    base_prediction = {
+                        **base_prediction,
+                        **fuse_outcome_probabilities(dc_raw, enh_raw, base_weight=wc.dc),
+                    }
+                elif max_div > 20:
                     shift = min(0.15, (max_div - 20) * 0.015)
                     dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
                     enh_w_ef = 1.0 - dc_weight_ef

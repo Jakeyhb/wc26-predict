@@ -69,17 +69,19 @@ class FusionGraph:
     **Blend sequence (standard pipeline):**
 
     #. ``DC * dc_weight + Enhancer * (1 - dc_weight)`` → normalise
+    #. ``previous * (1 - weibull_weight) + Weibull * weibull_weight`` → normalise
     #. ``previous * (1 - elo_weight) + Elo * elo_weight`` → normalise
     #. ``previous * (1 - pi_weight) + Pi * pi_weight`` → normalise
 
     **Effective weight derivation** (expands the sequential chain)::
 
-        dc_effective       =  dc_weight * (1 - elo_weight) * (1 - pi_weight)
-        enhancer_effective = (1 - dc_weight) * (1 - elo_weight) * (1 - pi_weight)
+        dc_effective       =  dc_weight * (1 - weibull_weight) * (1 - elo_weight) * (1 - pi_weight)
+        enhancer_effective = (1 - dc_weight) * (1 - weibull_weight) * (1 - elo_weight) * (1 - pi_weight)
+        weibull_effective  =  weibull_weight * (1 - elo_weight) * (1 - pi_weight)
         elo_effective      =  elo_weight * (1 - pi_weight)
         pi_effective       =  pi_weight
 
-    Note that the four effective weights always sum to 1.0 by construction.
+    Note that the five effective weights always sum to 1.0 by construction.
     """
 
     method: str = "sequential_blend"
@@ -121,18 +123,20 @@ class FusionGraph:
                 the already-stored params are used.
 
         Returns:
-            Dict of ``{dc_effective, enhancer_effective, elo_effective,
-            pi_effective}``.  The four values always sum to 1.0.
+            Dict of ``{dc_effective, enhancer_effective, weibull_effective,
+            elo_effective, pi_effective}``.  The five values always sum to 1.0.
         """
         if blend_params is not None:
             self.blend_params = blend_params
         dc_w = float(self.blend_params.get("dc_weight", 0.0))
+        wb_w = float(self.blend_params.get("weibull_weight", 0.0))
         elo_w = float(self.blend_params.get("elo_weight", 0.0))
         pi_w = float(self.blend_params.get("pi_weight", 0.0))
 
         self.effective_weights = {
-            "dc_effective": round(dc_w * (1.0 - elo_w) * (1.0 - pi_w), 6),
-            "enhancer_effective": round((1.0 - dc_w) * (1.0 - elo_w) * (1.0 - pi_w), 6),
+            "dc_effective": round(dc_w * (1.0 - wb_w) * (1.0 - elo_w) * (1.0 - pi_w), 6),
+            "enhancer_effective": round((1.0 - dc_w) * (1.0 - wb_w) * (1.0 - elo_w) * (1.0 - pi_w), 6),
+            "weibull_effective": round(wb_w * (1.0 - elo_w) * (1.0 - pi_w), 6),
             "elo_effective": round(elo_w * (1.0 - pi_w), 6),
             "pi_effective": round(pi_w, 6),
         }
