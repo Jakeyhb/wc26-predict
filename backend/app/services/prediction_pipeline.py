@@ -582,6 +582,45 @@ class PredictionPipeline:
                 detail=str(exc),
             ))
 
+        # ── 13.3 Dynamic market boost (R4-H7: was missing from pipeline) ──
+        # When model-market divergence exceeds 15pp on any outcome,
+        # the model is likely suffering from component bias (e.g. Enhancer).
+        # Temporarily activate market blending with boosted weight.
+        # predict_match_full.py already had this; pipeline paths were missing it.
+        if market_probs and not market_applied:
+            model_market_div = max(
+                abs(clean["home_win_prob"] - market_probs.get("home_prob", 0.5)),
+                abs(clean["draw_prob"] - market_probs.get("draw_prob", 0.25)),
+                abs(clean["away_win_prob"] - market_probs.get("away_prob", 0.25)),
+            )
+            if model_market_div > 0.15:
+                boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                boosted_weight = min(0.50, wc.market_max + boost)
+                clean["home_win_prob"] = (
+                    clean["home_win_prob"] * (1 - boosted_weight)
+                    + market_probs["home_prob"] * boosted_weight
+                )
+                clean["draw_prob"] = (
+                    clean["draw_prob"] * (1 - boosted_weight)
+                    + market_probs["draw_prob"] * boosted_weight
+                )
+                clean["away_win_prob"] = (
+                    clean["away_win_prob"] * (1 - boosted_weight)
+                    + market_probs["away_prob"] * boosted_weight
+                )
+                total = clean["home_win_prob"] + clean["draw_prob"] + clean["away_win_prob"]
+                if total > 0:
+                    clean["home_win_prob"] /= total
+                    clean["draw_prob"] /= total
+                    clean["away_win_prob"] /= total
+                market_applied = True
+                market_weight_used = boosted_weight
+                divergence = model_market_div
+                logger.info(
+                    "Dynamic market boost: divergence=%.1f%%, weight=%.2f",
+                    model_market_div * 100, boosted_weight,
+                )
+
         # ── 13.5 Isotonic calibration (R4-C7: was disabled stub) ──
         # Calibrates the final probability vector after market blending.
         # Uses WC-specific calibrator (calibrator_wc.json) when available.
@@ -1193,6 +1232,7 @@ class PredictionPipeline:
         market_weight_used = 0.0
         divergence = 0.0
         market_probs = None
+        market_probs_data = None
         market_available = False
         if enable_market:
             try:
@@ -1269,6 +1309,41 @@ class PredictionPipeline:
                 attempted=False,
                 required=require_full_context,
             )
+
+        # ── 10.3 Dynamic market boost (R4-H7: was missing from pipeline) ──
+        if market_probs_data and not market_applied:
+            model_market_div = max(
+                abs(fused["home_win_prob"] - market_probs_data.get("home_prob", 0.5)),
+                abs(fused["draw_prob"] - market_probs_data.get("draw_prob", 0.25)),
+                abs(fused["away_win_prob"] - market_probs_data.get("away_prob", 0.25)),
+            )
+            if model_market_div > 0.15:
+                boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                boosted_weight = min(0.50, wc.market_max + boost)
+                fused["home_win_prob"] = (
+                    fused["home_win_prob"] * (1 - boosted_weight)
+                    + market_probs_data["home_prob"] * boosted_weight
+                )
+                fused["draw_prob"] = (
+                    fused["draw_prob"] * (1 - boosted_weight)
+                    + market_probs_data["draw_prob"] * boosted_weight
+                )
+                fused["away_win_prob"] = (
+                    fused["away_win_prob"] * (1 - boosted_weight)
+                    + market_probs_data["away_prob"] * boosted_weight
+                )
+                total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
+                if total > 0:
+                    fused["home_win_prob"] /= total
+                    fused["draw_prob"] /= total
+                    fused["away_win_prob"] /= total
+                market_applied = True
+                market_weight_used = boosted_weight
+                divergence = model_market_div
+                logger.info(
+                    "Dynamic market boost: divergence=%.1f%%, weight=%.2f",
+                    model_market_div * 100, boosted_weight,
+                )
 
         # ── 10.5 Isotonic calibration (R4-C7: was disabled stub) ──
         calibration_applied = False
