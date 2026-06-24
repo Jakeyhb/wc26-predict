@@ -291,18 +291,46 @@ class PredictionOrchestrator:
 
             enhancer_meta = await self._build_enhancer_prediction(match, training_df, match_context, _comp_weight)
             if enhancer_meta["enabled"]:
-                base_prediction = {
-                    **base_prediction,
-                    **fuse_outcome_probabilities(
-                        {
-                            "home_win_prob": float(base_prediction["home_win_prob"]),
-                            "draw_prob": float(base_prediction["draw_prob"]),
-                            "away_win_prob": float(base_prediction["away_win_prob"]),
-                        },
-                        enhancer_meta["probabilities"],
-                        base_weight=wc.dc,
-                    ),
+                dc_raw = {
+                    "home_win_prob": float(base_prediction["home_win_prob"]),
+                    "draw_prob": float(base_prediction["draw_prob"]),
+                    "away_win_prob": float(base_prediction["away_win_prob"]),
                 }
+                enh_raw = enhancer_meta["probabilities"]
+
+                # V4.0.5: Adaptive DC weight on divergence > 20pp.
+                # When DC and Enhancer disagree by >20pp, reduce DC weight
+                # (Enhancer is 0/6 WC direction-correct; extreme outputs
+                # should not dominate when they diverge strongly).
+                dc_weight_ef = float(wc.dc_enhancer_blend)
+                max_div = max(
+                    abs(dc_raw["home_win_prob"] - enh_raw["home_win_prob"]),
+                    abs(dc_raw["draw_prob"] - enh_raw["draw_prob"]),
+                    abs(dc_raw["away_win_prob"] - enh_raw["away_win_prob"]),
+                ) * 100
+                if max_div > 20:
+                    shift = min(0.15, (max_div - 20) * 0.015)
+                    dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
+                    enh_w_ef = 1.0 - dc_weight_ef
+                    logger.info(
+                        "Orchestrator adaptive DC: divergence=%.1fpp > 20pp, "
+                        "dc %.2f→%.2f (shift=%.2f)",
+                        max_div, wc.dc_enhancer_blend, dc_weight_ef, shift,
+                    )
+                    base_prediction = {
+                        **base_prediction,
+                        "home_win_prob": dc_raw["home_win_prob"] * dc_weight_ef
+                        + enh_raw["home_win_prob"] * enh_w_ef,
+                        "draw_prob": dc_raw["draw_prob"] * dc_weight_ef
+                        + enh_raw["draw_prob"] * enh_w_ef,
+                        "away_win_prob": dc_raw["away_win_prob"] * dc_weight_ef
+                        + enh_raw["away_win_prob"] * enh_w_ef,
+                    }
+                else:
+                    base_prediction = {
+                        **base_prediction,
+                        **fuse_outcome_probabilities(dc_raw, enh_raw, base_weight=wc.dc),
+                    }
 
             # Weibull blending (session-cached fit, applied after DC+Enhancer)
             # Audit R4-C5: orchestrator was missing Weibull (0.10 weight = ~7% effective).
@@ -375,6 +403,7 @@ class PredictionOrchestrator:
 
             # Market calibrator (gracefully skipped if no API key)
             market_result: dict[str, object] = {}
+            market_probs = None
             try:
                 market_probs = await self.market_calibrator.fetch_market_probs(
                     match.home_team.name,
@@ -393,52 +422,53 @@ class PredictionOrchestrator:
                         base_prediction["home_win_prob"] = calibrated["home_win_prob"]
                         base_prediction["draw_prob"] = calibrated["draw_prob"]
                         base_prediction["away_win_prob"] = calibrated["away_win_prob"]
-                    # R4-H7: Dynamic market boost — when calibrator doesn't
-                    # auto-apply but model-market divergence exceeds 15pp,
-                    # blend manually with boosted weight (matches pipeline).
-                    elif isinstance(market_probs, dict) and all(
-                        k in market_probs for k in ("home_prob", "draw_prob", "away_prob")
-                    ):
-                        model_market_div = max(
-                            abs(base_prediction["home_win_prob"] - market_probs["home_prob"]),
-                            abs(base_prediction["draw_prob"] - market_probs["draw_prob"]),
-                            abs(base_prediction["away_win_prob"] - market_probs["away_prob"]),
-                        )
-                        if model_market_div > 0.15:
-                            boost = min(0.20, (model_market_div - 0.15) * 1.0)
-                            boosted_weight = min(0.50, wc.market_max + boost)
-                            base_prediction["home_win_prob"] = (
-                                base_prediction["home_win_prob"] * (1 - boosted_weight)
-                                + market_probs["home_prob"] * boosted_weight
-                            )
-                            base_prediction["draw_prob"] = (
-                                base_prediction["draw_prob"] * (1 - boosted_weight)
-                                + market_probs["draw_prob"] * boosted_weight
-                            )
-                            base_prediction["away_win_prob"] = (
-                                base_prediction["away_win_prob"] * (1 - boosted_weight)
-                                + market_probs["away_prob"] * boosted_weight
-                            )
-                            total = (
-                                base_prediction["home_win_prob"]
-                                + base_prediction["draw_prob"]
-                                + base_prediction["away_win_prob"]
-                            )
-                            if total > 0:
-                                base_prediction["home_win_prob"] /= total
-                                base_prediction["draw_prob"] /= total
-                                base_prediction["away_win_prob"] /= total
-                            market_result["market_applied"] = True
-                            market_result["market_weight_used"] = boosted_weight
-                            market_result["divergence_triggered"] = True
-                            logger.info(
-                                "Orchestrator dynamic market boost: divergence=%.1f%%, "
-                                "weight=%.2f",
-                                model_market_div * 100, boosted_weight,
-                            )
             except Exception:
                 logger.warning("Market calibration failed for %s vs %s — continuing without",
                                match.home_team.name, match.away_team.name, exc_info=True)
+
+            # R4-H7: Dynamic market boost (outside try block for resilience —
+            # survives calibrator.calibrate() failure as long as market_probs
+            # was fetched successfully).
+            if (market_probs is not None
+                    and not market_result.get("market_applied")
+                    and all(k in market_probs for k in ("home_prob", "draw_prob", "away_prob"))):
+                model_market_div = max(
+                    abs(base_prediction["home_win_prob"] - market_probs["home_prob"]),
+                    abs(base_prediction["draw_prob"] - market_probs["draw_prob"]),
+                    abs(base_prediction["away_win_prob"] - market_probs["away_prob"]),
+                )
+                if model_market_div > 0.15:
+                    boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                    boosted_weight = min(0.50, wc.market_max + boost)
+                    base_prediction["home_win_prob"] = (
+                        base_prediction["home_win_prob"] * (1 - boosted_weight)
+                        + market_probs["home_prob"] * boosted_weight
+                    )
+                    base_prediction["draw_prob"] = (
+                        base_prediction["draw_prob"] * (1 - boosted_weight)
+                        + market_probs["draw_prob"] * boosted_weight
+                    )
+                    base_prediction["away_win_prob"] = (
+                        base_prediction["away_win_prob"] * (1 - boosted_weight)
+                        + market_probs["away_prob"] * boosted_weight
+                    )
+                    total = (
+                        base_prediction["home_win_prob"]
+                        + base_prediction["draw_prob"]
+                        + base_prediction["away_win_prob"]
+                    )
+                    if total > 0:
+                        base_prediction["home_win_prob"] /= total
+                        base_prediction["draw_prob"] /= total
+                        base_prediction["away_win_prob"] /= total
+                    market_result["market_applied"] = True
+                    market_result["market_weight_used"] = boosted_weight
+                    market_result["divergence_triggered"] = True
+                    logger.info(
+                        "Orchestrator dynamic market boost: divergence=%.1f%%, "
+                        "weight=%.2f",
+                        model_market_div * 100, boosted_weight,
+                    )
 
             # Injury signal blending
             injury_signals = self.injury_service.generate_signals_for_match(

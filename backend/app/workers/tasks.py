@@ -276,7 +276,7 @@ async def _retrain_calibrator() -> dict[str, object]:
     calibrator = IsotonicCalibrator().fit_from_db_records(records)
     stats = calibrator.calibration_stats()
     if calibrator.is_fitted:
-        calibrator.save(str(settings.model_artifact_dir / "calibrator.json"))
+        calibrator.save(str(settings.model_artifact_dir.parent / "artifacts" / "calibrator.json"))
         logger.info("retrain_calibrator_task stats=%s", stats)
     else:
         logger.info("retrain_calibrator_task skipped, insufficient records=%s", len(records))

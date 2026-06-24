@@ -154,7 +154,7 @@ async def get_accuracy_stats(request: Request, db: AsyncSession = Depends(get_db
 
     calibrator = IsotonicCalibrator()
     try:
-        calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))
+        calibrator.load(str(settings.model_artifact_dir.parent / "artifacts" / "calibrator.json"))
     except Exception as exc:
         logger.warning("Calibrator load failed: %s", exc)
 
