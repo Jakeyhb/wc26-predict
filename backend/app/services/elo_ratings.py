@@ -57,12 +57,18 @@ def _elo_davidson_draw(elo_diff: float, kappa: float = 0.24) -> float:
     return max(0.02, min(0.35, draw_raw))
 
 
+# Audit R4-H4: cache kappa values to avoid N SQLite connections
+# per tournament simulation (1000+ matches → 1000+ DB hits).
+_KAPPA_CACHE: dict[str, float] = {}
+
+
 def get_kappa_for_competition(competition: str | None = None) -> float:
     """Read κ from model_weight_config based on competition type.
 
     Returns:
         κ-Elo draw tendency parameter (0.18–0.50 typical range).
         Falls back to 0.24 if DB unavailable or no match.
+        Results are cached in _KAPPA_CACHE for simulator performance.
     """
     if not competition:
         return 0.24
@@ -81,6 +87,9 @@ def get_kappa_for_competition(competition: str | None = None) -> float:
     else:
         key = "kappa_elo_default"
 
+    if key in _KAPPA_CACHE:
+        return _KAPPA_CACHE[key]
+
     try:
         import sqlite3
         from pathlib import Path
@@ -94,11 +103,14 @@ def get_kappa_for_competition(competition: str | None = None) -> float:
         row = cur.fetchone()
         conn.close()
         if row:
-            return float(row[0])
+            kappa = float(row[0])
+            _KAPPA_CACHE[key] = kappa
+            return kappa
     except Exception:
         logger.warning("Could not read kappa from DB for competition=%s — using default 0.24",
                        competition, exc_info=True)
 
+    _KAPPA_CACHE[key] = 0.24
     return 0.24
 
 

@@ -275,17 +275,26 @@ def _read_db_auto_weights() -> dict[str, float] | None:
 
         # Only return if we found at least dc (minimum viable config)
         if "dc" in result:
-            # ── Sanity check ──
-            # The RPS auto-optimizer was trained on predominantly friendly data
-            # where Enhancer dominates (DC 0/3 direction correct).  It can produce
-            # extreme values like dc=0.026 that are valid for friendlies but
-            # dangerous for any serious competition.  Reject configurations where
-            # DC falls below 0.20 — such extreme underweighting of the base model
-            # indicates overfitting to the friendly-heavy training set.
+            # ── Sanity checks ──
+            # RPS auto-optimizer trained on friendly-heavy data can produce extreme
+            # weights.  Reject configurations where any component falls outside
+            # reasonable bounds (audit R4-H8: previously only checked dc).
             if result["dc"] < 0.20:
                 logger.info(
                     "Rejecting auto-optimized weights: dc=%.3f below sanity floor "
                     "(0.20) — falling back to competition defaults", result["dc"]
+                )
+                return None
+            if any(result.get(k, 0) <= 0.005 for k in ("elo", "pi", "weibull")):
+                logger.info(
+                    "Rejecting auto-optimized weights: one of elo/pi/weibull "
+                    "at or below 0.005 — falling back to competition defaults"
+                )
+                return None
+            if result.get("market_max", 0) > 0.95:
+                logger.info(
+                    "Rejecting auto-optimized weights: market_max=%.3f above "
+                    "0.95 — falling back to competition defaults", result["market_max"]
                 )
                 return None
             return result

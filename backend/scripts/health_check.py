@@ -339,12 +339,13 @@ async def check_market_odds_freshness() -> CheckResult:
         )
         conn = sqlite3.connect(db)
         r = conn.execute(
-            "SELECT fetched_at FROM market_odds ORDER BY created_at DESC LIMIT 1"
+            "SELECT fetched_at FROM market_odds ORDER BY fetched_at DESC LIMIT 1"
         ).fetchone()
         conn.close()
         if not r or not r[0]:
             return CheckResult("赔率数据时效", False, "market_odds 为空或无时间戳")
-        age_h = (__import__("datetime").datetime.now() - __import__("datetime").datetime.fromisoformat(r[0])).total_seconds() / 3600
+        from datetime import timezone as _tz
+        age_h = (__import__("datetime").datetime.now(_tz.utc) - __import__("datetime").datetime.fromisoformat(r[0].replace("Z", "+00:00"))).total_seconds() / 3600
         if age_h > 24:
             return CheckResult("赔率数据时效", False, f"赔率过期 {age_h:.1f}h，请重新抓取")
         elif age_h > 6:

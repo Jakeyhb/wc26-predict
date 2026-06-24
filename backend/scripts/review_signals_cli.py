@@ -108,7 +108,7 @@ def _pending_rows(
             """SELECT ns.*, na.title as article_title, na.source_name,
                       t.name as team_name
                FROM news_signals ns
-               JOIN news_articles na ON na.id = ns.article_id
+               LEFT JOIN news_articles na ON na.id = ns.article_id
                LEFT JOIN teams t ON t.id = ns.team_id
                WHERE ns.review_status IN ('pending', 'PENDING')
                  AND ns.team_id = ?
@@ -121,7 +121,7 @@ def _pending_rows(
             """SELECT ns.*, na.title as article_title, na.source_name,
                       t.name as team_name
                FROM news_signals ns
-               JOIN news_articles na ON na.id = ns.article_id
+               LEFT JOIN news_articles na ON na.id = ns.article_id
                LEFT JOIN teams t ON t.id = ns.team_id
                WHERE ns.review_status IN ('pending', 'PENDING')
                ORDER BY ns.created_at DESC

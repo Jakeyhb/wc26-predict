@@ -165,6 +165,7 @@ class PredictionOrchestrator:
                         }
                     ),
                 }
+                calibration_applied = True  # audit R4-C9: was never set
             risk_tags = adjusted_prediction["risk_tags"]
             adjustment_log = adjusted_prediction.get("adjustment_log", [])
             stored_signals = approved_signal_payload
@@ -243,6 +244,10 @@ class PredictionOrchestrator:
         training_scope: dict[str, object],
     ):
         model = DixonColesModel()
+        # Audit R4-C6: pipeline auto-detects WC→1.5 but DB stores 1.0.
+        # Use the same detection so orchestrator matches other pipeline paths.
+        _comp_weight = 1.5 if "world cup" in (match.competition or "").lower() \
+                       else (match.competition_weight or 0.9)
         try:
             # Check disk cache first — avoids expensive re-fit when data unchanged
             competition_type = str(match.competition_type or "national")
@@ -269,7 +274,7 @@ class PredictionOrchestrator:
                 is_neutral_venue=match.is_neutral_venue,
             )
             competition_code = self._competition_code_for_match(match)
-            competition_type = str(match.competition_type)
+            competition_type = str(match.competition_type or "national")  # audit R4-H1: None → "None"
             artifact_path = settings.model_artifact_dir / (
                 f"{competition_type}_{competition_code}_{match.id}-{utc_now().strftime('%Y%m%d%H%M%S')}.json"
             )
@@ -306,7 +311,7 @@ class PredictionOrchestrator:
                         match.home_team.name,
                         match.away_team.name,
                         is_neutral=match.is_neutral_venue,
-                        competition_weight=match.competition_weight,
+                        competition_weight=_comp_weight,
                     )
                     base_prediction = {
                         **base_prediction,
@@ -322,7 +327,7 @@ class PredictionOrchestrator:
                 market_probs = await self.market_calibrator.fetch_market_probs(
                     match.home_team.name,
                     match.away_team.name,
-                    competition_weight=match.competition_weight,
+                    competition_weight=_comp_weight,
                 )
                 if market_probs:
                     calibrated = self.market_calibrator.calibrate(
@@ -331,11 +336,11 @@ class PredictionOrchestrator:
                     )
                     market_result = dict(calibrated)
                     if calibrated.get("market_applied"):
-                        base_prediction = {
-                            "home_win_prob": calibrated["home_win_prob"],
-                            "draw_prob": calibrated["draw_prob"],
-                            "away_win_prob": calibrated["away_win_prob"],
-                        }
+                        # Update only probability keys — preserve xG,
+                        # score_matrix, top3_scores, risk_tags etc.
+                        base_prediction["home_win_prob"] = calibrated["home_win_prob"]
+                        base_prediction["draw_prob"] = calibrated["draw_prob"]
+                        base_prediction["away_win_prob"] = calibrated["away_win_prob"]
             except Exception:
                 logger.warning("Market calibration failed for %s vs %s — continuing without",
                                match.home_team.name, match.away_team.name, exc_info=True)
@@ -416,7 +421,7 @@ class PredictionOrchestrator:
                 home_team=match.home_team.name,
                 away_team=match.away_team.name,
                 match_date=match.match_date,
-                competition_weight=match.competition_weight,
+                competition_weight=_comp_weight,
                 is_neutral_venue=match.is_neutral_venue,
                 training_df=training_df,
                 rest_days=match_context.get("rest_days") if isinstance(match_context.get("rest_days"), dict) else None,
@@ -574,9 +579,11 @@ class PredictionOrchestrator:
         calibrator = IsotonicCalibrator()
 
         # Try WC-specific calibrator first
+        # NOTE: calibrators live in backend/artifacts/, NOT model_artifacts/
+        _artifacts_dir = settings.model_artifact_dir.parent / "artifacts"
         is_wc = "world cup" in (competition or "").lower()
         if is_wc:
-            wc_path = str(settings.model_artifact_dir / "calibrator_wc.json")
+            wc_path = str(_artifacts_dir / "calibrator_wc.json")
             try:
                 calibrator.load(wc_path)
                 if calibrator.is_fitted and calibrator.training_sample_count >= 20:
@@ -589,7 +596,7 @@ class PredictionOrchestrator:
         # Fallback: main calibrator
         calibrator = IsotonicCalibrator()
         try:
-            calibrator.load(str(settings.model_artifact_dir / "calibrator.json"))
+            calibrator.load(str(_artifacts_dir / "calibrator.json"))
         except Exception as exc:
             logger.warning("Failed to load calibrator artifact: %s", exc)
         return calibrator

@@ -310,7 +310,6 @@ class PredictionPipeline:
             competition_weight=competition_weight,
             is_neutral_venue=is_neutral,
             training_df=df,
-            rest_days={"home": 5, "away": 5},
         )
 
         # ── 5. Weibull Copula ──
@@ -1500,8 +1499,12 @@ def _run_async_in_thread(coro):
     t.start()
     t.join(timeout=15.0)
     if t.is_alive():
+        logger.warning("_run_async_in_thread: coroutine timed out after 15s — "
+                       "market data may be stale")
         return None
     if error_holder:
+        logger.warning("_run_async_in_thread: coroutine raised %s — "
+                       "market data unavailable", error_holder[0])
         return None
     return result_holder[0] if result_holder else None
 

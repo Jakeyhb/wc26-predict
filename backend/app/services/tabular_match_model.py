@@ -419,8 +419,12 @@ class TabularMatchEnhancer:
     ) -> dict[str, float]:
         home_profile = self._team_profile(history_df, home_team, match_date)
         away_profile = self._team_profile(history_df, away_team, match_date)
-        home_rest = float(home_profile["rest_days"] if rest_days is None else rest_days.get("home") or home_profile["rest_days"])
-        away_rest = float(away_profile["rest_days"] if rest_days is None else rest_days.get("away") or away_profile["rest_days"])
+        home_rest = float(home_profile["rest_days"] if rest_days is None
+                          else (rest_days.get("home") if rest_days.get("home") is not None
+                                else home_profile["rest_days"]))
+        away_rest = float(away_profile["rest_days"] if rest_days is None
+                          else (rest_days.get("away") if rest_days.get("away") is not None
+                                else away_profile["rest_days"]))
 
         return {
             "is_neutral_venue": float(bool(is_neutral_venue)),
