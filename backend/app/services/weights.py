@@ -285,7 +285,7 @@ def _read_db_auto_weights() -> dict[str, float] | None:
                     "(0.20) — falling back to competition defaults", result["dc"]
                 )
                 return None
-            if any(result.get(k, 0) <= 0.005 for k in ("elo", "pi", "weibull")):
+            if any(result.get(k, 1.0) <= 0.005 for k in ("elo", "pi", "weibull") if k in result):
                 logger.info(
                     "Rejecting auto-optimized weights: one of elo/pi/weibull "
                     "at or below 0.005 — falling back to competition defaults"
