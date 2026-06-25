@@ -472,9 +472,17 @@ def auto_backfill(*, dry_run: bool = False, results: dict | None = None):
             now = datetime.now(timezone.utc).isoformat()
             cur3 = conn.cursor()
             try:
-                probs = json.loads(snap.get("adjusted_probs", "{}")) if isinstance(snap.get("adjusted_probs"), str) else (snap.get("adjusted_probs") or {})
+                raw = snap.get("adjusted_probs") if isinstance(snap.get("adjusted_probs"), str) else json.dumps(snap.get("adjusted_probs") or snap.get("probs") or {})
+                raw_parsed = json.loads(raw) if isinstance(raw, str) else (raw or {})
             except (json.JSONDecodeError, TypeError):
-                probs = {}
+                raw_parsed = {}
+            # V4.2.1: handle both V4.x keys (home_win_prob/draw_prob/away_win_prob)
+            # and V3.8 keys (home/draw/away) in snapshots
+            probs = {
+                "home_win_prob": float(raw_parsed.get("home_win_prob") or raw_parsed.get("home") or 0.5),
+                "draw_prob": float(raw_parsed.get("draw_prob") or raw_parsed.get("draw") or 0.25),
+                "away_win_prob": float(raw_parsed.get("away_win_prob") or raw_parsed.get("away") or 0.25),
+            }
             cur3.execute("""
                 INSERT INTO prediction_runs
                     (id, match_id, run_type, model_version, as_of_time,
@@ -487,9 +495,9 @@ def auto_backfill(*, dry_run: bool = False, results: dict | None = None):
                 prun_id, snap["match_id"], "auto_backfill",
                 snap.get("model_version", "unknown"),
                 snap.get("match_time") or now,
-                probs.get("home_win_prob", 0.5),
-                probs.get("draw_prob", 0.25),
-                probs.get("away_win_prob", 0.25),
+                probs["home_win_prob"],
+                probs["draw_prob"],
+                probs["away_win_prob"],
                 1.5, 1.0, "{}", "{}", 0.7, "{}", "{}", "{}", now,
             ))
 
@@ -715,9 +723,10 @@ def rebuild_wc_calibrator(*, dry_run: bool = False):
         # Compute ECE for this outcome
         ece = 0.0
         for block in blocks:
-            pred_mean = min(1.0, max(0.0, block[1] / block[2]))
+            pred_mean = block[0] / block[2]  # avg predicted prob in this bin
+            actual_rate = block[1] / block[2]  # avg actual outcome rate
             weight = block[2] / len(pairs)
-            ece += abs(pred_mean - block[1] / block[2]) * weight  # simplified
+            ece += abs(pred_mean - actual_rate) * weight
         ece_values.append(ece)
 
     is_fitted = any(calibrators.values())

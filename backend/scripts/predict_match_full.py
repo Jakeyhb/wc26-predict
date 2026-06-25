@@ -298,6 +298,47 @@ def main():
                       f"rot_A={motivation_result.rotation_risk_away:.2f}")
                 if motivation_result.collusion_risk > 0.5:
                     print(f"  ⚠️ COLLUSION RISK: {motivation_result.explanation}")
+
+                # ── Persist MotivationEvent to DB (V4.2.1) ──
+                try:
+                    import sqlite3 as _sql
+                    _db = str(BACKEND_DIR / "data" / "local_stage2.db")
+                    _conn = _sql.connect(_db)
+                    _match_id = hashlib.md5(
+                        f"{HOME}|{AWAY}|{COMP}".encode()
+                    ).hexdigest()[:32]
+                    _now = datetime.now(timezone.utc).isoformat()
+                    for _tname, _motiv, _rot in [
+                        (HOME, motivation_result.home_motivation,
+                         motivation_result.rotation_risk_home),
+                        (AWAY, motivation_result.away_motivation,
+                         motivation_result.rotation_risk_away),
+                    ]:
+                        _tag = ("ROTATION_RISK" if _rot > 0.7 else
+                                "HIGH_MOTIVATION" if _motiv >= 0.75 else
+                                "MUST_WIN" if _motiv >= 0.60 else
+                                "MEDIUM_MOTIVATION" if _motiv >= 0.3 else
+                                "LOW_MOTIVATION")
+                        _evt_id = hashlib.md5(
+                            f"{_match_id}|{_tname}|{_now}".encode()
+                        ).hexdigest()[:32]
+                        _conn.execute("""
+                            INSERT OR REPLACE INTO motivation_events
+                                (id, match_id, team_name, motivation_tag,
+                                 motivation_strength, explanation, source,
+                                 created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            _evt_id, _match_id, _tname, _tag, _motiv,
+                            f"{motivation_result.match_type.value} Group "
+                            f"{motivation_result.group_name} MD{motivation_result.matchday}",
+                            f"WC2026_MD{motivation_result.matchday}",
+                            _now, _now,
+                        ))
+                    _conn.commit()
+                    _conn.close()
+                except Exception as _exc:
+                    print(f"MOTIVATION: DB persist skipped ({_exc})")
             else:
                 print(f"MOTIVATION: MD{motivation_result.matchday} — "
                       "context analysis skipped (only MD3 adjustments active)")

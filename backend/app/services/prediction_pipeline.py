@@ -451,6 +451,51 @@ class PredictionPipeline:
         if pi_pred:
             clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=wc.pi))
 
+        # ── 9.5. Match Importance / Tournament Context (V4.2.1) ──
+        # Apply motivation adjustment for WC group stage matches.
+        # Only activates for WC MD3 where strategic behavior is most pronounced.
+        # Mirror of predict_match_full.py Step 4.5.
+        motivation_result: object = None
+        is_wc_comp = "world cup" in (competition or "").lower()
+        if is_wc_comp:
+            try:
+                from app.services.group_standings import GroupStandingsService
+                from app.services.match_importance import MatchImportanceCalculator
+                standings = GroupStandingsService()
+                calc = MatchImportanceCalculator()
+                motivation_result = calc.analyze(home_team, away_team, standings)
+
+                if motivation_result.matchday == 3:
+                    home_adj = motivation_result.home_win_adj
+                    draw_adj = motivation_result.draw_adj
+                    away_adj = motivation_result.away_win_adj
+
+                    clean["home_win_prob"] = max(0.02, clean["home_win_prob"] + home_adj)
+                    clean["draw_prob"] = max(0.02, clean["draw_prob"] + draw_adj)
+                    clean["away_win_prob"] = max(0.02, clean["away_win_prob"] + away_adj)
+                    total = clean["home_win_prob"] + clean["draw_prob"] + clean["away_win_prob"]
+                    if total > 0:
+                        clean["home_win_prob"] /= total
+                        clean["draw_prob"] /= total
+                        clean["away_win_prob"] /= total
+
+                    logger.info(
+                        "predict_match MOTIVATION: [%s] Group %s MD%d | "
+                        "adj: H%+.3f D%+.3f A%+.3f | collusion=%.2f",
+                        motivation_result.match_type.value,
+                        motivation_result.group_name,
+                        motivation_result.matchday,
+                        home_adj, draw_adj, away_adj,
+                        motivation_result.collusion_risk,
+                    )
+                else:
+                    logger.info(
+                        "predict_match MOTIVATION: MD%d — skipped (only MD3 active)",
+                        motivation_result.matchday,
+                    )
+            except Exception as exc:
+                logger.warning("predict_match MOTIVATION: skipped (%s)", exc)
+
         # ── 10. Isotonic calibration (applied after market at step 13.5) ──
         # Audit R4-C7: was a stub (enabled=False).  Calibrator is now applied
         # after market blending so it calibrates the final probability vector.
@@ -607,6 +652,10 @@ class PredictionPipeline:
         # the model is likely suffering from component bias (e.g. Enhancer).
         # Temporarily activate market blending with boosted weight.
         # predict_match_full.py already had this; pipeline paths were missing it.
+        #
+        # V4.2.1: Divergence paradox fix — when DC-Enhancer AND Model-Market
+        # both diverge in the SAME direction, the double boost amplifies error.
+        # Attenuate boost by 0.6x when both divergence sources agree on direction.
         if market_probs and not market_applied:
             model_market_div = max(
                 abs(clean["home_win_prob"] - market_probs.get("home_prob", 0.5)),
@@ -615,6 +664,16 @@ class PredictionPipeline:
             )
             if model_market_div > 0.15:
                 boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                # V4.2.1: check if DC-Enhancer AND Model-Market agree on direction
+                dc_enh_diverge = bool(divergence_pp > 15 and direction_conflict)
+                model_market_diverge = (model_market_div > 0.15)
+                if dc_enh_diverge and model_market_diverge:
+                    boost *= 0.6
+                    logger.info(
+                        "Divergence paradox: DC-Enhancer AND Model-Market "
+                        "point same direction — boost attenuated to %.3f",
+                        boost,
+                    )
                 boosted_weight = min(0.50, wc.market_max + boost)
                 clean["home_win_prob"] = (
                     clean["home_win_prob"] * (1 - boosted_weight)
@@ -640,6 +699,29 @@ class PredictionPipeline:
                     "Dynamic market boost: divergence=%.1f%%, weight=%.2f",
                     model_market_div * 100, boosted_weight,
                 )
+
+        # ── 13.4 Draw floor (V4.2.1) ──
+        # England-Ghana 0-0 lesson: draw probability below ~10% is structurally
+        # unreasonable for WC matches. Enforce DRAW_FLOOR=12% minimum.
+        # Deficit allocated 70% from favorite, 30% from underdog.
+        DRAW_FLOOR = 0.12
+        draw_floor_applied = False
+        if clean["draw_prob"] < DRAW_FLOOR and is_wc_comp:
+            deficit = DRAW_FLOOR - clean["draw_prob"]
+            if clean["home_win_prob"] >= clean["away_win_prob"]:
+                clean["home_win_prob"] -= deficit * 0.7
+                clean["away_win_prob"] -= deficit * 0.3
+            else:
+                clean["home_win_prob"] -= deficit * 0.3
+                clean["away_win_prob"] -= deficit * 0.7
+            clean["draw_prob"] = DRAW_FLOOR
+            # Ensure no negative probs
+            clean["home_win_prob"] = max(0.02, clean["home_win_prob"])
+            clean["away_win_prob"] = max(0.02, clean["away_win_prob"])
+            total = sum(clean.values())
+            clean = {k: v / total for k, v in clean.items()}
+            draw_floor_applied = True
+            logger.info("Draw floor applied: draw bumped to 12%%")
 
         # ── 13.5 Isotonic calibration (R4-C7: was disabled stub) ──
         # Calibrates the final probability vector after market blending.
@@ -1074,6 +1156,49 @@ class PredictionPipeline:
                     severity="warning", detail=str(exc),
                 ))
 
+        # ── 4.5. Match Importance / Tournament Context (V4.2.1) ──
+        # Mirror of predict_match_full.py Step 4.5 + predict_match() Step 9.5.
+        motivation_result_sync: object = None
+        is_wc_sync = "world cup" in (competition or "").lower()
+        if is_wc_sync:
+            try:
+                from app.services.group_standings import GroupStandingsService
+                from app.services.match_importance import MatchImportanceCalculator
+                standings_svc = GroupStandingsService()
+                calc = MatchImportanceCalculator()
+                motivation_result_sync = calc.analyze(home_team, away_team, standings_svc)
+
+                if motivation_result_sync.matchday == 3:
+                    home_adj = motivation_result_sync.home_win_adj
+                    draw_adj = motivation_result_sync.draw_adj
+                    away_adj = motivation_result_sync.away_win_adj
+
+                    fused["home_win_prob"] = max(0.02, fused["home_win_prob"] + home_adj)
+                    fused["draw_prob"] = max(0.02, fused["draw_prob"] + draw_adj)
+                    fused["away_win_prob"] = max(0.02, fused["away_win_prob"] + away_adj)
+                    total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
+                    if total > 0:
+                        fused["home_win_prob"] /= total
+                        fused["draw_prob"] /= total
+                        fused["away_win_prob"] /= total
+
+                    logger.info(
+                        "predict_sync MOTIVATION: [%s] Group %s MD%d | "
+                        "adj: H%+.3f D%+.3f A%+.3f | collusion=%.2f",
+                        motivation_result_sync.match_type.value,
+                        motivation_result_sync.group_name,
+                        motivation_result_sync.matchday,
+                        home_adj, draw_adj, away_adj,
+                        motivation_result_sync.collusion_risk,
+                    )
+                else:
+                    logger.info(
+                        "predict_sync MOTIVATION: MD%d — skipped (only MD3 active)",
+                        motivation_result_sync.matchday,
+                    )
+            except Exception as exc:
+                logger.warning("predict_sync MOTIVATION: skipped (%s)", exc)
+
         # ── 6. Fusion diagnostics ──
         fg.compute_disagreement(component_probs)
 
@@ -1410,6 +1535,8 @@ class PredictionPipeline:
             )
 
         # ── 10.3 Dynamic market boost (R4-H7: was missing from pipeline) ──
+        # V4.2.1: Divergence paradox fix — when DC-Enhancer AND Model-Market
+        # both diverge in the SAME direction, attenuate boost by 0.6x.
         if market_probs_data and not market_applied:
             model_market_div = max(
                 abs(fused["home_win_prob"] - market_probs_data.get("home_prob", 0.5)),
@@ -1418,6 +1545,18 @@ class PredictionPipeline:
             )
             if model_market_div > 0.15:
                 boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                # V4.2.1: check if DC-Enhancer AND Model-Market agree on direction
+                try:
+                    dc_enh_div = bool(max_div_sync > 15 and not direction_conflict)
+                except (NameError, UnboundLocalError):
+                    dc_enh_div = False
+                if dc_enh_div and model_market_div > 0.15:
+                    boost *= 0.6
+                    logger.info(
+                        "Divergence paradox (sync): DC-Enhancer AND Model-Market "
+                        "point same direction — boost attenuated to %.3f",
+                        boost,
+                    )
                 boosted_weight = min(0.50, wc.market_max + boost)
                 fused["home_win_prob"] = (
                     fused["home_win_prob"] * (1 - boosted_weight)
@@ -1440,9 +1579,26 @@ class PredictionPipeline:
                 market_weight_used = boosted_weight
                 divergence = model_market_div
                 logger.info(
-                    "Dynamic market boost: divergence=%.1f%%, weight=%.2f",
+                    "Dynamic market boost (sync): divergence=%.1f%%, weight=%.2f",
                     model_market_div * 100, boosted_weight,
                 )
+
+        # ── 10.4 Draw floor (V4.2.1) ──
+        # Mirror of predict_match_full.py Step 6 draw floor enforcement.
+        if is_wc_sync and fused["draw_prob"] < 0.12:
+            deficit = 0.12 - fused["draw_prob"]
+            if fused["home_win_prob"] >= fused["away_win_prob"]:
+                fused["home_win_prob"] -= deficit * 0.7
+                fused["away_win_prob"] -= deficit * 0.3
+            else:
+                fused["home_win_prob"] -= deficit * 0.3
+                fused["away_win_prob"] -= deficit * 0.7
+            fused["draw_prob"] = 0.12
+            fused["home_win_prob"] = max(0.02, fused["home_win_prob"])
+            fused["away_win_prob"] = max(0.02, fused["away_win_prob"])
+            total = sum(fused.values())
+            fused = {k: v / total for k, v in fused.items()}
+            logger.info("Draw floor applied (sync): draw bumped to 12%%")
 
         # ── 10.5 Isotonic calibration (R4-C7: was disabled stub) ──
         calibration_applied = False

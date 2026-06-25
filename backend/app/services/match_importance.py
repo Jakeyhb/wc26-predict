@@ -242,36 +242,64 @@ class MatchImportanceCalculator:
             return MatchType.OFFENSIVE_ASYMMETRIC
 
         # Case 5: Neither qualified nor eliminated — both fighting
-        # Determine what each needs
+        # Classification based on Csató & Gyimesi (2025) six-type taxonomy.
+        # Priority order: DEFENSIVE (collusion risk) > DEFENSIVE_ASYMMETRIC >
+        #   ANTAGONISTIC > OFFENSIVE.  Each type requires specific conditions;
+        #   fall through to the most general type when conditions don't match.
 
-        # If 3rd place can also advance, "must-win" is softened
-        # Analyze positions and point gaps
+        h_pts = home_status.get("points", 0)
+        a_pts = away_status.get("points", 0)
 
-        # Both must win = Offensive
-        if h_pos >= 2 and a_pos >= 2:
-            # Both teams are in positions 2-4, need to fight
-            return MatchType.OFFENSIVE
+        # ── DEFENSIVE: a draw satisfies both teams ──
+        # Condition: both in top-2 positions and a draw would secure
+        # qualification for both (or at least protect current standing).
+        # Collusion risk marker.
+        both_high = h_pos <= 2 and a_pos <= 2
+        if both_high and h_pts > 0 and a_pts > 0:
+            # Check if draw truly benefits both: each team's current position
+            # would be maintained or improved by a shared point
+            third_pos = 3
+            gap_to_3rd = min(
+                h_pts - (table.teams[2].points if len(table.teams) > 2 else 0),
+                a_pts - (table.teams[2].points if len(table.teams) > 2 else 0),
+            )
+            # If the weaker of the two has at most a 1-pt gap above 3rd,
+            # a draw won't necessarily save them — they need to win.
+            # If both have >= 1 pt cushion over 3rd, a draw is mutually beneficial.
+            pts_above_3rd_h = h_pts - (table.teams[2].points if len(table.teams) > 2 else 0)
+            pts_above_3rd_a = a_pts - (table.teams[2].points if len(table.teams) > 2 else 0)
+            if pts_above_3rd_h >= 0 and pts_above_3rd_a >= 0:
+                # Both at least even on points with 3rd — draw is safe harbor
+                return MatchType.DEFENSIVE
 
-        # One satisfied with draw, one must win = Antagonistic
-        # Team in 2nd place with 1pt lead over 3rd: draw = secure
+        # ── DEFENSIVE_ASYMMETRIC: one team would accept a draw, the other must win ──
+        # The "satisfied" team plays conservatively; the "desperate" team attacks.
+        if h_pos == 1 or h_pos == 2:
+            pts_above_h = h_pts - (table.teams[2].points if len(table.teams) > 2 else 0)
+            if a_pos >= 3 and a_pts < h_pts:
+                # Home can accept draw (solid position), away must win
+                return MatchType.DEFENSIVE_ASYMMETRIC
+        if a_pos == 1 or a_pos == 2:
+            pts_above_a = a_pts - (table.teams[2].points if len(table.teams) > 2 else 0)
+            if h_pos >= 3 and h_pts < a_pts:
+                # Away can accept draw, home must win
+                return MatchType.DEFENSIVE_ASYMMETRIC
+
+        # ── ANTAGONISTIC: one satisfied with draw, one must win ──
+        # Team in a better position can settle for draw; the other must attack.
         if h_pos == 1:
-            # Home is group leader but not yet qualified — needs to protect lead
-            if home_status["points"] <= away_status["points"] + 1:
-                return MatchType.ANTAGONISTIC  # home can settle for draw
+            close_gap = h_pts <= a_pts + 1
+            if close_gap:
+                return MatchType.ANTAGONISTIC
             return MatchType.OFFENSIVE
-
         if a_pos == 1:
-            if home_status["points"] <= away_status["points"] + 1:
+            close_gap = a_pts <= h_pts + 1
+            if close_gap:
                 return MatchType.ANTAGONISTIC
             return MatchType.OFFENSIVE
 
-        # Draw satisfies both (both teams 2nd and 3rd, close points) → Defensive
-        if h_pos in (1, 2) and a_pos in (1, 2):
-            # If a draw keeps both in qualifying positions
-            if home_status.get("points", 0) > 0 and away_status.get("points", 0) > 0:
-                return MatchType.DEFENSIVE
-
-        # Default: offensive
+        # ── OFFENSIVE: both must attack ──
+        # Both in positions 2-4, both need a result
         return MatchType.OFFENSIVE
 
     # ------------------------------------------------------------------
