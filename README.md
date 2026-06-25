@@ -90,7 +90,7 @@ backend/scripts/             审计、回填、回测、复盘、运维脚本
 backend/tests/               后端测试
 backend/dashboard/           Streamlit 本地研究工作台
 backend/data/                SQLite 数据库
-backend/reports/             赛后复盘报告
+reports/postmatch/           赛后复盘报告
 docs/                        架构、合规、状态文档、CHANGELOG
 ```
 
