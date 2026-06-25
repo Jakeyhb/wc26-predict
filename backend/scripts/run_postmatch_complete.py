@@ -451,12 +451,142 @@ async def run_complete_postmatch(
         # STEP 7: Output report
         # ═══════════════════════════════════════════════════════════
         print(f"\n{'─'*50}")
-        print(f"  STEP 7/7: Output Report")
+        print(f"  STEP 7/7: Output Report (3 locations)")
         print(f"{'─'*50}")
 
+        report_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        home_team = snapshot.home_team or "Unknown"
+        away_team = snapshot.away_team or "Unknown"
+        match_date_str = (snapshot.match_time.strftime("%Y-%m-%d")
+                          if hasattr(snapshot, 'match_time') and snapshot.match_time
+                          else report_date)
+
+        # ── 7a. DB commit ──
         if not dry_run:
             await db.commit()
-            print(f"  ✅ All changes committed to database")
+            print(f"  ✅ 7a: DB committed")
+
+        # ── 7b. Write postmatch report to reports/postmatch/ ──
+        reports_dir = BACKEND_DIR.parent / "reports" / "postmatch"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        report_filename = (
+            f"{match_date_str}_{home_team.replace(' ', '_')}"
+            f"_{away_team.replace(' ', '_')}_postmatch.md"
+        )
+        report_path = reports_dir / report_filename
+
+        # Collect component-level detail
+        component_lines = []
+        component_probs = snapshot.component_probs or {}
+        for layer in ["dc", "enhancer", "weibull", "elo", "pi", "market"]:
+            cp = component_probs.get(layer, {})
+            if not cp:
+                continue
+            l_h = cp.get("home", cp.get("home_win_prob", 0.33))
+            l_d = cp.get("draw", cp.get("draw_prob", 0.33))
+            l_a = cp.get("away", cp.get("away_win_prob", 0.33))
+            l_fav_idx = max(range(3), key=lambda i: [l_h, l_d, l_a][i])
+            l_fav = ['H', 'D', 'A'][l_fav_idx]
+            l_dir = "✅" if l_fav_idx == actual_idx else "❌"
+            l_brier = sum((p - a)**2 for p, a in zip([l_h, l_d, l_a], actual_vec))
+            component_lines.append(
+                f"| {layer:12s} | {l_h*100:5.1f}% / {l_d*100:5.1f}% / {l_a*100:5.1f}% "
+                f"| {l_fav} | {l_dir} | {l_brier:.4f} |"
+            )
+
+        # Collect learning insights
+        learning_log = pipeline_data.get("learning_log")
+        learning_section = ""
+        if learning_log and not dry_run:
+            learning_section = f"""
+## 📈 Learning Engine
+
+| Metric | Value |
+|:---|---:|
+| Brier Score | {learning_log.error_magnitude:.4f} |
+| Direction | {learning_log.error_direction} |
+| Status | {learning_log.status} |
+| DC Marginal | {learning_log.dc_marginal:.4f} |
+| Enhancer Marginal | {learning_log.enhancer_marginal:.4f} |
+| Elo Marginal | {learning_log.elo_marginal:.4f} |
+"""
+
+        # Build full report
+        report_md = f"""# 🏆 Post-Match Review: {home_team} vs {away_team}
+
+**Date**: {match_date_str}
+**Score**: {home_score} - {away_score}
+**Verified**: ✅ ({consensus.source_count} sources)
+
+---
+
+## 📊 Prediction vs Actual
+
+| | Home | Draw | Away |
+|:---|---:|---:|---:|
+| Predicted | {pred_h*100:.1f}% | {pred_d*100:.1f}% | {pred_a*100:.1f}% |
+| Actual | {'100%' if actual_idx == 0 else '—'} | {'100%' if actual_idx == 1 else '—'} | {'100%' if actual_idx == 2 else '—'} |
+
+- **Favorite**: {pred_fav}
+- **Direction**: {'✅ CORRECT' if dir_correct else '❌ WRONG'}
+- **Brier Score**: {brier:.4f}
+
+---
+
+## 🔍 Component Analysis
+
+| Component | Probabilities (H/D/A) | Fav | Dir | Brier |
+|:---|---:|:---:|:---:|---:|
+{chr(10).join(component_lines)}
+
+---
+
+## ⚽ xG Comparison
+
+| Metric | Prediction | Actual |
+|:---|---:|---:|
+| Home xG | {pred_hxg if pred_hxg is not None else 'N/A'} | {home_xg if home_xg is not None else 'N/A'} |
+| Away xG | {pred_axg if pred_axg is not None else 'N/A'} | {away_xg if away_xg is not None else 'N/A'} |
+
+**Data Completeness**: {'Full' if not missing_stats else f'Partial — missing: {", ".join(missing_stats)}'}
+{learning_section}
+---
+
+*Generated: {datetime.now(timezone.utc).isoformat()} | Pipeline: run_postmatch_complete.py*
+"""
+
+        if not dry_run:
+            report_path.write_text(report_md, encoding="utf-8")
+            print(f"  ✅ 7b: Report written → reports/postmatch/{report_filename}")
+        else:
+            print(f"  [DRY-RUN] 7b: Would write → reports/postmatch/{report_filename}")
+
+        # ── 7c. Write memory summary ──
+        memory_dir = BACKEND_DIR.parent / "memory"
+        memory_dir.mkdir(parents=True, exist_ok=True)
+        memory_filename = f"wc-postmatch-{home_team.replace(' ', '')}-{away_team.replace(' ', '')}-{match_date_str}.md"
+        memory_path = memory_dir / memory_filename
+
+        memory_md = f"""---
+name: wc-postmatch-{home_team.replace(' ', '').lower()}-{away_team.replace(' ', '').lower()}-{match_date_str}
+description: "Post-match: {home_team} {home_score}-{away_score} {away_team}"
+metadata:
+  type: project
+---
+
+# {home_team} vs {away_team}: {home_score}-{away_score}
+
+- **Brier**: {brier:.4f}
+- **Direction**: {'correct' if dir_correct else 'wrong'}
+- **Prediction**: {pred_h*100:.1f}% / {pred_d*100:.1f}% / {pred_a*100:.1f}% (favored: {pred_fav})
+- **Data quality**: {'full' if not missing_stats else 'partial'}
+"""
+
+        if not dry_run:
+            memory_path.write_text(memory_md, encoding="utf-8")
+            print(f"  ✅ 7c: Memory written → memory/{memory_filename}")
+        else:
+            print(f"  [DRY-RUN] 7c: Would write → memory/{memory_filename}")
 
         pipeline_status["output_report"] = "passed"
 
@@ -465,13 +595,15 @@ async def run_complete_postmatch(
             "status": "COMPLETE",
             "pipeline_status": pipeline_status,
             "match_id": match_uuid,
-            "home_team": snapshot.home_team,
-            "away_team": snapshot.away_team,
+            "home_team": home_team,
+            "away_team": away_team,
             "score": f"{home_score}-{away_score}",
             "verified": True,
             "brier": brier if not dry_run else None,
             "direction_correct": dir_correct,
             "data_completeness": "full" if not missing_stats else "partial",
+            "report_file": str(report_path) if not dry_run else None,
+            "memory_file": str(memory_path) if not dry_run else None,
         }
 
         print(f"\n{'='*70}")
@@ -480,6 +612,9 @@ async def run_complete_postmatch(
         print(f"  📊 Brier: {brier:.4f}" if not dry_run else "  📊 Brier: N/A (dry-run)")
         print(f"  📋 Data: {summary['data_completeness']}")
         print(f"  🔒 Verified: {summary['verified']}")
+        if not dry_run:
+            print(f"  📝 Report: reports/postmatch/{report_filename}")
+            print(f"  🧠 Memory: memory/{memory_filename}")
         print(f"{'='*70}")
 
         return summary

@@ -611,43 +611,33 @@ def rebuild_wc_calibrator(*, dry_run: bool = False):
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    # Collect WC eval records: only matches linked to FIFA World Cup 2026
-    # Filter by run_type (backfill/review) or by match_id in wc26_schedule
+    # Collect WC eval records: include ALL run types with valid probabilities.
+    # V4.2.2: Removed run_type filter — t_minus_24h, V4_MANUAL, PREMATCH etc.
+    # all contain valid (prediction, outcome) pairs for calibration.
+    # Only exclusion: placeholder probabilities (0.5/0.25/0.25).
     cur.execute("""
-        SELECT e.actual_home_goals, e.actual_away_goals, e.brier_score,
-               r.home_win_prob, r.draw_prob, r.away_win_prob, r.run_type,
-               r.match_id, r.created_at
+        SELECT e.actual_home_goals, e.actual_away_goals,
+               r.home_win_prob, r.draw_prob, r.away_win_prob
         FROM postmatch_eval e
         JOIN prediction_runs r ON e.prediction_run_id = r.id
-        WHERE r.match_id IS NOT NULL
-          AND (
-              r.run_type IN ('post_match_backfill', 'auto_backfill', 'post_match_review')
-              OR r.run_type IS NULL
-          )
+        WHERE e.actual_home_goals IS NOT NULL
+          AND e.actual_away_goals IS NOT NULL
+          AND r.home_win_prob IS NOT NULL
+          AND r.draw_prob IS NOT NULL
+          AND r.away_win_prob IS NOT NULL
+          AND NOT (r.home_win_prob = 0.5 AND r.draw_prob = 0.25 AND r.away_win_prob = 0.25)
     """)
     records = []
     for row in cur.fetchall():
-        hg, ag, brier, ph, pd, pa, run_type, match_id, created_at = row
-        if hg is None or ag is None:
-            continue
+        hg, ag, ph, pd, pa = row
         if ph is None and pd is None and pa is None:
             continue
 
-        # Verify this is a WC 2026 match by checking wc26_schedule
-        # (match_id from prediction_runs is UUID format, matches.matches table)
-        try:
-            cur2 = conn.cursor()
-            cur2.execute(
-                "SELECT COUNT(*) FROM wc26_schedule WHERE home_team IS NOT NULL AND match_status = 'FINISHED'"
-            )
-        except Exception:
-            pass
-
         actual = "H" if hg > ag else ("A" if ag > hg else "D")
         records.append({
-            "home_win_prob": ph or 0.33,
-            "draw_prob": pd or 0.33,
-            "away_win_prob": pa or 0.33,
+            "home_win_prob": ph,
+            "draw_prob": pd,
+            "away_win_prob": pa,
             "actual_result": actual,
         })
     conn.close()

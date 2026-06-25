@@ -3,9 +3,9 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V3.8.0-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-V4.2.2_beta-blue?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/phase-Phase_2B_self_evolution-red?style=flat-square" alt="phase">
-  <img src="https://img.shields.io/badge/backend_tests-215_passed-success?style=flat-square" alt="backend tests">
+  <img src="https://img.shields.io/badge/backend_tests-196_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/model_loading-disk_cache_only-brightgreen?style=flat-square" alt="model loading">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
@@ -13,34 +13,27 @@
 
 ## 当前结论
 
-WC26 Predict 现在处在 **Phase 2B：自进化基础 + 赛后复盘学习** 阶段。
+WC26 Predict 现在处在 **Phase 2B：自进化 + 赛后复盘学习** 阶段，已进入 WC 2026 小组赛实时预测。
 
-**V3.8.0（2026-06-15）关键修复与升级：**
+**V4.2.2-beta（2026-06-25）当前状态：**
 
-- 🔴 **P0:** 修复模型参数静默回退 bug — 删除了过期的静态 artifact 文件（`dc.pkl`、`enhancer.joblib`），disk cache 成为唯一加载路径。不会再出现”两条加载路径加载不同参数”的问题。
-- 🔴 **P1:** 权重门控 — 基于两场世界杯赛后复盘数据，Enhancer 有效权重从 39.7% 降至 24.3%，DC 从 49.6% 升至 56.7%。完整审计追踪已写入 DB。
-- 🟢 **P2:** 参数溯源 — `prediction_snapshots` 新增 `dc_params_hash`、`training_df_fingerprint`、`training_df_max_date`，现在可精确定位”为什么两次预测结果不同”。
-- 📊 两场世界杯赛后复盘完成：德国 7-1 库拉索（Brier 0.135）、荷兰 2-2 日本（Brier 0.832）。Enhancer 系统性反平局偏置确认。
+- **组件表现 (13场累计)**：Market 11/13 (85%), DC 10/13 (77%), Pi 9/13 (69%), Elo 9/13 (69%), Enhancer 3/13 (23%)
+- **权重版本**：`WORLD_CUP_V4.2.2` — dc=0.68 enhancer_blend=0.32 elo=0.12 pi=0.14 weibull=0.10 market_max=0.30
+- **54/104 场小组赛已完成**，50 场待进行
+- **预测流水线**：DC → Enhancer → Weibull → Elo → Pi → Market（6 级顺序融合）+ 战意因子 + 平局下限 12% + 分歧悖论修复
+- **赛后复盘**：13 场完整复盘报告在 `reports/postmatch/`，含组件级 Brier/LogLoss/方向正确率
+- **自进化**：Pi 权重从 0.12 → 0.14（本轮 5/6 方向正确，最佳非市场组件）
+- **已知问题**：Enhancer 系统性偏向下盘（累计 23% 方向正确），分歧 guard (dc=0.68) 有效压制其影响
+- **关键发现**：南非 1-0 韩国是本届首次共识失败（6/6 组件全部错误），market 赔率是最可靠信号（85%）
 
-**从 V3.6.1 继承的能力：**
+**V4.2.1-beta 完成的修复 (8 项中 5 项已合并)：**
 
-- 赛果验证改为独立可信来源共识，`user_provided` 只能做人工备注，不能参与自动学习共识。
-- 预测快照字段标准化，新增 `match_id` 契约和保守 match resolver。
-- 无真实 `match_id` 的预测不允许进入复盘和学习链路。
-- 新增 `closed_loop_resolution_ledger`，把旧数据分成 `resolved`、`ambiguous`、`unresolvable_legacy`。
-- active 闭环追溯缺口清零；旧快照、旧赔率和旧学习日志被隔离，不再混入学习。
-- 新增 proper scoring 指标：log loss、Brier、RPS。
-- walk-forward 回测升级为 champion gate + paired gate。
-- 新增闭环完整性审计脚本、数据 provenance 审计脚本。
-- WC26 小组赛 72 场赛程已绑定到内部 team id。
-
-还不能过度声称的部分：
-
-- 系统还不是完整自动闭环。
-- 系统还不能称为可信自进化，只能说”可控自进化基础已搭建”。
-- V3.8.0 权重调整基于 2 场比赛的赛后复盘数据，样本量不足以宣称全局最优。随着更多比赛完成，权重将持续校准。
-- `snapshot_adjusted` 在配对样本上整体优于 `uniform_baseline`，但存在关键分组退化。
-- 本地审计显示旧快照和旧赔率已隔离，但真实 xG、市场基准覆盖、阵容伤停数据仍不足；新的 provenance 审计会把这些缺口显式输出。
+- ✅ B1: prediction_pipeline.py 同步 V4.2 特性（战意因子 + 平局下限 + 分歧悖论）
+- ✅ B2: MotivationEvent 持久化代码就绪（下一轮 WC 比赛自动激活）
+- ✅ B5: auto_backfill 概率存储兼容 V3.8 格式
+- ✅ B6: DEFENSIVE/DEFENSIVE_ASYMMETRIC 分类全部可达
+- ✅ B7: ECE 计算修复（自身减自身 → 实际 vs 预测比较）
+- 🔵 B3/B4/B8 按计划延至 V4.3.0
 
 ## 系统目标
 
@@ -69,7 +62,7 @@ flowchart LR
   J --> K["walk-forward gate"]
   K -->|通过后人工批准| D
 
-  subgraph "V3.8.0: 模型加载单一路径"
+  subgraph "V3.8.0+: 模型加载单一路径"
     L["model_artifacts/dc_cache/"] -->|"唯一来源"| D
     M["train_models.py"] -->|"写入"| L
     N["snapshot.py"] -->|"读写"| L
@@ -134,72 +127,40 @@ cd backend
 python -m pytest tests/ -q
 ```
 
-前端构建：
-
-```powershell
-npm run build
-```
-
-数据新鲜度审计：
+完整的预测 + 报告工作流：
 
 ```powershell
 cd backend
-python scripts/audit_data_freshness.py
+
+# 1. 生成单场完整预测分析报告
+python scripts/predict_match_full.py --home "Brazil" --away "Germany" --competition "FIFA World Cup 2026" --stage "Group A - Matchday 1"
+
+# 2. 批量运行赛后复盘 + 自进化
+python scripts/run_postmatch_complete.py
+
+# 3. 回填历史赛后数据
+python scripts/backfill_postmatch_evals.py --auto
+
+# 4. 自动化赛后验证
+python scripts/auto_postmatch.py
+
+# 5. 赛后复盘审核
+python scripts/postmatch_review.py
 ```
 
-闭环完整性审计：
+WC26 赛程与模拟：
 
 ```powershell
 cd backend
-python scripts/audit_closed_loop_integrity.py
-```
 
-数据 provenance / 覆盖审计：
+# 种子数据
+python scripts/seed_wc26_schedule.py
 
-```powershell
-cd backend
-python scripts/audit_data_provenance.py
-```
+# 锦标赛模拟
+python scripts/simulate_wc26.py
 
-StatsBomb 赛后统计回填预览：
-
-```powershell
-cd backend
-python scripts/backfill_statsbomb_postmatch_stats.py --seasons 2018,2022
-```
-
-match_id 回填预览与执行：
-
-```powershell
-cd backend
-python scripts/backfill_match_ids.py
-python scripts/backfill_match_ids.py --apply
-```
-
-WC26 小组赛槽位绑定：
-
-```powershell
-cd backend
-python scripts/bind_wc26_group_slots.py
-python scripts/bind_wc26_group_slots.py --apply
-```
-
-walk-forward 回测：
-
-```powershell
-cd backend
-python scripts/walk_forward_backtest.py --min-sample 5
-python scripts/walk_forward_backtest.py --min-sample 5 --enforce-gate
-python scripts/walk_forward_backtest.py --min-sample 5 --enforce-paired-gate
-```
-
-`--enforce-gate` 和 `--enforce-paired-gate` 当前都预期失败；这是正确行为，说明当前 champion / paired champion 还不能发布。
-
-evaluation sample 回填预览：
-
-```powershell
-cd backend
-python scripts/backfill_evaluation_samples.py
+# 模型训练
+python scripts/train_models.py
 ```
 
 本地 Dashboard：
@@ -294,23 +255,24 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V3.8.0**
+当前主版本：**V4.2.2-beta**
 
-- Version: `3.8.0`
-- Tag: `v3.8.0`
-- Branch: `master` ← `phase-0-baseline`
-- 状态：Phase 2B — 赛后复盘 + 自进化基础 + 权重门控 + 参数溯源
+- Version: `4.2.2-beta`
+- Tag: `v4.2.2-beta`
+- Branch: `master`
+- 状态：Phase 2B — 赛后复盘 + 自进化 + WC 小组赛实战
 - 完整 CHANGELOG: [`docs/CHANGELOG_V3.8.0.md`](docs/CHANGELOG_V3.8.0.md)
 
 ### 最近版本历史
 
 | 版本 | 日期 | 关键变更 |
 |------|------|---------|
-| **V3.8.0** | 2026-06-15 | 模型加载链修复 + 权重门控 + 参数溯源 + 静态 artifact 删除 |
-| V3.6.1 | 2026-06-14 | Postmatch Stats 层 + provenance 审计 + paired gate |
-| V3.6.0 | 2026-06-10 | Data Provenance Audit |
-| V3.5.4 | 2026-06-08 | Pipeline Evaluation Samples |
-| V3.5.3 | 2026-06-06 | Paired Benchmark Gate |
+| **V4.2.2-beta** | 2026-06-25 | 自进化 Pi 0.12→0.14 + 6场 June25 赛后复盘 |
+| **V4.2.1-beta** | 2026-06-25 | 8项 B1-B8 修复: pipeline 同步/战意/平局下限/分歧悖论 |
+| **V4.2.0-beta** | 2026-06-24 | 战意因子 + 平局下限 + 分歧悖论修复 |
+| **V4.1.6-beta** | 2026-06-24 | 全局版本同步 + 代码库清理 |
+| V4.0.5 | 2026-06-20 | 动态 Market Boost + 自适应 DC 权重 |
+| V3.8.0 | 2026-06-15 | 模型加载链修复 + 权重门控 + 参数溯源 |
 
 ## 贡献
 

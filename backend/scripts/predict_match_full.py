@@ -227,7 +227,32 @@ def main():
         divergence["dc_weight_adaptive"] = None
         divergence["shift_applied"] = None
 
-    # ── 2.7. Weibull Copula ──
+    # ── 2.7. NegBin 5% Fusion (V4.3.0: B3) ──
+    # Fuse NegBin overdispersed scoreline probabilities into the chain
+    # at 5% weight. NegBin corrects Poisson independence assumption by
+    # modelling overdispersion (Var/Mean=1.42 for WC matches).
+    # Marginal gain ~2%, but fulfills V4.2.1 plan commitment.
+    NEGBIN_FUSION_WEIGHT = 0.05
+    negbin_probs = None
+    negbin_applied = False
+    try:
+        hxg = dc_pred.get("home_xg", 0)
+        axg = dc_pred.get("away_xg", 0)
+        if hxg > 0 and axg > 0:
+            od_scoreline = overdispersed_poisson_scoreline(hxg, axg)
+            negbin_probs = od_scoreline["negbin"]
+            # Sequential fusion: NegBin takes 5% of remaining probability space
+            fused = {
+                "home_win_prob": fused["home_win_prob"] * (1 - NEGBIN_FUSION_WEIGHT) + negbin_probs["home_win"] * NEGBIN_FUSION_WEIGHT,
+                "draw_prob": fused["draw_prob"] * (1 - NEGBIN_FUSION_WEIGHT) + negbin_probs["draw"] * NEGBIN_FUSION_WEIGHT,
+                "away_win_prob": fused["away_win_prob"] * (1 - NEGBIN_FUSION_WEIGHT) + negbin_probs["away_win"] * NEGBIN_FUSION_WEIGHT,
+            }
+            negbin_applied = True
+    except Exception as e:
+        print(f"NegBin:   skipped ({e})")
+    dc_enh_nb = dict(fused)
+
+    # ── 2.8. Weibull Copula ──
     # V4.0.3-fix: Weibull was missing from predict_match_full pipeline
     # (weight=0.10 was configured but never applied). Added after DC+Enhancer.
     wb_pred_raw = None
@@ -552,6 +577,8 @@ def main():
     print(f"DC:        H={dc_raw['home_win_prob']:.4f} D={dc_raw['draw_prob']:.4f} A={dc_raw['away_win_prob']:.4f}")
     print(f"Enhancer:  H={enh_raw['home_win_prob']:.4f} D={enh_raw['draw_prob']:.4f} A={enh_raw['away_win_prob']:.4f}")
     print(f"DC+Enh:    H={dc_enh['home_win_prob']:.4f} D={dc_enh['draw_prob']:.4f} A={dc_enh['away_win_prob']:.4f}")
+    if negbin_applied:
+        print(f"+NegBin:   H={dc_enh_nb['home_win_prob']:.4f} D={dc_enh_nb['draw_prob']:.4f} A={dc_enh_nb['away_win_prob']:.4f}")
     if wb_pred_raw:
         print(f"+Weibull:  H={dc_enh_wb['home_win_prob']:.4f} D={dc_enh_wb['draw_prob']:.4f} A={dc_enh_wb['away_win_prob']:.4f}")
     print(f"+Elo:      H={dc_enh_elo['home_win_prob']:.4f} D={dc_enh_elo['draw_prob']:.4f} A={dc_enh_elo['away_win_prob']:.4f}")
@@ -582,9 +609,11 @@ def main():
     dc_params_sorted = json.dumps(sorted(dc.attack_params.items()), sort_keys=True).encode()
     result = {
         "home_team": HOME, "away_team": AWAY, "competition": COMP, "is_neutral": IS_NEUTRAL,
-        "layers": {"dc": dc_raw, "enhancer": enh_raw, "weibull": wb_pred_raw, "elo": elo_raw, "pi": pi_raw,
-                   "dc_enh": dc_enh, "dc_enh_wb": dc_enh_wb, "dc_enh_elo": dc_enh_elo,
+        "layers": {"dc": dc_raw, "enhancer": enh_raw, "negbin": negbin_probs, "weibull": wb_pred_raw, "elo": elo_raw, "pi": pi_raw,
+                   "dc_enh": dc_enh, "dc_enh_nb": dc_enh_nb, "dc_enh_wb": dc_enh_wb, "dc_enh_elo": dc_enh_elo,
                    "pre_market": pre_market, "post_market": post_market, "final": final},
+        "negbin_applied": negbin_applied,
+        "negbin_fusion_weight": NEGBIN_FUSION_WEIGHT if negbin_applied else 0,
         "market": {"provider": market_provider, "live": market_live,
                    "home_odds": home_odds, "draw_odds": draw_odds, "away_odds": away_odds,
                    "home_prob": market_home, "draw_prob": market_draw, "away_prob": market_away,

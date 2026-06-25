@@ -15,9 +15,9 @@
       "away_win_prob": 0.7060914978245066
     },
     "weibull": {
-      "home_win_prob": 0.062457266908695894,
-      "draw_prob": 0.17824010708002921,
-      "away_win_prob": 0.7593026260112749
+      "home_win_prob": 0.07991908737979025,
+      "draw_prob": 0.22060501941579433,
+      "away_win_prob": 0.6994758932044154
     },
     "elo": {
       "home_win_prob": 0.20759043323232212,
@@ -35,29 +35,29 @@
       "away_win_prob": 0.6192860651859312
     },
     "dc_enh_wb": {
-      "home_win_prob": 0.1298059250827741,
-      "draw_prob": 0.23690635364876034,
-      "away_win_prob": 0.6332877212684656
+      "home_win_prob": 0.13155210712988355,
+      "draw_prob": 0.24114284488233687,
+      "away_win_prob": 0.6273050479877796
     },
     "dc_enh_elo": {
-      "home_win_prob": 0.13914006606071988,
-      "draw_prob": 0.2338439799534255,
-      "away_win_prob": 0.6270159539858546
+      "home_win_prob": 0.14067670626217618,
+      "draw_prob": 0.23757209223897288,
+      "away_win_prob": 0.621751201498851
     },
     "pre_market": {
-      "home_win_prob": 0.1435203447875732,
-      "draw_prob": 0.22802485809468798,
-      "away_win_prob": 0.6284547971177389
+      "home_win_prob": 0.13487258816485473,
+      "draw_prob": 0.21130559690596964,
+      "away_win_prob": 0.6538218149291757
     },
     "post_market": {
-      "home_win_prob": 0.1319589846089578,
-      "draw_prob": 0.21250479972159164,
-      "away_win_prob": 0.6555362156694505
+      "home_win_prob": 0.12590555497305486,
+      "draw_prob": 0.20080131688948882,
+      "away_win_prob": 0.6732931281374563
     },
     "final": {
-      "home_win_prob": 0.1319589846089578,
-      "draw_prob": 0.21250479972159164,
-      "away_win_prob": 0.6555362156694505
+      "home_win_prob": 0.12590555497305486,
+      "draw_prob": 0.20080131688948882,
+      "away_win_prob": 0.6732931281374563
     }
   },
   "market": {
@@ -105,13 +105,13 @@
     "shift_applied": null
   },
   "weather": {
-    "temperature_c": 29.7,
+    "temperature_c": 26.6,
     "precipitation_mm": 0.0,
-    "wind_speed_kmh": 14.2,
-    "humidity_percent": 64.0,
-    "weather_code": 1,
-    "weather_description": "\u5927\u81f4\u6674\u6717",
-    "fetched_at": "2026-06-24T15:14:49.173775+00:00",
+    "wind_speed_kmh": 12.3,
+    "humidity_percent": 77.0,
+    "weather_code": 0,
+    "weather_description": "\u6674",
+    "fetched_at": "2026-06-25T03:43:14.018879+00:00",
     "forecast_available": true
   },
   "overdispersion": {
@@ -196,12 +196,27 @@
     "under_2_5_pct": 45.9,
     "over_2_5_pct": 54.0
   },
+  "motivation": {
+    "match_type": "antagonistic",
+    "matchday": 3,
+    "group_name": "C",
+    "home_motivation": 0.8,
+    "away_motivation": 0.8,
+    "ei_score": 0.75,
+    "home_win_adj": -0.01,
+    "draw_adj": -0.02,
+    "away_win_adj": 0.03,
+    "collusion_risk": 0.0,
+    "rotation_risk_home": 0.05,
+    "rotation_risk_away": 0.05,
+    "explanation": "[antagonistic] One team satisfied with draw, the other must win. Adj: home-1.0% draw-2.0% away+3.0%"
+  },
   "bootstrap_ci": null,
   "provenance": {
     "dc_hash": "345ceb9e55d8",
     "dc_teams": 296,
     "training_rows": 16737,
-    "version": "4.1.5-beta",
+    "version": "4.1.6-beta",
     "weight_label": "WORLD_CUP_V4.0.4"
   }
 }

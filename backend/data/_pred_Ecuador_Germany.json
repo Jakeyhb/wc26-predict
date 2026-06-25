@@ -1,0 +1,234 @@
+{
+  "home_team": "Ecuador",
+  "away_team": "Germany",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.13207017273152918,
+      "draw_prob": 0.26580655345255166,
+      "away_win_prob": 0.602123273815919
+    },
+    "enhancer": {
+      "home_win_prob": 0.0998269034035454,
+      "draw_prob": 0.17857378448377204,
+      "away_win_prob": 0.7215993121126826
+    },
+    "negbin": {
+      "home_win": 0.15308222772844626,
+      "draw": 0.23069701680882407,
+      "away_win": 0.6162207554627296
+    },
+    "weibull": {
+      "home_win_prob": 0.017922325835835577,
+      "draw_prob": 0.21619534930487563,
+      "away_win_prob": 0.7658823248592888
+    },
+    "elo": {
+      "home_win_prob": 0.35626769942146463,
+      "draw_prob": 0.23952261045012405,
+      "away_win_prob": 0.40420969012841135
+    },
+    "pi": {
+      "home_win_prob": 0.4149155633351704,
+      "draw_prob": 0.20624084892547506,
+      "away_win_prob": 0.3788435877393546
+    },
+    "dc_enh": {
+      "home_win_prob": 0.12175232654657439,
+      "draw_prob": 0.2378920673825422,
+      "away_win_prob": 0.6403556060708835
+    },
+    "dc_enh_nb": {
+      "home_win_prob": 0.12331882160566798,
+      "draw_prob": 0.23753231485385629,
+      "away_win_prob": 0.6391488635404757
+    },
+    "dc_enh_wb": {
+      "home_win_prob": 0.11277917202868475,
+      "draw_prob": 0.23539861829895822,
+      "away_win_prob": 0.6518222096723572
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.14199779531581833,
+      "draw_prob": 0.23589349735709814,
+      "away_win_prob": 0.6221087073270837
+    },
+    "pre_market": {
+      "home_win_prob": 0.2734797626011288,
+      "draw_prob": 0.1969390656423132,
+      "away_win_prob": 0.5295811717565581
+    },
+    "post_market": {
+      "home_win_prob": 0.24736539389616866,
+      "draw_prob": 0.1967305670815966,
+      "away_win_prob": 0.5559040390222347
+    },
+    "final": {
+      "home_win_prob": 0.24736539389616866,
+      "draw_prob": 0.1967305670815966,
+      "away_win_prob": 0.5559040390222347
+    }
+  },
+  "negbin_applied": true,
+  "negbin_fusion_weight": 0.05,
+  "market": {
+    "provider": "apifootball.com",
+    "live": true,
+    "home_odds": 5.0,
+    "draw_odds": 4.75,
+    "away_odds": 1.51,
+    "home_prob": 0.1864318669179284,
+    "draw_prob": 0.19624407043992462,
+    "away_prob": 0.617324062642147,
+    "market_weight": 0.3
+  },
+  "home_xg": 0.4942083949829389,
+  "away_xg": 1.4005895139441973,
+  "elo": {
+    "home": 1697.021415362675,
+    "away": 1718.9535238835292
+  },
+  "pi": {
+    "home": 1.7391437189535814,
+    "away": 1.6871713674994497
+  },
+  "dc_params": {
+    "home_atk": 0.7433182315674274,
+    "home_def": 0.4259654354057778,
+    "away_atk": 3.326560733471447,
+    "away_def": 0.6649675832608356
+  },
+  "calibrated": null,
+  "calibration_applied": false,
+  "calibration_stats": {
+    "is_fitted": false,
+    "training_samples": 0,
+    "ece": 0.0
+  },
+  "dc_enhancer_divergence": {
+    "home": 3.2,
+    "draw": 8.7,
+    "away": 11.9,
+    "max_pp": 11.9,
+    "warning": null,
+    "severity": "normal",
+    "dc_weight_adaptive": null,
+    "shift_applied": null
+  },
+  "weather": {
+    "temperature_c": 25.3,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 6.5,
+    "humidity_percent": 86.0,
+    "weather_code": 2,
+    "weather_description": "\u5c40\u90e8\u591a\u4e91",
+    "fetched_at": "2026-06-25T10:04:58.199519+00:00",
+    "forecast_available": true
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.1302036069549895,
+      "draw": 0.2738728718730749,
+      "away_win": 0.5959235211719354
+    },
+    "negbin": {
+      "home_win": 0.15308222772844626,
+      "draw": 0.23069701680882407,
+      "away_win": 0.6162207554627296
+    },
+    "overdispersion_r": 3.5,
+    "wc_xg_calibration_factor": 1.35,
+    "calibrated_xg": {
+      "home": 0.67,
+      "away": 1.89
+    },
+    "top_15_scorelines": [
+      {
+        "score": "0-1",
+        "prob_pct": 14.7
+      },
+      {
+        "score": "0-0",
+        "prob_pct": 12.0
+      },
+      {
+        "score": "0-2",
+        "prob_pct": 11.6
+      },
+      {
+        "score": "1-1",
+        "prob_pct": 8.2
+      },
+      {
+        "score": "0-3",
+        "prob_pct": 7.5
+      },
+      {
+        "score": "1-0",
+        "prob_pct": 6.7
+      },
+      {
+        "score": "1-2",
+        "prob_pct": 6.5
+      },
+      {
+        "score": "0-4",
+        "prob_pct": 4.3
+      },
+      {
+        "score": "1-3",
+        "prob_pct": 4.2
+      },
+      {
+        "score": "2-1",
+        "prob_pct": 3.0
+      },
+      {
+        "score": "2-0",
+        "prob_pct": 2.4
+      },
+      {
+        "score": "1-4",
+        "prob_pct": 2.4
+      },
+      {
+        "score": "2-2",
+        "prob_pct": 2.3
+      },
+      {
+        "score": "0-5",
+        "prob_pct": 2.2
+      },
+      {
+        "score": "2-3",
+        "prob_pct": 1.5
+      }
+    ],
+    "under_2_5_pct": 55.6,
+    "over_2_5_pct": 44.3
+  },
+  "motivation": {
+    "match_type": "offensive_asymmetric",
+    "matchday": 3,
+    "group_name": "E",
+    "home_motivation": 0.7,
+    "away_motivation": 0.1,
+    "ei_score": 0.5,
+    "home_win_adj": 0.093,
+    "draw_adj": -0.035,
+    "away_win_adj": -0.059,
+    "collusion_risk": 0.0,
+    "rotation_risk_home": 0.05,
+    "rotation_risk_away": 0.85,
+    "explanation": "[offensive_asymmetric] One team with much to gain/lose, the other indifferent. Adj: home+9.3% draw-3.5% away-5.9%"
+  },
+  "bootstrap_ci": null,
+  "provenance": {
+    "dc_hash": "345ceb9e55d8",
+    "dc_teams": 296,
+    "training_rows": 16737,
+    "version": "4.2.2-beta",
+    "weight_label": "WORLD_CUP_V4.2.2"
+  }
+}
