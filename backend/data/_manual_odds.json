@@ -40,5 +40,12 @@
     "away_odds": 1.62,
     "source": "Unibet (UK)/The-Odds-API (live 2026-06-24 14:34 UTC)",
     "verified_at": "2026-06-24T14:34:59.815495+00:00"
+  },
+  "Turkey|United States": {
+    "home_odds": 3.60,
+    "draw_odds": 4.17,
+    "away_odds": 1.935,
+    "source": "bet365/bwin/Winamax/Fonbet (web-verified 2026-06-26 BJT)",
+    "verified_at": "2026-06-25T20:00:00+00:00"
   }
 }

@@ -671,6 +671,82 @@ def main():
         except Exception as e:
             print(f"  [Bootstrap] Failed: {e}", file=sys.stderr)
 
+    # ── 7.5. Persist prediction_runs to DB (V4.3.0 fix) ──
+    # Previously only wrote JSON file + motivation_events, missing the
+    # prediction_runs record that post-match eval and calibrator need.
+    _prun_id = None
+    try:
+        import uuid as _uuid
+        import sqlite3 as _sql3
+        _db = str(BACKEND_DIR / "data" / "local_stage2.db")
+        _conn = _sql3.connect(_db)
+        _match_id = hashlib.md5(f"{HOME}|{AWAY}|{COMP}".encode()).hexdigest()[:32]
+        _now = datetime.now(timezone.utc).isoformat()
+        _prun_id = _uuid.uuid4().hex[:32]
+
+        # Build Poisson score matrix (6x6, up to 5 goals each side)
+        _hxg = dc_pred.get("home_xg", 0)
+        _axg = dc_pred.get("away_xg", 0)
+        _score_matrix = []
+        for h in range(6):
+            _row = []
+            _ph = (_hxg ** h * math.exp(-_hxg) / math.factorial(h)) if _hxg > 0 else (1.0 if h == 0 else 0.0)
+            for a in range(6):
+                _pa = (_axg ** a * math.exp(-_axg) / math.factorial(a)) if _axg > 0 else (1.0 if a == 0 else 0.0)
+                _row.append(_ph * _pa)
+            _score_matrix.append(_row)
+
+        # Build top3 scores from overdispersion top_15
+        _top15 = od_scoreline.get("top_15_scorelines", [])[:3]
+        _top3_json = json.dumps([{"score": s["score"], "prob": s["prob_pct"] / 100.0} for s in _top15])
+
+        _conf_score = round(1.0 - abs(final["home_win_prob"] - 0.333) - abs(final["draw_prob"] - 0.333) - abs(final["away_win_prob"] - 0.333), 4)
+        _conf_score = max(0.0, min(1.0, _conf_score))
+
+        _feature_snap = json.dumps({
+            "version": VERSION,
+            "weight_label": wc.label,
+            "pipeline": "dc->enhancer->negbin->weibull->elo->pi->market",
+            "negbin_applied": negbin_applied,
+            "negbin_weight": NEGBIN_FUSION_WEIGHT if negbin_applied else 0,
+            "market_applied": market_live,
+            "market_weight": market_weight,
+            "market_provider": market_provider,
+            "motivation_applied": motivation_result is not None and motivation_result.matchday == 3 if motivation_result else False,
+            "calibration_applied": calibration_applied,
+            "dc_enhancer_divergence": divergence,
+            "competition": COMP,
+            "is_neutral": IS_NEUTRAL,
+            "wc_xg_calibration_factor": WC_XG_CALIBRATION_FACTOR,
+            "negbin_r": NEGBIN_R,
+        })
+
+        _conn.execute("""
+            INSERT OR REPLACE INTO prediction_runs
+                (id, match_id, run_type, model_version, as_of_time,
+                 home_win_prob, draw_prob, away_win_prob,
+                 home_xg, away_xg, score_matrix, top3_scores,
+                 confidence_score, risk_tags,
+                 input_feature_snapshot, approved_signals, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            _prun_id, _match_id, "manual", VERSION, _now,
+            round(final["home_win_prob"], 6), round(final["draw_prob"], 6), round(final["away_win_prob"], 6),
+            round(_hxg, 4), round(_axg, 4),
+            json.dumps(_score_matrix), _top3_json,
+            _conf_score, "[]",
+            _feature_snap, "[]", _now,
+        ))
+        _conn.commit()
+        print(f"DB:       prediction_runs saved (id={_prun_id[:12]}...)")
+    except Exception as _e:
+        print(f"DB:       prediction_runs skipped ({_e})", file=sys.stderr)
+    finally:
+        try:
+            _conn.close()
+        except Exception:
+            pass
+
     out = BACKEND_DIR / "data" / f"_pred_{HOME.replace(' ','_')}_{AWAY.replace(' ','_')}.json"
     with open(str(out), "w") as f:
         json.dump(result, f, indent=2, default=str)

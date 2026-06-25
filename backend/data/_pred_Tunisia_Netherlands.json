@@ -20,9 +20,9 @@
       "away_win": 0.6297326654139681
     },
     "weibull": {
-      "home_win_prob": 0.026739414702664423,
-      "draw_prob": 0.13283444731931615,
-      "away_win_prob": 0.8404261379780196
+      "home_win_prob": 0.009507253420294605,
+      "draw_prob": 0.08222531718736327,
+      "away_win_prob": 0.9082674293923421
     },
     "elo": {
       "home_win_prob": 0.3302771783585292,
@@ -45,29 +45,29 @@
       "away_win_prob": 0.6017274924233658
     },
     "dc_enh_wb": {
-      "home_win_prob": 0.1533599193667824,
-      "draw_prob": 0.2210427236543864,
-      "away_win_prob": 0.6255973569788312
+      "home_win_prob": 0.15163670323854542,
+      "draw_prob": 0.21598181064119112,
+      "away_win_prob": 0.6323814861202635
     },
     "dc_enh_elo": {
-      "home_win_prob": 0.17458999044579201,
-      "draw_prob": 0.223060609803881,
-      "away_win_prob": 0.602349399750327
+      "home_win_prob": 0.1730735602529435,
+      "draw_prob": 0.21860700635226918,
+      "away_win_prob": 0.6083194333947873
     },
     "pre_market": {
-      "home_win_prob": 0.10520187719744842,
-      "draw_prob": 0.2096863025956714,
-      "away_win_prob": 0.6851118202068802
+      "home_win_prob": 0.10389905005873741,
+      "draw_prob": 0.20586002989998095,
+      "away_win_prob": 0.6902409200412817
     },
     "post_market": {
-      "home_win_prob": 0.08546955027069844,
-      "draw_prob": 0.16636037442844026,
-      "away_win_prob": 0.7481700753008613
+      "home_win_prob": 0.08231579052047276,
+      "draw_prob": 0.16702549008760018,
+      "away_win_prob": 0.7506587193919271
     },
     "final": {
-      "home_win_prob": 0.08546955027069844,
-      "draw_prob": 0.16636037442844026,
-      "away_win_prob": 0.7481700753008613
+      "home_win_prob": 0.08231579052047276,
+      "draw_prob": 0.16702549008760018,
+      "away_win_prob": 0.7506587193919271
     }
   },
   "negbin_applied": true,
@@ -75,13 +75,13 @@
   "market": {
     "provider": "apifootball.com",
     "live": true,
-    "home_odds": 20.0,
-    "draw_odds": 11.5,
+    "home_odds": 24.0,
+    "draw_odds": 10.5,
     "away_odds": 1.07,
-    "home_prob": 0.04666198972336513,
-    "draw_prob": 0.08115128647541761,
-    "away_prob": 0.8721867238012174,
-    "market_weight": 0.3370749035943372
+    "home_prob": 0.03888686984061056,
+    "draw_prob": 0.08888427392139556,
+    "away_prob": 0.8722288562379938,
+    "market_weight": 0.3319879361967122
   },
   "home_xg": 0.9610409582555252,
   "away_xg": 2.0628328717911097,
@@ -117,13 +117,13 @@
     "shift_applied": null
   },
   "weather": {
-    "temperature_c": 14.3,
+    "temperature_c": 14.2,
     "precipitation_mm": 0.0,
-    "wind_speed_kmh": 11.7,
+    "wind_speed_kmh": 15.6,
     "humidity_percent": 90.0,
     "weather_code": 3,
     "weather_description": "\u591a\u4e91",
-    "fetched_at": "2026-06-25T10:07:29.844318+00:00",
+    "fetched_at": "2026-06-25T13:46:20.064259+00:00",
     "forecast_available": true
   },
   "overdispersion": {
@@ -228,7 +228,7 @@
     "dc_hash": "345ceb9e55d8",
     "dc_teams": 296,
     "training_rows": 16737,
-    "version": "4.2.2-beta",
+    "version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.2.2"
   }
 }

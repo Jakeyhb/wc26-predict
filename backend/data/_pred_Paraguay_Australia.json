@@ -1,0 +1,234 @@
+{
+  "home_team": "Paraguay",
+  "away_team": "Australia",
+  "competition": "FIFA World Cup 2026",
+  "is_neutral": true,
+  "layers": {
+    "dc": {
+      "home_win_prob": 0.1109633789960121,
+      "draw_prob": 0.2703085698523771,
+      "away_win_prob": 0.6187280511516108
+    },
+    "enhancer": {
+      "home_win_prob": 0.05455509259622453,
+      "draw_prob": 0.14158687725061536,
+      "away_win_prob": 0.8038580301531602
+    },
+    "negbin": {
+      "home_win": 0.12877029479283486,
+      "draw": 0.23634759189250557,
+      "away_win": 0.6348821133146596
+    },
+    "weibull": {
+      "home_win_prob": 0.1813312499580931,
+      "draw_prob": 0.38191698317812955,
+      "away_win_prob": 0.43675176686377737
+    },
+    "elo": {
+      "home_win_prob": 0.28676890712843267,
+      "draw_prob": 0.2321906156001647,
+      "away_win_prob": 0.4810404772714026
+    },
+    "pi": {
+      "home_win_prob": 0.3485235792764858,
+      "draw_prob": 0.20555466554182691,
+      "away_win_prob": 0.4459217551816872
+    },
+    "dc_enh": {
+      "home_win_prob": 0.09291272734808007,
+      "draw_prob": 0.22911762821981335,
+      "away_win_prob": 0.6779696444321066
+    },
+    "dc_enh_nb": {
+      "home_win_prob": 0.0947056057203178,
+      "draw_prob": 0.22947912640344795,
+      "away_win_prob": 0.6758152678762341
+    },
+    "dc_enh_wb": {
+      "home_win_prob": 0.10336817014409534,
+      "draw_prob": 0.24472291208091612,
+      "away_win_prob": 0.6519089177749885
+    },
+    "dc_enh_elo": {
+      "home_win_prob": 0.12537625858221585,
+      "draw_prob": 0.243219036503226,
+      "away_win_prob": 0.6314047049145582
+    },
+    "pre_market": {
+      "home_win_prob": 0.17061688347941367,
+      "draw_prob": 0.20694602456863012,
+      "away_win_prob": 0.6224370919519563
+    },
+    "post_market": {
+      "home_win_prob": 0.25006832253895905,
+      "draw_prob": 0.31051640231523375,
+      "away_win_prob": 0.43941527514580725
+    },
+    "final": {
+      "home_win_prob": 0.25006832253895905,
+      "draw_prob": 0.31051640231523375,
+      "away_win_prob": 0.43941527514580725
+    }
+  },
+  "negbin_applied": true,
+  "negbin_fusion_weight": 0.05,
+  "market": {
+    "provider": "apifootball.com",
+    "live": true,
+    "home_odds": 2.84,
+    "draw_odds": 2.26,
+    "away_odds": 3.65,
+    "home_prob": 0.32951976159850443,
+    "draw_prob": 0.4140867800618374,
+    "away_prob": 0.2563934583396582,
+    "market_weight": 0.5
+  },
+  "home_xg": 0.4063428231351333,
+  "away_xg": 1.3678375583461553,
+  "elo": {
+    "home": 1607.590810896097,
+    "away": 1697.4506350915844
+  },
+  "pi": {
+    "home": 1.1931069060171335,
+    "away": 1.3339283989172086
+  },
+  "dc_params": {
+    "home_atk": 0.9157873011468753,
+    "home_def": 0.8602569540178429,
+    "away_atk": 1.607057399304051,
+    "away_def": 0.44373602651021127
+  },
+  "calibrated": null,
+  "calibration_applied": false,
+  "calibration_stats": {
+    "is_fitted": false,
+    "training_samples": 0,
+    "ece": 0.0
+  },
+  "dc_enhancer_divergence": {
+    "home": 5.6,
+    "draw": 12.9,
+    "away": 18.5,
+    "max_pp": 18.5,
+    "warning": "Large divergence (18.5pp) on away. Enhancer rates this outcome higher. Recommend checking DC params and Enhancer features for inconsistencies.",
+    "severity": "medium",
+    "dc_weight_adaptive": null,
+    "shift_applied": null
+  },
+  "weather": {
+    "temperature_c": 30.2,
+    "precipitation_mm": 0.0,
+    "wind_speed_kmh": 11.0,
+    "humidity_percent": 62.0,
+    "weather_code": 0,
+    "weather_description": "\u6674",
+    "fetched_at": "2026-06-25T13:50:28.341527+00:00",
+    "forecast_available": true
+  },
+  "overdispersion": {
+    "poisson": {
+      "home_win": 0.10913236400481628,
+      "draw": 0.2778383708339881,
+      "away_win": 0.6130292651611956
+    },
+    "negbin": {
+      "home_win": 0.12877029479283486,
+      "draw": 0.23634759189250557,
+      "away_win": 0.6348821133146596
+    },
+    "overdispersion_r": 3.5,
+    "wc_xg_calibration_factor": 1.35,
+    "calibrated_xg": {
+      "home": 0.55,
+      "away": 1.85
+    },
+    "top_15_scorelines": [
+      {
+        "score": "0-1",
+        "prob_pct": 16.5
+      },
+      {
+        "score": "0-0",
+        "prob_pct": 13.6
+      },
+      {
+        "score": "0-2",
+        "prob_pct": 12.8
+      },
+      {
+        "score": "0-3",
+        "prob_pct": 8.1
+      },
+      {
+        "score": "1-1",
+        "prob_pct": 7.8
+      },
+      {
+        "score": "1-0",
+        "prob_pct": 6.5
+      },
+      {
+        "score": "1-2",
+        "prob_pct": 6.1
+      },
+      {
+        "score": "0-4",
+        "prob_pct": 4.6
+      },
+      {
+        "score": "1-3",
+        "prob_pct": 3.8
+      },
+      {
+        "score": "2-1",
+        "prob_pct": 2.4
+      },
+      {
+        "score": "0-5",
+        "prob_pct": 2.4
+      },
+      {
+        "score": "1-4",
+        "prob_pct": 2.2
+      },
+      {
+        "score": "2-0",
+        "prob_pct": 2.0
+      },
+      {
+        "score": "2-2",
+        "prob_pct": 1.9
+      },
+      {
+        "score": "2-3",
+        "prob_pct": 1.2
+      }
+    ],
+    "under_2_5_pct": 59.2,
+    "over_2_5_pct": 40.8
+  },
+  "motivation": {
+    "match_type": "offensive",
+    "matchday": 3,
+    "group_name": "D",
+    "home_motivation": 0.85,
+    "away_motivation": 0.95,
+    "ei_score": 0.85,
+    "home_win_adj": 0.014,
+    "draw_adj": -0.031,
+    "away_win_adj": 0.017,
+    "collusion_risk": 0.0,
+    "rotation_risk_home": 0.05,
+    "rotation_risk_away": 0.05,
+    "explanation": "[offensive] Both teams must attack \u2014 high stakes for both. Adj: home+1.4% draw-3.1% away+1.7%"
+  },
+  "bootstrap_ci": null,
+  "provenance": {
+    "dc_hash": "345ceb9e55d8",
+    "dc_teams": 296,
+    "training_rows": 16737,
+    "version": "4.3.0-beta",
+    "weight_label": "WORLD_CUP_V4.2.2"
+  }
+}
