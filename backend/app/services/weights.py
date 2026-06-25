@@ -76,14 +76,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="4.0.4",
-    dc=0.68,            # ↑ from 0.63 (V4.0.4: Enhancer 1/6 WC correct, Portugal-Uzbekistan Brier 0.89 — reduce enhancer blend 37%→32%)
-    enhancer=0.32,      # Actual enhancer blend = 1-dc = 0.32 (for learning_engine margin attribution)
-    elo=0.12,           # (unchanged: 5/6 WC direction correct, avg Brier 0.30)
-    pi=0.12,            # ↑ from 0.08 (V4.0.4: Portugal-Uzbekistan Brier 0.12, best pre-market component in WC mismatches — +50%)
+    version="4.2.0",
+    dc=0.68,            # (unchanged V4.0.4: Enhancer ~6/7 WC wrong direction)
+    enhancer=0.32,      # Actual enhancer blend = 1-dc = 0.32
+    elo=0.12,           # (unchanged: 5/7 WC direction correct)
+    pi=0.12,            # (unchanged: best non-market pre-market component)
     weibull=0.10,       # (unchanged)
-    market_max=0.30,    # (unchanged: 6/6 WC direction correct, avg Brier 0.13 — anchor point)
-    label="WORLD_CUP_V4.0.4",
+    market_max=0.30,    # (unchanged: 6/7 WC direction correct, Brier ~0.16)
+    label="WORLD_CUP_V4.2.0",
 )
 
 # V4.0.4-knockout: Drastically reduce Enhancer influence for WC knockout matches.

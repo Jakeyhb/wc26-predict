@@ -258,6 +258,53 @@ def main():
     fused = fuse_pi_probabilities(fused, pi_raw, pi_weight=wc.pi)
     pre_market = dict(fused)
 
+    # ── 4.5. Match Importance / Tournament Context ──
+    # V4.2.0: Apply motivation adjustment for WC group stage matches.
+    # Based on Csató & Gyimesi (2025) six-type classification.
+    # Only activates for WC MD3 where strategic behavior is most pronounced.
+    is_wc_comp = "world cup" in COMP.lower()
+    motivation_result = None
+    if is_wc_comp:
+        try:
+            from app.services.group_standings import GroupStandingsService
+            from app.services.match_importance import MatchImportanceCalculator
+            standings = GroupStandingsService()
+            calc = MatchImportanceCalculator()
+            motivation_result = calc.analyze(HOME, AWAY, standings)
+
+            if motivation_result.matchday == 3:
+                # Apply motivation adjustments to pre-market probabilities
+                home_adj = motivation_result.home_win_adj
+                draw_adj = motivation_result.draw_adj
+                away_adj = motivation_result.away_win_adj
+
+                fused = {
+                    "home_win_prob": max(0.02, fused["home_win_prob"] + home_adj),
+                    "draw_prob": max(0.02, fused["draw_prob"] + draw_adj),
+                    "away_win_prob": max(0.02, fused["away_win_prob"] + away_adj),
+                }
+                # Re-normalize
+                total = sum(fused.values())
+                fused = {k: v / total for k, v in fused.items()}
+                pre_market = dict(fused)
+
+                print(f"MOTIVATION: [{motivation_result.match_type.value}] "
+                      f"Group {motivation_result.group_name} MD{motivation_result.matchday} | "
+                      f"H_motiv={motivation_result.home_motivation:.2f} "
+                      f"A_motiv={motivation_result.away_motivation:.2f} | "
+                      f"adj: H{home_adj:+.3f} D{draw_adj:+.3f} A{away_adj:+.3f} | "
+                      f"collusion={motivation_result.collusion_risk:.2f} "
+                      f"rot_H={motivation_result.rotation_risk_home:.2f} "
+                      f"rot_A={motivation_result.rotation_risk_away:.2f}")
+                if motivation_result.collusion_risk > 0.5:
+                    print(f"  ⚠️ COLLUSION RISK: {motivation_result.explanation}")
+            else:
+                print(f"MOTIVATION: MD{motivation_result.matchday} — "
+                      "context analysis skipped (only MD3 adjustments active)")
+
+        except Exception as exc:
+            print(f"MOTIVATION: skipped ({exc})")
+
     # ── 5. Market ──
     market_raw = None
     try:
@@ -300,6 +347,28 @@ def main():
             # Linear boost: at 15pp divergence → no boost, at 35pp → +0.20 cap
             boost = min(0.20, (model_market_div - 0.15) * 1.0)
             market_weight = min(0.50, wc.market_max + boost)
+
+            # V4.2.0: Divergence paradox fix — when DC-Enhancer AND
+            # Model-Market both diverge in the SAME direction, reduce boost.
+            # England-Ghana 0-0: both divergences favored England → double
+            # overconfidence. Attenuate by 0.6x when both point same way.
+            dc_fav = max(dc_raw, key=dc_raw.get)
+            enh_fav = max(enh_raw, key=enh_raw.get)
+            market_fav = "home_win_prob" if market_home > max(market_draw, market_away) else (
+                "draw_prob" if market_draw > max(market_home, market_away) else "away_win_prob")
+            model_fav = max(pre_market, key=pre_market.get)
+
+            dc_enh_diverge = (dc_fav != enh_fav)  # direction conflict between DC and Enhancer
+            model_market_diverge = (model_fav != market_fav)  # direction conflict between model and market
+
+            if dc_enh_diverge and model_market_diverge:
+                # Both divergences point to market direction → double count risk
+                boost *= 0.6
+                market_weight = min(0.50, wc.market_max + boost)
+                print(f"[MARKET_BOOST] divergence paradox detected — boost attenuated x0.6, "
+                      f"market_weight={market_weight:.2f}",
+                      file=sys.stderr)
+
             print(f"[MARKET_BOOST] model-market divergence={model_market_div:.1%}, "
                   f"market_weight {wc.market_max:.2f}→{market_weight:.2f} (+{boost:.2f})",
                   file=sys.stderr)
@@ -319,6 +388,22 @@ def main():
     signal_home = max(0.01, fused["home_win_prob"])
     signal_draw = max(0.01, fused["draw_prob"])
     signal_away = max(0.01, fused["away_win_prob"])
+
+    # ── V4.2.0: Draw probability floor ──
+    # England-Ghana 0-0: all components underestimated draw (max 22.5%).
+    # Structural draw underestimation is a known limitation across all
+    # football prediction models (Frontiers 2026 paper). Enforce minimum
+    # 12% draw probability for WC matches.
+    DRAW_FLOOR = 0.12
+    if signal_draw < DRAW_FLOOR:
+        deficit = DRAW_FLOOR - signal_draw
+        signal_draw = DRAW_FLOOR
+        signal_home -= deficit * 0.7
+        signal_away -= deficit * 0.3
+        # Re-clip to safe minimum
+        signal_home = max(0.02, signal_home)
+        signal_away = max(0.02, signal_away)
+
     total_s = signal_home + signal_draw + signal_away
     final = {"home_win_prob": signal_home / total_s, "draw_prob": signal_draw / total_s, "away_win_prob": signal_away / total_s}
 
@@ -474,6 +559,21 @@ def main():
         "dc_enhancer_divergence": divergence,
         "weather": weather_data,
         "overdispersion": od_scoreline,
+        "motivation": {
+            "match_type": motivation_result.match_type.value if motivation_result else "not_computed",
+            "matchday": motivation_result.matchday if motivation_result else None,
+            "group_name": motivation_result.group_name if motivation_result else None,
+            "home_motivation": motivation_result.home_motivation if motivation_result else 0.5,
+            "away_motivation": motivation_result.away_motivation if motivation_result else 0.5,
+            "ei_score": motivation_result.ei_score if motivation_result else 0.5,
+            "home_win_adj": motivation_result.home_win_adj if motivation_result else 0.0,
+            "draw_adj": motivation_result.draw_adj if motivation_result else 0.0,
+            "away_win_adj": motivation_result.away_win_adj if motivation_result else 0.0,
+            "collusion_risk": motivation_result.collusion_risk if motivation_result else 0.0,
+            "rotation_risk_home": motivation_result.rotation_risk_home if motivation_result else 0.0,
+            "rotation_risk_away": motivation_result.rotation_risk_away if motivation_result else 0.0,
+            "explanation": motivation_result.explanation if motivation_result else "",
+        },
         "bootstrap_ci": None,
         "provenance": {"dc_hash": hashlib.md5(dc_params_sorted).hexdigest()[:12],
                        "dc_teams": len(dc.attack_params), "training_rows": len(df),
