@@ -1,0 +1,266 @@
+{
+  "meta": {
+    "match_id": "",
+    "home_team": "Scotland",
+    "away_team": "Brazil",
+    "competition": "FIFA World Cup 2026",
+    "is_neutral": true,
+    "match_date": "2026-06-24T02:00:00+00:00",
+    "stage": "",
+    "model_version": "4.3.0-beta",
+    "mode": "internal_research",
+    "as_of": "2026-06-26T09:47:52Z",
+    "generated_at": "2026-06-26T09:47:52Z",
+    "components_used": [
+      "dixon_coles",
+      "tabular_enhancer",
+      "elo",
+      "pi_rating"
+    ],
+    "weight_config": {
+      "version": "4.3.0",
+      "dc": 0.68,
+      "enhancer": 0.32,
+      "elo": 0.12,
+      "pi": 0.17,
+      "weibull": 0.1,
+      "market_max": 0.3,
+      "active": true,
+      "label": "WORLD_CUP_V4.3.0"
+    }
+  },
+  "prediction": {
+    "home_win_prob": 0.12393511380760819,
+    "draw_prob": 0.28364496078030554,
+    "away_win_prob": 0.5924199254120862,
+    "home_xg": 0.7160647166781222,
+    "away_xg": 1.540403292839824,
+    "confidence": "fitted",
+    "confidence_penalty": 0.0,
+    "risk_tags": [],
+    "top_scores": [
+      {
+        "score": "0:1",
+        "prob": 0.16407576140456698
+      },
+      {
+        "score": "0:2",
+        "prob": 0.12579944325450415
+      },
+      {
+        "score": "1:1",
+        "prob": 0.11168044361098052
+      }
+    ],
+    "score_matrix": [],
+    "over_under": {},
+    "market_applied": false,
+    "market_weight_used": 0.0,
+    "divergence": 0.0,
+    "weibull_applied": false
+  },
+  "component_probs": {
+    "dc": {
+      "home": 0.17413029620464412,
+      "draw": 0.24743325396875437,
+      "away": 0.5784364498266017
+    },
+    "enhancer": {
+      "home": 0.05900158720368863,
+      "draw": 0.23490691497180477,
+      "away": 0.7060914978245066
+    },
+    "elo": {
+      "home": 0.20759043323232212,
+      "draw": 0.21138657285430365,
+      "away": 0.5810229939133743
+    },
+    "pi_rating": {
+      "home": 0.17564238878449745,
+      "draw": 0.18535129779727935,
+      "away": 0.6390063134182232
+    },
+    "weibull": null,
+    "market": {
+      "home_prob": 0.09708836359947247,
+      "draw_prob": 0.16739373034391805,
+      "away_prob": 0.7355179060566095,
+      "provider": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
+      "overround": 0.029989550679205834,
+      "home_odds": 10.0,
+      "draw_odds": 5.8,
+      "away_odds": 1.32,
+      "bookmaker": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
+      "manual_entry": true
+    }
+  },
+  "elo": {
+    "home_elo": 1574.9640488457976,
+    "away_elo": 1753.7584426963238,
+    "elo_gap": -178.79439385052615,
+    "detail": {
+      "k_factor": 32.0,
+      "home_elo": 1574.9640488457976,
+      "away_elo": 1753.7584426963238,
+      "rating_gap": -178.79439385052615
+    }
+  },
+  "calibration_monitor": {
+    "enabled": false,
+    "reason": "skipped: market data available (market IS calibration)"
+  },
+  "calibration_applied": false,
+  "pipeline_params": {
+    "dc_converged": true,
+    "enhancer_rows": 11016,
+    "elo_matches": 0,
+    "config_label": "WORLD_CUP_V4.3.0 (DC68%+Enh32%+Elo12%+Pi17%)",
+    "training_rows": 16737,
+    "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
+    "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
+    "training_df_max_date": "2026-06-24 02:00:00+00:00",
+    "require_full_context": false
+  },
+  "missing_inputs": [],
+  "active_event_ids": [],
+  "context_adjustments": [],
+  "sources": {},
+  "source_status": {
+    "match_context": {
+      "status": "unavailable",
+      "reason": "missing_context",
+      "detail": "match_id,match_date,venue",
+      "attempted": true,
+      "required": false
+    },
+    "injuries": {
+      "status": "unavailable",
+      "reason": "empty_dataset",
+      "detail": "",
+      "attempted": true,
+      "required": false
+    },
+    "news": {
+      "status": "unavailable",
+      "reason": "no_approved_signals",
+      "detail": "",
+      "attempted": true,
+      "required": false
+    },
+    "lineups": {
+      "status": "skipped",
+      "reason": "not_implemented_in_sync_pipeline",
+      "detail": "",
+      "attempted": false,
+      "required": false
+    },
+    "weather": {
+      "status": "used",
+      "reason": "forecast_loaded",
+      "detail": "多云",
+      "attempted": true,
+      "required": false
+    },
+    "market": {
+      "status": "used",
+      "reason": "manual_odds_fallback",
+      "detail": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
+      "attempted": true,
+      "required": false
+    }
+  },
+  "degraded_reasons": [],
+  "evaluation_sample": {
+    "schema_version": "v1",
+    "match_id": "",
+    "as_of_time": "2026-06-26T09:47:52Z",
+    "generated_at": "2026-06-26T09:47:52Z",
+    "model_version": "4.3.0-beta",
+    "weight_label": "WORLD_CUP_V4.3.0",
+    "candidate_probs": {
+      "current_fusion": {
+        "home": 0.12393511380760819,
+        "draw": 0.28364496078030554,
+        "away": 0.5924199254120862
+      },
+      "snapshot_adjusted": {
+        "home": 0.12393511380760819,
+        "draw": 0.28364496078030554,
+        "away": 0.5924199254120862
+      },
+      "dc_only": {
+        "home": 0.1741302962046441,
+        "draw": 0.24743325396875432,
+        "away": 0.5784364498266016
+      },
+      "tabular_only": {
+        "home": 0.05900158720368863,
+        "draw": 0.23490691497180477,
+        "away": 0.7060914978245066
+      },
+      "elo_only": {
+        "home": 0.20759043323232212,
+        "draw": 0.21138657285430365,
+        "away": 0.5810229939133743
+      },
+      "pi_only": {
+        "home": 0.17564238878449745,
+        "draw": 0.18535129779727935,
+        "away": 0.6390063134182232
+      },
+      "market_only": {
+        "home": 0.09708836359947247,
+        "draw": 0.16739373034391805,
+        "away": 0.7355179060566095
+      },
+      "uniform_baseline": {
+        "home": 0.3333333333333333,
+        "draw": 0.3333333333333333,
+        "away": 0.3333333333333333
+      }
+    },
+    "candidate_status": {
+      "current_fusion": {
+        "status": "available",
+        "reason": ""
+      },
+      "snapshot_adjusted": {
+        "status": "available",
+        "reason": ""
+      },
+      "snapshot_baseline": {
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
+      },
+      "dc_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "tabular_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "elo_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "pi_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "weibull_only": {
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
+      },
+      "market_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "uniform_baseline": {
+        "status": "available",
+        "reason": ""
+      }
+    }
+  },
+  "_test_stage": "Group C - Matchday 3"
+}

@@ -3,7 +3,7 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V4.2.2_beta-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/version-V4.3.0_beta-blue?style=flat-square" alt="version">
   <img src="https://img.shields.io/badge/phase-Phase_2B_self_evolution-red?style=flat-square" alt="phase">
   <img src="https://img.shields.io/badge/backend_tests-196_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
@@ -15,10 +15,10 @@
 
 WC26 Predict 现在处在 **Phase 2B：自进化 + 赛后复盘学习** 阶段，已进入 WC 2026 小组赛实时预测。
 
-**V4.2.2-beta（2026-06-25）当前状态：**
+**V4.3.0-beta（2026-06-26）当前状态：**
 
 - **组件表现 (13场累计)**：Market 11/13 (85%), DC 10/13 (77%), Pi 9/13 (69%), Elo 9/13 (69%), Enhancer 3/13 (23%)
-- **权重版本**：`WORLD_CUP_V4.2.2` — dc=0.68 enhancer_blend=0.32 elo=0.12 pi=0.14 weibull=0.10 market_max=0.30
+- **权重版本**：`WORLD_CUP_V4.3.0` — dc=0.68 enhancer_blend=0.32 elo=0.12 pi=0.17 weibull=0.10 market_max=0.30
 - **54/104 场小组赛已完成**，50 场待进行
 - **预测流水线**：DC → Enhancer → Weibull → Elo → Pi → Market（6 级顺序融合）+ 战意因子 + 平局下限 12% + 分歧悖论修复
 - **赛后复盘**：13 场完整复盘报告在 `reports/postmatch/`，含组件级 Brier/LogLoss/方向正确率
@@ -255,10 +255,10 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 ## 版本
 
-当前主版本：**V4.2.2-beta**
+当前主版本：**V4.3.0-beta**
 
-- Version: `4.2.2-beta`
-- Tag: `v4.2.2-beta`
+- Version: `4.3.0-beta`
+- Tag: `v4.3.0-beta`
 - Branch: `master`
 - 状态：Phase 2B — 赛后复盘 + 自进化 + WC 小组赛实战
 - 完整 CHANGELOG: [`docs/CHANGELOG_V3.8.0.md`](docs/CHANGELOG_V3.8.0.md)
@@ -267,6 +267,7 @@ V3.5 之后，任何“更准”的结论必须满足这些门槛：
 
 | 版本 | 日期 | 关键变更 |
 |------|------|---------|
+| **V4.3.0-beta** | 2026-06-26 | NegBin 5%融合 + 积分榜填表 + 校准器重建(69样本) + B8报告写文件 |
 | **V4.2.2-beta** | 2026-06-25 | 自进化 Pi 0.12→0.14 + 6场 June25 赛后复盘 |
 | **V4.2.1-beta** | 2026-06-25 | 8项 B1-B8 修复: pipeline 同步/战意/平局下限/分歧悖论 |
 | **V4.2.0-beta** | 2026-06-24 | 战意因子 + 平局下限 + 分歧悖论修复 |

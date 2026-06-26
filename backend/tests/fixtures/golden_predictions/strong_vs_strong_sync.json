@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "match_id": "",
+    "home_team": "France",
+    "away_team": "Spain",
+    "competition": "International Friendly",
+    "is_neutral": true,
+    "match_date": "2026-06-24T02:00:00+00:00",
+    "stage": "",
+    "model_version": "4.3.0-beta",
+    "mode": "internal_research",
+    "as_of": "2026-06-26T09:47:46Z",
+    "generated_at": "2026-06-26T09:47:46Z",
+    "components_used": [
+      "dixon_coles",
+      "tabular_enhancer",
+      "elo",
+      "pi_rating"
+    ],
+    "weight_config": {
+      "version": "2.7",
+      "dc": 0.28,
+      "enhancer": 0.72,
+      "elo": 0.02,
+      "pi": 0.16,
+      "weibull": 0.12,
+      "market_max": 0.1,
+      "active": true,
+      "label": "FRIENDLY_ADJUSTED_V2"
+    }
+  },
+  "prediction": {
+    "home_win_prob": 0.20796337250394997,
+    "draw_prob": 0.26727405379753705,
+    "away_win_prob": 0.524762573698513,
+    "home_xg": 0.9710901153258072,
+    "away_xg": 1.2028129857104342,
+    "confidence": "fitted",
+    "confidence_penalty": 0.0,
+    "risk_tags": [],
+    "top_scores": [
+      {
+        "score": "0:1",
+        "prob": 0.14050310589135914
+      },
+      {
+        "score": "1:1",
+        "prob": 0.12898489736574953
+      },
+      {
+        "score": "1:0",
+        "prob": 0.11378939917425729
+      }
+    ],
+    "score_matrix": [],
+    "over_under": {},
+    "market_applied": false,
+    "market_weight_used": 0.0,
+    "divergence": 0.0,
+    "weibull_applied": false
+  },
+  "component_probs": {
+    "dc": {
+      "home": 0.29950552727789664,
+      "draw": 0.2825077030115365,
+      "away": 0.41798676971056686
+    },
+    "enhancer": {
+      "home": 0.1492906508322427,
+      "draw": 0.28358415673253795,
+      "away": 0.5671251924352194
+    },
+    "elo": {
+      "home": 0.4401995570747945,
+      "draw": 0.11999998765891601,
+      "away": 0.4398004552662895
+    },
+    "pi_rating": {
+      "home": 0.26905017511733637,
+      "draw": 0.20037309037198747,
+      "away": 0.5305767345106762
+    },
+    "weibull": null,
+    "market": null
+  },
+  "elo": {
+    "home_elo": 1832.4736868044213,
+    "away_elo": 1832.3161161475084,
+    "elo_gap": 0.15757065691286698,
+    "detail": {
+      "k_factor": 20.0,
+      "home_elo": 1832.4736868044213,
+      "away_elo": 1832.3161161475084,
+      "rating_gap": 0.15757065691286698
+    }
+  },
+  "calibration_monitor": {
+    "enabled": false,
+    "reason": "calibrator not fitted (fitted=True, samples=30)"
+  },
+  "calibration_applied": false,
+  "pipeline_params": {
+    "dc_converged": true,
+    "enhancer_rows": 11016,
+    "elo_matches": 0,
+    "config_label": "FRIENDLY_ADJUSTED_V2 (DC28%+Enh72%+Elo2%+Pi16%)",
+    "training_rows": 16737,
+    "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
+    "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
+    "training_df_max_date": "2026-06-24 02:00:00+00:00",
+    "require_full_context": false
+  },
+  "missing_inputs": [],
+  "active_event_ids": [],
+  "context_adjustments": [],
+  "sources": {},
+  "source_status": {
+    "match_context": {
+      "status": "unavailable",
+      "reason": "missing_context",
+      "detail": "match_id,match_date,venue",
+      "attempted": true,
+      "required": false
+    },
+    "injuries": {
+      "status": "unavailable",
+      "reason": "empty_dataset",
+      "detail": "",
+      "attempted": true,
+      "required": false
+    },
+    "news": {
+      "status": "unavailable",
+      "reason": "no_approved_signals",
+      "detail": "",
+      "attempted": true,
+      "required": false
+    },
+    "lineups": {
+      "status": "skipped",
+      "reason": "not_implemented_in_sync_pipeline",
+      "detail": "",
+      "attempted": false,
+      "required": false
+    },
+    "weather": {
+      "status": "used",
+      "reason": "forecast_loaded",
+      "detail": "大致晴朗",
+      "attempted": true,
+      "required": false
+    },
+    "market": {
+      "status": "unavailable",
+      "reason": "no_market_data_for_match",
+      "detail": "",
+      "attempted": true,
+      "required": false
+    }
+  },
+  "degraded_reasons": [
+    {
+      "source": "market_calibration",
+      "reason": "no_odds_for_match",
+      "severity": "warning",
+      "detail": ""
+    }
+  ],
+  "evaluation_sample": {
+    "schema_version": "v1",
+    "match_id": "",
+    "as_of_time": "2026-06-26T09:47:46Z",
+    "generated_at": "2026-06-26T09:47:46Z",
+    "model_version": "4.3.0-beta",
+    "weight_label": "FRIENDLY_ADJUSTED_V2",
+    "candidate_probs": {
+      "current_fusion": {
+        "home": 0.20796337250394997,
+        "draw": 0.26727405379753705,
+        "away": 0.524762573698513
+      },
+      "snapshot_adjusted": {
+        "home": 0.20796337250394997,
+        "draw": 0.26727405379753705,
+        "away": 0.524762573698513
+      },
+      "dc_only": {
+        "home": 0.29950552727789664,
+        "draw": 0.2825077030115365,
+        "away": 0.41798676971056686
+      },
+      "tabular_only": {
+        "home": 0.1492906508322427,
+        "draw": 0.28358415673253795,
+        "away": 0.5671251924352194
+      },
+      "elo_only": {
+        "home": 0.4401995570747945,
+        "draw": 0.11999998765891601,
+        "away": 0.4398004552662895
+      },
+      "pi_only": {
+        "home": 0.26905017511733637,
+        "draw": 0.20037309037198747,
+        "away": 0.5305767345106762
+      },
+      "uniform_baseline": {
+        "home": 0.3333333333333333,
+        "draw": 0.3333333333333333,
+        "away": 0.3333333333333333
+      }
+    },
+    "candidate_status": {
+      "current_fusion": {
+        "status": "available",
+        "reason": ""
+      },
+      "snapshot_adjusted": {
+        "status": "available",
+        "reason": ""
+      },
+      "snapshot_baseline": {
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
+      },
+      "dc_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "tabular_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "elo_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "pi_only": {
+        "status": "available",
+        "reason": ""
+      },
+      "weibull_only": {
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
+      },
+      "market_only": {
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
+      },
+      "uniform_baseline": {
+        "status": "available",
+        "reason": ""
+      }
+    }
+  },
+  "_test_stage": ""
+}

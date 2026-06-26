@@ -224,6 +224,83 @@ class PredictionPipeline:
             "resolve_team_id": getattr(self, "_resolve_team_id", None),
         }
 
+    # ── Shared Fusion Helpers (V4.3.0: single source of truth) ─
+
+    @staticmethod
+    def _fuse_dc_enhancer_adaptive(
+        dc_probs: dict[str, float],
+        enh_probs: dict[str, float],
+        dc_base_weight: float,
+    ) -> tuple[dict[str, float], float, bool, float]:
+        """Fuse DC and Enhancer with adaptive divergence guard.
+
+        When DC-Enhancer divergence exceeds 20pp, DC weight is reduced by up to
+        0.15 (Enhancer is 0/6 WC direction-correct).  Direction-conflict guard:
+        when DC and Enhancer disagree on the favorite, skip weight reduction and
+        use normal fusion.
+
+        Args:
+            dc_probs: dict with home_win_prob/draw_prob/away_win_prob
+            enh_probs: dict with home_win_prob/draw_prob/away_win_prob
+            dc_base_weight: base DC weight from weight config (e.g. 0.68)
+
+        Returns:
+            (fused_probs, max_divergence_pp, direction_conflict, effective_dc_weight)
+        """
+        dc_w_ef = float(dc_base_weight)
+        # Compute per-outcome divergence
+        divs = {}
+        for key in ("home_win_prob", "draw_prob", "away_win_prob"):
+            divs[key] = abs(dc_probs[key] - enh_probs[key]) * 100
+        max_div = float(max(divs.values()))
+
+        dc_fav = max(dc_probs, key=dc_probs.get)
+        enh_fav = max(enh_probs, key=enh_probs.get)
+        direction_conflict = (dc_fav != enh_fav)
+
+        if max_div > 20 and not direction_conflict:
+            shift = min(0.15, (max_div - 20) * 0.015)
+            dc_w_ef = max(0.30, dc_base_weight - shift)
+
+        if max_div > 20:
+            # Use manual weighted-fusion with adjusted DC weight
+            enh_w = 1.0 - dc_w_ef
+            fused = {
+                k: dc_probs[k] * dc_w_ef + enh_probs[k] * enh_w
+                for k in ("home_win_prob", "draw_prob", "away_win_prob")
+            }
+        else:
+            # Normal fusion via module-level helper
+            from app.services.tabular_match_model import fuse_outcome_probabilities
+            fused = dict(dc_probs)
+            fused.update(fuse_outcome_probabilities(fused, enh_probs, base_weight=dc_base_weight))
+
+        return fused, max_div, direction_conflict, dc_w_ef
+
+    @staticmethod
+    def _enforce_draw_floor(
+        probs: dict[str, float],
+        floor: float = 0.12,
+    ) -> tuple[dict[str, float], bool]:
+        """Enforce a minimum draw probability floor.
+
+        Deficit allocated 70% from favorite, 30% from underdog.
+        Returns (adjusted_probs, was_applied).
+        """
+        if probs.get("draw_prob", 0) >= floor:
+            return dict(probs), False
+
+        deficit = floor - probs["draw_prob"]
+        if probs.get("home_win_prob", 0) >= probs.get("away_win_prob", 0):
+            probs["home_win_prob"] = max(0.02, probs["home_win_prob"] - deficit * 0.7)
+            probs["away_win_prob"] = max(0.02, probs["away_win_prob"] - deficit * 0.3)
+        else:
+            probs["home_win_prob"] = max(0.02, probs["home_win_prob"] - deficit * 0.3)
+            probs["away_win_prob"] = max(0.02, probs["away_win_prob"] - deficit * 0.7)
+        probs["draw_prob"] = floor
+        total = sum(probs.values())
+        return {k: v / total for k, v in probs.items()}, True
+
     # ── Public API ──────────────────────────────────────────
 
     async def predict_match(
@@ -365,58 +442,10 @@ class PredictionPipeline:
             "away_win_prob": float(enh_pred["away_win_prob"]),
         }
 
-        # V4.0.5: Compute DC-Enhancer divergence and adapt DC weight.
-        # When divergence exceeds 20pp, DC weight is reduced by up to 0.15
-        # (Enhancer is 0/6 WC direction-correct; its extreme outputs should
-        # not dominate when they diverge strongly from the base model).
-        # V4.1.1: direction-conflict guard — when DC and Enhancer disagree
-        # on the favorite, skip weight reduction entirely. Enhancer is
-        # empirically wrong in WC (5/6+), so don't let it override DC.
-        dc_weight_ef = float(wc.dc_enhancer_blend)
-        divergence_pp = 0.0
-        div_detail: dict[str, object] = {}
-        for key, label in [("home_win_prob", "home"), ("draw_prob", "draw"), ("away_win_prob", "away")]:
-            div_pp = abs(dc_raw[key] - enh_raw[key]) * 100
-            div_detail[label] = round(div_pp, 1)
-        max_div = float(max(div_detail.values()))  # type: ignore[arg-type]
-
-        dc_fav_key = max(dc_raw, key=dc_raw.get)
-        enh_fav_key = max(enh_raw, key=enh_raw.get)
-        direction_conflict = (dc_fav_key != enh_fav_key)
-
-        if max_div > 20 and not direction_conflict:
-            shift = min(0.15, (max_div - 20) * 0.015)
-            dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
-            logger.info(
-                "Adaptive DC weight: divergence=%.1fpp > 20pp threshold, "
-                "dc %.2f→%.2f (shift=%.2f)",
-                max_div, wc.dc_enhancer_blend, dc_weight_ef, shift,
-            )
-        elif max_div > 20 and direction_conflict:
-            logger.warning(
-                "predict_match: DC-Enhancer direction conflict "
-                "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
-                "keeping DC weight %.2f",
-                dc_fav_key, enh_fav_key, max_div, wc.dc_enhancer_blend,
-            )
-        if max_div > 20:
-            # Re-fuse with adjusted weights (dc_weight_ef was set above)
-            enh_w = 1.0 - dc_weight_ef
-            dc_enh = {
-                "home_win_prob": dc_raw["home_win_prob"] * dc_weight_ef + enh_raw["home_win_prob"] * enh_w,
-                "draw_prob": dc_raw["draw_prob"] * dc_weight_ef + enh_raw["draw_prob"] * enh_w,
-                "away_win_prob": dc_raw["away_win_prob"] * dc_weight_ef + enh_raw["away_win_prob"] * enh_w,
-            }
-        else:
-            dc_enh = dict(dc_raw)
-            dc_enh.update(
-                fuse_outcome_probabilities(
-                    dc_enh,
-                    enh_raw,
-                    base_weight=wc.dc_enhancer_blend,
-                )
-            )
-        divergence_pp = max_div
+        dc_enh, divergence_pp, direction_conflict, dc_weight_ef = \
+            self._fuse_dc_enhancer_adaptive(dc_raw, enh_raw, wc.dc_enhancer_blend)
+        if max(dc_enh.values()) > 0:  # nominal — suppress unused var warning on direction_conflict
+            pass
 
         # ── 7. Fuse Weibull ──
         dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=wc.weibull))
@@ -703,25 +732,10 @@ class PredictionPipeline:
         # ── 13.4 Draw floor (V4.2.1) ──
         # England-Ghana 0-0 lesson: draw probability below ~10% is structurally
         # unreasonable for WC matches. Enforce DRAW_FLOOR=12% minimum.
-        # Deficit allocated 70% from favorite, 30% from underdog.
-        DRAW_FLOOR = 0.12
-        draw_floor_applied = False
-        if clean["draw_prob"] < DRAW_FLOOR and is_wc_comp:
-            deficit = DRAW_FLOOR - clean["draw_prob"]
-            if clean["home_win_prob"] >= clean["away_win_prob"]:
-                clean["home_win_prob"] -= deficit * 0.7
-                clean["away_win_prob"] -= deficit * 0.3
-            else:
-                clean["home_win_prob"] -= deficit * 0.3
-                clean["away_win_prob"] -= deficit * 0.7
-            clean["draw_prob"] = DRAW_FLOOR
-            # Ensure no negative probs
-            clean["home_win_prob"] = max(0.02, clean["home_win_prob"])
-            clean["away_win_prob"] = max(0.02, clean["away_win_prob"])
-            total = sum(clean.values())
-            clean = {k: v / total for k, v in clean.items()}
-            draw_floor_applied = True
-            logger.info("Draw floor applied: draw bumped to 12%%")
+        if is_wc_comp:
+            clean, draw_floor_applied = self._enforce_draw_floor(clean)
+            if draw_floor_applied:
+                logger.info("Draw floor applied: draw bumped to 12%%")
 
         # ── 13.5 Isotonic calibration (R4-C7: was disabled stub) ──
         # Calibrates the final probability vector after market blending.
@@ -1044,51 +1058,34 @@ class PredictionPipeline:
                 "enhancer": probs_dict_to_list(component_probs["enhancer"]),
             }
 
-            # V4.0.5: Adaptive DC weight on divergence > 20pp
-            # V4.1.1: majority-consensus guard — when DC and Enhancer
-            # disagree on the favorite direction, Enhancer is empirically
-            # wrong (5/6 WC). Skip weight reduction to prevent a
-            # known-bad model from hijacking the prediction.
-            dc_w_ef = float(wc.dc)
-            dc_fav = max(
-                ("home", component_probs["dixon_coles"]["home"]),
-                ("draw", component_probs["dixon_coles"]["draw"]),
-                ("away", component_probs["dixon_coles"]["away"]),
-                key=lambda x: x[1],
-            )[0]
-            enh_fav = max(
-                ("home", enh_pred["home_win_prob"]),
-                ("draw", enh_pred["draw_prob"]),
-                ("away", enh_pred["away_win_prob"]),
-                key=lambda x: x[1],
-            )[0]
-            direction_conflict = (dc_fav != enh_fav)
-            max_div_sync = max(
-                abs(component_probs["dixon_coles"]["home"] - component_probs["enhancer"]["home"]),
-                abs(component_probs["dixon_coles"]["draw"] - component_probs["enhancer"]["draw"]),
-                abs(component_probs["dixon_coles"]["away"] - component_probs["enhancer"]["away"]),
-            ) * 100
-            if max_div_sync > 20 and not direction_conflict:
-                shift = min(0.15, (max_div_sync - 20) * 0.015)
-                dc_w_ef = max(0.30, wc.dc - shift)
-                enh_w_ef = 1.0 - dc_w_ef
-                logger.info(
-                    "predict_sync adaptive DC: divergence=%.1fpp > 20pp, "
-                    "dc %.2f→%.2f", max_div_sync, wc.dc, dc_w_ef,
-                )
-            elif max_div_sync > 20 and direction_conflict:
-                logger.warning(
-                    "predict_sync: DC-Enhancer direction conflict "
-                    "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
-                    "keeping DC weight %.2f",
-                    dc_fav, enh_fav, max_div_sync, wc.dc,
-                )
-                # Use normal fusion (no weight reduction) — fall through to else
-                fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
-                fg.add_step("dc+enhancer", f"base_weight={wc.dc} (direction-conflict override, divergence={max_div_sync:.1f}pp)", before_step1, probs_dict_to_list(fused))
-            else:
-                fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=wc.dc)
-                fg.add_step("dc+enhancer", f"base_weight={wc.dc}", before_step1, probs_dict_to_list(fused))
+            # V4.3.0: Delegated to shared _fuse_dc_enhancer_adaptive.
+            dc_probs_std = {
+                "home_win_prob": component_probs["dixon_coles"]["home"],
+                "draw_prob": component_probs["dixon_coles"]["draw"],
+                "away_win_prob": component_probs["dixon_coles"]["away"],
+            }
+            enh_probs_std = {
+                "home_win_prob": enh_pred["home_win_prob"],
+                "draw_prob": enh_pred["draw_prob"],
+                "away_win_prob": enh_pred["away_win_prob"],
+            }
+            fused_long, max_div_sync, direction_conflict, dc_w_ef = \
+                self._fuse_dc_enhancer_adaptive(dc_probs_std, enh_probs_std, wc.dc)
+            # Use long-form keys throughout (weibull/elo/pi all expect them)
+            fused = dict(fused_long)
+            # Also keep shorthand for components dict compatibility
+            component_probs["dixon_coles+enhancer"] = {
+                "home": fused["home_win_prob"],
+                "draw": fused["draw_prob"],
+                "away": fused["away_win_prob"],
+            }
+            step_label = f"base_weight={wc.dc}"
+            if max_div_sync > 20 and direction_conflict:
+                step_label += f" (direction-conflict override, divergence={max_div_sync:.1f}pp)"
+            elif max_div_sync > 20:
+                step_label += f" (adaptive dc={dc_w_ef:.2f}, divergence={max_div_sync:.1f}pp)"
+            fg.add_step("dc+enhancer", step_label, before_step1,
+                        [fused["home_win_prob"], fused["draw_prob"], fused["away_win_prob"]])
 
         # ── 2.5. Weibull (standard+, applied after Enhancer for consistency) ──
         has_weibull = hasattr(self, "_weibull") and self._weibull is not None
@@ -1585,20 +1582,11 @@ class PredictionPipeline:
 
         # ── 10.4 Draw floor (V4.2.1) ──
         # Mirror of predict_match_full.py Step 6 draw floor enforcement.
-        if is_wc_sync and fused["draw_prob"] < 0.12:
-            deficit = 0.12 - fused["draw_prob"]
-            if fused["home_win_prob"] >= fused["away_win_prob"]:
-                fused["home_win_prob"] -= deficit * 0.7
-                fused["away_win_prob"] -= deficit * 0.3
-            else:
-                fused["home_win_prob"] -= deficit * 0.3
-                fused["away_win_prob"] -= deficit * 0.7
-            fused["draw_prob"] = 0.12
-            fused["home_win_prob"] = max(0.02, fused["home_win_prob"])
-            fused["away_win_prob"] = max(0.02, fused["away_win_prob"])
-            total = sum(fused.values())
-            fused = {k: v / total for k, v in fused.items()}
-            logger.info("Draw floor applied (sync): draw bumped to 12%%")
+        if is_wc_sync:
+            draw_floor_fused, draw_floor_applied = self._enforce_draw_floor(fused)
+            fused.update(draw_floor_fused)
+            if draw_floor_applied:
+                logger.info("Draw floor applied (sync): draw bumped to 12%%")
 
         # ── 10.5 Isotonic calibration (R4-C7: was disabled stub) ──
         calibration_applied = False
