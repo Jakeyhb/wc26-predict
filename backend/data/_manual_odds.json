@@ -47,5 +47,12 @@
     "away_odds": 1.935,
     "source": "bet365/bwin/Winamax/Fonbet (web-verified 2026-06-26 BJT)",
     "verified_at": "2026-06-25T20:00:00+00:00"
+  },
+  "Uruguay|Spain": {
+    "home_odds": 7.50,
+    "draw_odds": 4.20,
+    "away_odds": 1.49,
+    "source": "DraftKings/FanDuel/BetMGM/Caesars/bet365 (web-verified 2026-06-26 13:17 UTC)",
+    "verified_at": "2026-06-26T13:17:00+00:00"
   }
 }
