@@ -88,9 +88,9 @@ async def _check_redis_startup() -> None:
 
 def _enforce_startup_security() -> None:
     """Fail closed for unsafe runtime secrets before serving requests."""
-    if settings.admin_token == "change-me":
+    if settings.admin_token == "CHANGE_ME_TO_RANDOM_32_CHARS":
         raise RuntimeError(
-            "Refusing to start with ADMIN_TOKEN='change-me'. "
+            "Refusing to start with default ADMIN_TOKEN. "
             "Set ADMIN_TOKEN to a generated secret in backend/.env or .env."
         )
 

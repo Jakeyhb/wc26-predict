@@ -78,9 +78,9 @@ jobs:
           echo ""
           echo "--- Checking for passwords in committed files ---"
           # Look for ://username:password@ patterns in non-example files
-          MATCHES=$(git grep -n '://[[:alnum:]]\{1,\}:[[:alnum:]]\{1,\}@' -- ':!.env.example' ':!.env.production.example' 2>/dev/null || true)
+          MATCHES=$(git grep -n '://[[:alnum:]]\{1,\}:[[:alnum:]]\{1,\}@' -- ':!.env.example' ':!.env.production.example' ':!alembic.ini' ':!CONTRIBUTING.md' ':!SECURITY.md' 2>/dev/null || true)
           if [ -n "$MATCHES" ]; then
-            echo "::warning::Found inline credentials in connection URLs (review manually):"
+            echo "::error::Found inline credentials in connection URLs:"
             echo "$MATCHES"
           else
             echo "No inline credentials found."

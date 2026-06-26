@@ -29,8 +29,9 @@ nginx/html/*
 *.pkl
 *.log
 *.tsbuildinfo
-.env
-.env.local
+.env*
+!.env.example
+!.env.production.example
 backend/.env
 backend/.env.local
 apps/web/.env

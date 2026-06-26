@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     app_base_url: str = Field(default="http://127.0.0.1:8000", alias="APP_BASE_URL")
 
     postgres_url: str = Field(
-        default="postgresql+asyncpg://worldcup:worldcup@localhost:5432/worldcup",
+        default="postgresql+asyncpg://worldcup:CHANGE_ME@localhost:5432/worldcup",
         alias="POSTGRES_URL",
     )
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
@@ -58,16 +58,16 @@ class Settings(BaseSettings):
     object_storage_bucket: str | None = Field(default=None, alias="OBJECT_STORAGE_BUCKET")
     model_artifact_dir: Path = Field(default=BACKEND_DIR / "model_artifacts", alias="MODEL_ARTIFACT_DIR")
 
-    admin_token: str = Field(default="change-me", alias="ADMIN_TOKEN")
+    admin_token: str = Field(default="CHANGE_ME_TO_RANDOM_32_CHARS", alias="ADMIN_TOKEN")
 
     @field_validator("admin_token", mode="after")
     @classmethod
     def _warn_default_admin_token(cls, value: str) -> str:
-        if value == "change-me":
+        if value == "CHANGE_ME_TO_RANDOM_32_CHARS":
             import logging
             logging.getLogger("app.config").warning(
                 "\n╔══════════════════════════════════════════════════════════════╗\n"
-                "║  SECURITY WARNING: ADMIN_TOKEN is still \"change-me\".        ║\n"
+                "║  SECURITY WARNING: ADMIN_TOKEN is still the default value.   ║\n"
                 "║  Generate a secure token and set it in your .env file:       ║\n"
                 "║    python -c \"import secrets; print(secrets.token_urlsafe(32))\"  ║\n"
                 "╚══════════════════════════════════════════════════════════════╝"

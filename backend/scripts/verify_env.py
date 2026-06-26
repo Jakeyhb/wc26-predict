@@ -164,8 +164,8 @@ def check_env_safety() -> list[tuple[str, str]]:
     results = []
 
     admin_token = os.environ.get("ADMIN_TOKEN", "")
-    if admin_token == "change-me" or admin_token == "":
-        results.append((WARN, "ADMIN_TOKEN is default 'change-me' or empty — unsafe for production"))
+    if admin_token in ("change-me", "CHANGE_ME_TO_RANDOM_32_CHARS", ""):
+        results.append((WARN, "ADMIN_TOKEN is default value or empty — unsafe for production"))
     else:
         results.append((PASS, "ADMIN_TOKEN is set (non-default)"))
 
