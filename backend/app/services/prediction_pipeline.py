@@ -32,9 +32,9 @@ from app.services.model_cache_disk import (
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.prediction_result import DegradedReason, PredictionResult, SourceStatus
 from app.services.signal_adjuster import SignalAdjuster
-from app.services.tabular_match_model import TabularMatchEnhancer, fuse_outcome_probabilities
+from app.services.tabular_match_model import TabularMatchEnhancer
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
-from app.services.weights import WeightConfig, get_weight_config
+from app.services.weights import get_weight_config
 
 logger = logging.getLogger(__name__)
 
