@@ -861,6 +861,12 @@ class PredictionPipeline:
             market_weight_used=market_weight_used,
             divergence=divergence,
             weibull_applied=wb_pred is not None,
+            negbin_applied=negbin_applied,
+            negbin_probs={
+                "home": float(negbin_probs["home_win"]),
+                "draw": float(negbin_probs["draw"]),
+                "away": float(negbin_probs["away_win"]),
+            } if negbin_probs else None,
             elo_detail={
                 "k_factor": elo_pred.k_factor,
                 "home_elo": elo_pred.home_elo,
@@ -1057,7 +1063,7 @@ class PredictionPipeline:
                     component_probs["negbin"] = {}
                 component_probs["negbin"]["home"] = nb_probs["home_win"]
                 component_probs["negbin"]["draw"] = nb_probs["draw"]
-                component_probs["negbin"]["away_win"] = nb_probs["away_win"]
+                component_probs["negbin"]["away"] = nb_probs["away_win"]
         except Exception as exc:
             logger.warning("NegBin fusion skipped (sync): %s", exc)
 
@@ -1744,6 +1750,8 @@ class PredictionPipeline:
             market_weight_used=market_weight_used,
             divergence=divergence,
             weibull_applied=has_weibull and "weibull" in component_probs,
+            negbin_applied=negbin_applied,
+            negbin_probs=component_probs.get("negbin"),
             elo_detail=elo_detail,
             calibration_monitor=calibration_monitor,
             calibration_applied=calibration_applied,

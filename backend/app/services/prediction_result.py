@@ -162,6 +162,10 @@ class PredictionResult:
     # ── Weibull ──
     weibull_applied: bool = False
 
+    # ── NegBin (V4.3.0 S4) ──
+    negbin_applied: bool = False
+    negbin_probs: dict[str, float] | None = None
+
     # ── Elo details ──
     elo_detail: dict[str, object] = field(default_factory=dict)
 
@@ -229,10 +233,12 @@ class PredictionResult:
                 "market_weight_used": self.market_weight_used,
                 "divergence": self.divergence,
                 "weibull_applied": self.weibull_applied,
+                "negbin_applied": self.negbin_applied,
             },
             "component_probs": {
                 "dc": self.dc_probs,
                 "enhancer": self.enhancer_probs,
+                "negbin": self.negbin_probs if self.negbin_applied else None,
                 "elo": self.elo_probs,
                 "pi_rating": self.pi_probs,
                 "weibull": self.weibull_probs,
@@ -308,6 +314,8 @@ class PredictionResult:
             market_weight_used=float(pred.get("market_weight_used", 0)),
             divergence=float(pred.get("divergence", 0)),
             weibull_applied=bool(pred.get("weibull_applied", False)),
+            negbin_applied=bool(pred.get("negbin_applied", False)),
+            negbin_probs=comp.get("negbin"),
             elo_detail=dict(elo.get("detail", {})),
             calibration_monitor=dict(data.get("calibration_monitor", {})),
             calibration_applied=bool(data.get("calibration_applied", False)),

@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T10:19:00Z",
-    "generated_at": "2026-06-26T10:19:00Z",
+    "as_of": "2026-06-26T11:56:15Z",
+    "generated_at": "2026-06-26T11:56:15Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -57,7 +57,8 @@
     "market_applied": false,
     "market_weight_used": 0.0,
     "divergence": 0.0,
-    "weibull_applied": false
+    "weibull_applied": false,
+    "negbin_applied": true
   },
   "component_probs": {
     "dc": {
@@ -69,6 +70,11 @@
       "home": 0.05900158720368863,
       "draw": 0.23490691497180477,
       "away": 0.7060914978245066
+    },
+    "negbin": {
+      "home": 0.20235318194367735,
+      "draw": 0.21059011956557833,
+      "away": 0.5870566984907444
     },
     "elo": {
       "home": 0.20759043323232212,
@@ -157,7 +163,7 @@
     "weather": {
       "status": "unavailable",
       "reason": "forecast_unavailable",
-      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T10:18:55.407476+00:00', 'forecast_available': False}",
+      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T11:56:10.823963+00:00', 'forecast_available': False}",
       "attempted": true,
       "required": false
     },
@@ -180,8 +186,8 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T10:19:00Z",
-    "generated_at": "2026-06-26T10:19:00Z",
+    "as_of_time": "2026-06-26T11:56:15Z",
+    "generated_at": "2026-06-26T11:56:15Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {
