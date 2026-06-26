@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T09:47:40Z",
-    "generated_at": "2026-06-26T09:47:40Z",
+    "as_of": "2026-06-26T10:18:48Z",
+    "generated_at": "2026-06-26T10:18:48Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -31,9 +31,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.5484179143552781,
-    "draw_prob": 0.20203634820054384,
-    "away_win_prob": 0.24954573744417813,
+    "home_win_prob": 0.5497693649726817,
+    "draw_prob": 0.20147141985446868,
+    "away_win_prob": 0.24875921517284963,
     "home_xg": 1.7636185694871962,
     "away_xg": 0.60041469479392,
     "confidence": "fitted",
@@ -107,9 +107,9 @@
       "expected_calibration_error": 0.052319
     },
     "pre_calibration_probs": {
-      "home_win_prob": 0.6557711833893497,
-      "draw_prob": 0.17094070226288943,
-      "away_win_prob": 0.1732881143477609
+      "home_win_prob": 0.6573701226186632,
+      "draw_prob": 0.17123975122565172,
+      "away_win_prob": 0.17139012615568502
     }
   },
   "calibration_applied": true,
@@ -158,9 +158,9 @@
       "required": false
     },
     "weather": {
-      "status": "used",
-      "reason": "forecast_loaded",
-      "detail": "多云",
+      "status": "unavailable",
+      "reason": "forecast_unavailable",
+      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T10:18:39.299952+00:00', 'forecast_available': False}",
       "attempted": true,
       "required": false
     },
@@ -174,6 +174,12 @@
   },
   "degraded_reasons": [
     {
+      "source": "weather",
+      "reason": "forecast_unavailable",
+      "severity": "warning",
+      "detail": ""
+    },
+    {
       "source": "market_calibration",
       "reason": "no_odds_for_match",
       "severity": "warning",
@@ -183,20 +189,20 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T09:47:40Z",
-    "generated_at": "2026-06-26T09:47:40Z",
+    "as_of_time": "2026-06-26T10:18:48Z",
+    "generated_at": "2026-06-26T10:18:48Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.5484179143552781,
-        "draw": 0.20203634820054384,
-        "away": 0.24954573744417813
+        "home": 0.5497693649726817,
+        "draw": 0.20147141985446868,
+        "away": 0.24875921517284963
       },
       "snapshot_adjusted": {
-        "home": 0.5484179143552781,
-        "draw": 0.20203634820054384,
-        "away": 0.24954573744417813
+        "home": 0.5497693649726817,
+        "draw": 0.20147141985446868,
+        "away": 0.24875921517284963
       },
       "dc_only": {
         "home": 0.6657244681590918,

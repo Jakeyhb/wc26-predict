@@ -12,6 +12,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -41,6 +42,60 @@ logger = logging.getLogger(__name__)
 DEFAULT_COMPETITION_WEIGHT = 0.9
 WORLD_CUP_COMPETITION_WEIGHT = 1.5
 FRIENDLY_COMPETITION_WEIGHT = 0.5
+
+# ── NegBin / overdispersion (V4.3.0: S4 — parity with CLI path) ──
+WC_XG_CALIBRATION_FACTOR = 1.35  # WC xG underestimation correction
+NEGBIN_R = 3.5  # WC Home Var/Mean=1.42, Away Var/Mean=1.41
+NEGBIN_FUSION_WEIGHT = 0.05  # NegBin influence in sequential fusion
+
+
+def _negbin_pmf(k: int, mu: float, r: float) -> float:
+    """Negative Binomial PMF: NB(k; r, p) where p = r/(r+mu)."""
+    if mu <= 0:
+        return 1.0 if k == 0 else 0.0
+    p = r / (r + mu)
+    log_prob = r * math.log(p)
+    for i in range(k):
+        log_prob += math.log(r + i) - math.log(i + 1)
+    log_prob += k * math.log(1 - p)
+    return math.exp(log_prob)
+
+
+def _overdispersed_scoreline(hxg: float, axg: float, max_g: int = 20) -> dict:
+    """NegBin H/D/A probabilities with xG calibration applied.
+
+    Returns dict with 'negbin' (calibrated) and 'poisson' (raw) keys.
+    """
+    hxg_cal = hxg * WC_XG_CALIBRATION_FACTOR
+    axg_cal = axg * WC_XG_CALIBRATION_FACTOR
+
+    # Pure Poisson (raw xG, for comparison)
+    pp_h = pp_d = pp_a = 0.0
+    for h in range(max_g):
+        ph = hxg ** h * math.exp(-hxg) / math.factorial(h)
+        for a in range(max_g):
+            pa = axg ** a * math.exp(-axg) / math.factorial(a)
+            p = ph * pa
+            if h > a: pp_h += p
+            elif h == a: pp_d += p
+            else: pp_a += p
+
+    # Calibrated NegBin
+    nb_h = nb_d = nb_a = 0.0
+    for h in range(max_g):
+        ph = _negbin_pmf(h, hxg_cal, NEGBIN_R)
+        for a in range(max_g):
+            pa = _negbin_pmf(a, axg_cal, NEGBIN_R)
+            p = ph * pa
+            if h > a: nb_h += p
+            elif h == a: nb_d += p
+            else: nb_a += p
+
+    total_nb = nb_h + nb_d + nb_a
+    return {
+        "negbin": {"home_win": nb_h / total_nb, "draw": nb_d / total_nb, "away_win": nb_a / total_nb},
+        "poisson": {"home_win": pp_h / (pp_h + pp_d + pp_a), "draw": pp_d / (pp_h + pp_d + pp_a), "away_win": pp_a / (pp_h + pp_d + pp_a)},
+    }
 
 
 def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
@@ -446,6 +501,22 @@ class PredictionPipeline:
             self._fuse_dc_enhancer_adaptive(dc_raw, enh_raw, wc.dc_enhancer_blend)
         if max(dc_enh.values()) > 0:  # nominal — suppress unused var warning on direction_conflict
             pass
+
+        # ── 6.5. NegBin 5% Fusion (V4.3.0: S4 — parity with CLI) ──
+        negbin_applied = False
+        negbin_probs = None
+        try:
+            _hxg = float(dc_pred.get("home_xg", 0))
+            _axg = float(dc_pred.get("away_xg", 0))
+            if _hxg > 0 and _axg > 0:
+                od_sl = _overdispersed_scoreline(_hxg, _axg)
+                negbin_probs = od_sl["negbin"]
+                for k in ("home_win_prob", "draw_prob", "away_win_prob"):
+                    nb_key = "home_win" if k == "home_win_prob" else "draw" if k == "draw_prob" else "away_win"
+                    dc_enh[k] = dc_enh[k] * (1 - NEGBIN_FUSION_WEIGHT) + negbin_probs.get(nb_key, dc_enh[k]) * NEGBIN_FUSION_WEIGHT
+                negbin_applied = True
+        except Exception as exc:
+            logger.warning("NegBin fusion skipped: %s", exc)
 
         # ── 7. Fuse Weibull ──
         dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=wc.weibull))
@@ -1086,6 +1157,26 @@ class PredictionPipeline:
                 step_label += f" (adaptive dc={dc_w_ef:.2f}, divergence={max_div_sync:.1f}pp)"
             fg.add_step("dc+enhancer", step_label, before_step1,
                         [fused["home_win_prob"], fused["draw_prob"], fused["away_win_prob"]])
+
+        # ── 2.4. NegBin 5% Fusion (V4.3.0: S4 — parity with CLI) ──
+        negbin_applied = False
+        try:
+            _hxg_sync = float(dc_pred.get("home_xg", 0))
+            _axg_sync = float(dc_pred.get("away_xg", 0))
+            if _hxg_sync > 0 and _axg_sync > 0:
+                od_sl = _overdispersed_scoreline(_hxg_sync, _axg_sync)
+                nb_probs = od_sl["negbin"]
+                for k in ("home_win_prob", "draw_prob", "away_win_prob"):
+                    nb_key = "home_win" if k == "home_win_prob" else "draw" if k == "draw_prob" else "away_win"
+                    fused[k] = fused[k] * (1 - NEGBIN_FUSION_WEIGHT) + nb_probs.get(nb_key, fused[k]) * NEGBIN_FUSION_WEIGHT
+                negbin_applied = True
+                if "negbin" not in component_probs:
+                    component_probs["negbin"] = {}
+                component_probs["negbin"]["home"] = nb_probs["home_win"]
+                component_probs["negbin"]["draw"] = nb_probs["draw"]
+                component_probs["negbin"]["away_win"] = nb_probs["away_win"]
+        except Exception as exc:
+            logger.warning("NegBin fusion skipped (sync): %s", exc)
 
         # ── 2.5. Weibull (standard+, applied after Enhancer for consistency) ──
         has_weibull = hasattr(self, "_weibull") and self._weibull is not None

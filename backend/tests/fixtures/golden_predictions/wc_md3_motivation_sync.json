@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T09:47:52Z",
-    "generated_at": "2026-06-26T09:47:52Z",
+    "as_of": "2026-06-26T10:19:00Z",
+    "generated_at": "2026-06-26T10:19:00Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -30,9 +30,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.12393511380760819,
-    "draw_prob": 0.28364496078030554,
-    "away_win_prob": 0.5924199254120862,
+    "home_win_prob": 0.12631363225811695,
+    "draw_prob": 0.28244463699617134,
+    "away_win_prob": 0.5912417307457116,
     "home_xg": 0.7160647166781222,
     "away_xg": 1.540403292839824,
     "confidence": "fitted",
@@ -155,9 +155,9 @@
       "required": false
     },
     "weather": {
-      "status": "used",
-      "reason": "forecast_loaded",
-      "detail": "多云",
+      "status": "unavailable",
+      "reason": "forecast_unavailable",
+      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T10:18:55.407476+00:00', 'forecast_available': False}",
       "attempted": true,
       "required": false
     },
@@ -169,24 +169,31 @@
       "required": false
     }
   },
-  "degraded_reasons": [],
+  "degraded_reasons": [
+    {
+      "source": "weather",
+      "reason": "forecast_unavailable",
+      "severity": "warning",
+      "detail": ""
+    }
+  ],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T09:47:52Z",
-    "generated_at": "2026-06-26T09:47:52Z",
+    "as_of_time": "2026-06-26T10:19:00Z",
+    "generated_at": "2026-06-26T10:19:00Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.12393511380760819,
-        "draw": 0.28364496078030554,
-        "away": 0.5924199254120862
+        "home": 0.12631363225811698,
+        "draw": 0.2824446369961714,
+        "away": 0.5912417307457117
       },
       "snapshot_adjusted": {
-        "home": 0.12393511380760819,
-        "draw": 0.28364496078030554,
-        "away": 0.5924199254120862
+        "home": 0.12631363225811698,
+        "draw": 0.2824446369961714,
+        "away": 0.5912417307457117
       },
       "dc_only": {
         "home": 0.1741302962046441,

@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T09:47:46Z",
-    "generated_at": "2026-06-26T09:47:46Z",
+    "as_of": "2026-06-26T10:18:54Z",
+    "generated_at": "2026-06-26T10:18:54Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -30,9 +30,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.20796337250394997,
-    "draw_prob": 0.26727405379753705,
-    "away_win_prob": 0.524762573698513,
+    "home_win_prob": 0.21354311543941157,
+    "draw_prob": 0.26520159839395496,
+    "away_win_prob": 0.5212552861666335,
     "home_xg": 0.9710901153258072,
     "away_xg": 1.2028129857104342,
     "confidence": "fitted",
@@ -144,9 +144,9 @@
       "required": false
     },
     "weather": {
-      "status": "used",
-      "reason": "forecast_loaded",
-      "detail": "大致晴朗",
+      "status": "unavailable",
+      "reason": "forecast_unavailable",
+      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T10:18:49.090144+00:00', 'forecast_available': False}",
       "attempted": true,
       "required": false
     },
@@ -160,6 +160,12 @@
   },
   "degraded_reasons": [
     {
+      "source": "weather",
+      "reason": "forecast_unavailable",
+      "severity": "warning",
+      "detail": ""
+    },
+    {
       "source": "market_calibration",
       "reason": "no_odds_for_match",
       "severity": "warning",
@@ -169,20 +175,20 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T09:47:46Z",
-    "generated_at": "2026-06-26T09:47:46Z",
+    "as_of_time": "2026-06-26T10:18:54Z",
+    "generated_at": "2026-06-26T10:18:54Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.20796337250394997,
-        "draw": 0.26727405379753705,
-        "away": 0.524762573698513
+        "home": 0.21354311543941157,
+        "draw": 0.26520159839395496,
+        "away": 0.5212552861666335
       },
       "snapshot_adjusted": {
-        "home": 0.20796337250394997,
-        "draw": 0.26727405379753705,
-        "away": 0.524762573698513
+        "home": 0.21354311543941157,
+        "draw": 0.26520159839395496,
+        "away": 0.5212552861666335
       },
       "dc_only": {
         "home": 0.29950552727789664,
