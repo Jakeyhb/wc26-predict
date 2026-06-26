@@ -15,9 +15,10 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 from app.services.prediction_core import _load_dc, _load_enhancer, _load_elo, _load_pi, _load_training_df
-from app.services.prediction_pipeline import (
+from app.core.engine import (
     WC_XG_CALIBRATION_FACTOR, NEGBIN_R, NEGBIN_FUSION_WEIGHT,
-    _negbin_pmf, _overdispersed_scoreline,
+    negbin_pmf as _negbin_pmf,
+    overdispersed_scoreline as _overdispersed_scoreline,
 )
 from app.services.prediction_timer import PredictionTimer
 from app.services.tabular_match_model import fuse_outcome_probabilities
