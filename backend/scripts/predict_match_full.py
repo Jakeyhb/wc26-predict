@@ -15,6 +15,10 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 from app.services.prediction_core import _load_dc, _load_enhancer, _load_elo, _load_pi, _load_training_df
+from app.services.prediction_pipeline import (
+    WC_XG_CALIBRATION_FACTOR, NEGBIN_R, NEGBIN_FUSION_WEIGHT,
+    _negbin_pmf, _overdispersed_scoreline,
+)
 from app.services.prediction_timer import PredictionTimer
 from app.services.tabular_match_model import fuse_outcome_probabilities
 from app.services.elo_ratings import fuse_elo_probabilities
@@ -25,97 +29,29 @@ from app.services.calibration import IsotonicCalibrator
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.version import VERSION
 
-# ═══════════════════════════════════════════════════════════════════════════
-# World Cup xG Calibration
-# ═══════════════════════════════════════════════════════════════════════════
-# DC model trained on club football. WC actual avg total goals = 2.81 (n=2,891).
-# DC systematically under-predicts xG for national teams: avg 2.02 vs WC 2.81.
-# Factor: 2.81/2.02 ≈ 1.39. Initial choice: 1.35.
-# V3.9.6: Brazil-Haiti post-match shows both teams' xG overestimated (+74% rel).
-# Brazil "early-kill" effect (3 goals in 45min, coast 2H) → calibrate down to 1.20.
-# V3.9.7: Argentina-Austria post-match: DC predicted 1.05 xG vs actual 2.63 (2.5x).
-# Spain-Saudi: DC 1.23 vs actual ~3.0 (2.4x). Brazil-Haiti was the exception
-# (coast mode), not the norm. Revert to 1.35 for stronger teams in group stage.
-# V4.0.3: 5-match WC validation — DC xG median 2.0x underestimate. 1.35 is still
-# conservative (observed 2.0-2.5x in blowouts, 1.6x in competitive matches).
-# Norway-Senegal 3-2: first match where BOTH teams' xG underestimated. Hold at 1.35
-# until knockout-stage data confirms need for further adjustment.
-WC_XG_CALIBRATION_FACTOR = 1.35
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Overdispersion correction: Negative Binomial
-# ═══════════════════════════════════════════════════════════════════════════
-# WC: Home Var/Mean=1.42, Away Var/Mean=1.41. NegBin r balances both.
-NEGBIN_R = 3.5
-
-
-def negbin_pmf(k: int, mu: float, r: float) -> float:
-    """Negative Binomial PMF: NB(k; r, p) where p = r/(r+mu).
-
-    Corrects for overdispersion: tail probabilities higher than pure Poisson.
-    """
-    if mu <= 0:
-        return 1.0 if k == 0 else 0.0
-    p = r / (r + mu)
-    log_prob = r * math.log(p)
-    for i in range(k):
-        log_prob += math.log(r + i) - math.log(i + 1)
-    log_prob += k * math.log(1 - p)
-    return math.exp(log_prob)
-
 
 def overdispersed_poisson_scoreline(hxg: float, axg: float, max_g: int = 20) -> dict:
-    """Compute H/D/A probabilities + top scorelines with overdispersion correction.
-
-    Returns pure Poisson AND NegBin results for comparison.
-    Applies WC xG calibration before NegBin computation.
+    """CLI wrapper: delegates core NegBin computation to shared module,
+    then adds display-oriented fields (top scorelines, Over/Under 2.5).
     """
+    result = _overdispersed_scoreline(hxg, axg, max_g)
+    # Add display-only fields
     hxg_cal = hxg * WC_XG_CALIBRATION_FACTOR
     axg_cal = axg * WC_XG_CALIBRATION_FACTOR
-
-    # Pure Poisson (for comparison, without calibration)
-    pp_h = pp_d = pp_a = 0.0
-    for h in range(max_g):
-        ph = hxg ** h * math.exp(-hxg) / math.factorial(h)
-        for a in range(max_g):
-            pa = axg ** a * math.exp(-axg) / math.factorial(a)
-            p = ph * pa
-            if h > a: pp_h += p
-            elif h == a: pp_d += p
-            else: pp_a += p
-
-    # Calibrated NegBin
-    nb_h = nb_d = nb_a = 0.0
-    for h in range(max_g):
-        ph = negbin_pmf(h, hxg_cal, NEGBIN_R)
-        for a in range(max_g):
-            pa = negbin_pmf(a, axg_cal, NEGBIN_R)
-            p = ph * pa
-            if h > a: nb_h += p
-            elif h == a: nb_d += p
-            else: nb_a += p
-
-    total_nb = nb_h + nb_d + nb_a
-
-    # Top 15 scorelines from NegBin
     scorelines = []
     for h in range(12):
         for a in range(12):
-            ph = negbin_pmf(h, hxg_cal, NEGBIN_R)
-            pa = negbin_pmf(a, axg_cal, NEGBIN_R)
+            ph = _negbin_pmf(h, hxg_cal, NEGBIN_R)
+            pa = _negbin_pmf(a, axg_cal, NEGBIN_R)
             scorelines.append((h, a, ph * pa * 100))
     scorelines.sort(key=lambda x: -x[2])
-
-    return {
-        "poisson": {"home_win": pp_h, "draw": pp_d, "away_win": pp_a},
-        "negbin": {"home_win": nb_h / total_nb, "draw": nb_d / total_nb, "away_win": nb_a / total_nb},
-        "overdispersion_r": NEGBIN_R,
-        "wc_xg_calibration_factor": WC_XG_CALIBRATION_FACTOR,
-        "calibrated_xg": {"home": round(hxg_cal, 2), "away": round(axg_cal, 2)},
-        "top_15_scorelines": [{"score": f"{h}-{a}", "prob_pct": round(p, 1)} for h, a, p in scorelines[:15]],
-        "under_2_5_pct": round(sum(p for h, a, p in scorelines if h + a < 3), 1),
-        "over_2_5_pct": round(sum(p for h, a, p in scorelines if h + a > 2), 1),
-    }
+    result["overdispersion_r"] = NEGBIN_R
+    result["wc_xg_calibration_factor"] = WC_XG_CALIBRATION_FACTOR
+    result["calibrated_xg"] = {"home": round(hxg_cal, 2), "away": round(axg_cal, 2)}
+    result["top_15_scorelines"] = [{"score": f"{h}-{a}", "prob_pct": round(p, 1)} for h, a, p in scorelines[:15]]
+    result["under_2_5_pct"] = round(sum(p for h, a, p in scorelines if h + a < 3), 1)
+    result["over_2_5_pct"] = round(sum(p for h, a, p in scorelines if h + a > 2), 1)
+    return result
 
 
 def _lookup_wc_stage(home: str, away: str) -> str:
