@@ -389,43 +389,39 @@ class LearningEngine:
     ) -> dict[str, float] | None:
         """Fuse remaining components after excluding one layer.
 
-        Returns {home, draw, away} or None if no components remain.
-
-        .. warning::
-
-           Uses simple weighted-average fusion rather than the actual sequential
-           normalized fusion from predict_match_full.py.  The real pipeline is:
-
-              DC → +Enhancer(1-dc) → +Weibull(wb) → +Elo(elo) → +Pi(pi)
-
-           Each step normalizes independently.  This method weights all remaining
-           components in a single flat pass, so its marginal Brier scores are an
-           approximation — NOT exact "what if this component were removed" values.
-
-           Known bias: attributes too much blame to DC (high weight in flat avg)
-           and too little to later-stage components (Elo, Pi) whose sequential
-           effective weights are diluted by prior normalization steps.
+        V4.3.0 S6: Uses true sequential fusion matching the production pipeline
+        (DC → Enhancer → Weibull → Elo → Pi → Market), not a flat weighted
+        average.  This ensures marginal Brier contributions accurately reflect
+        each component's impact in the actual fusion chain.
         """
-        remaining = {k: v for k, v in components.items() if k != exclude}
-        if not remaining:
+        # Fusion order (same as production pipeline)
+        FUSION_ORDER = ["dc", "enhancer", "weibull", "elo", "pi", "market", "signals"]
+        remaining_order = [k for k in FUSION_ORDER if k in components and k != exclude]
+
+        if not remaining_order:
             return None
 
-        # DC+Enhancer first-layer fusion (simplified from snapshot pipeline)
-        # For leave-one-out, we approximate the two-step fusion in one pass
-        fused = {"home": 0.0, "draw": 0.0, "away": 0.0}
-        total_w = 0.0
-        for name, probs in remaining.items():
-            w = weights.get(name, 0.33)
-            total_w += w
-            for outcome in ["home", "draw", "away"]:
-                fused[outcome] += probs[outcome] * w
+        # Start with the first remaining component
+        first = remaining_order[0]
+        fused = {
+            "home": float(components[first].get("home", 0.33)),
+            "draw": float(components[first].get("draw", 0.33)),
+            "away": float(components[first].get("away", 0.33)),
+        }
 
-        if total_w == 0:
-            return None
+        # Sequentially fuse remaining components
+        for comp_name in remaining_order[1:]:
+            comp = components[comp_name]
+            w = weights.get(comp_name, 0.0)
+            if w <= 0:
+                continue
+            fused["home"] = fused["home"] * (1.0 - w) + float(comp.get("home", fused["home"])) * w
+            fused["draw"] = fused["draw"] * (1.0 - w) + float(comp.get("draw", fused["draw"])) * w
+            fused["away"] = fused["away"] * (1.0 - w) + float(comp.get("away", fused["away"])) * w
 
         # Normalize
         total = fused["home"] + fused["draw"] + fused["away"]
-        if total == 0:
+        if total <= 0:
             return None
         return {
             "home": fused["home"] / total,
