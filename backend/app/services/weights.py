@@ -76,14 +76,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="4.2.2",
-    dc=0.68,            # (unchanged V4.0.4: Enhancer 4/13 WC direction correct, divergence guard working)
+    version="4.3.0",
+    dc=0.68,            # DC+Enhancer dir both 50% (3/6) in June26 panel; keep stable
     enhancer=0.32,      # Actual enhancer blend = 1-dc = 0.32
-    elo=0.12,           # (unchanged: 9/13 WC direction correct)
-    pi=0.14,            # ↑ from 0.12: 5/6 this round (83%), best non-market component 9/13=69%
-    weibull=0.10,       # (unchanged)
-    market_max=0.30,    # (unchanged: 11/13 WC direction correct, 85%)
-    label="WORLD_CUP_V4.2.2",
+    elo=0.12,           # 2/6 dir correct (33%) in June26 panel; keep, wait for more data
+    pi=0.17,            # ↑ 0.14→0.17: 4/6 dir correct (67%) in June26 panel, best non-market
+    weibull=0.10,       # (unchanged: 3/6 dir correct, mixed performance)
+    market_max=0.30,    # 4/6 dir correct (67%) in June26 panel; keep at 0.30
+    label="WORLD_CUP_V4.3.0",
 )
 
 # V4.0.4-knockout: Drastically reduce Enhancer influence for WC knockout matches.
@@ -94,7 +94,8 @@ _WORLD_CUP = WeightConfig(
 # Knockout dc=0.78 → enhancer_actual=0.22 (31% reduction from group stage).
 #
 # Effective weights (6-model sequential, excluding Market; Weibull=0.10):
-#   Group:   DC=48.6%  Enh=22.9%  Wb=7.7%  Elo=13.4%  Pi=7.4%
+#   Group:   DC=48.6%  Enh=22.9%  Wb=7.7%  Elo=13.4%  Pi=7.4%  → Pi=7.4% (pre-V4.3.0)
+#   V4.3.0:  DC=48.6%  Enh=22.9%  Wb=7.7%  Elo=13.4%  Pi=9.0%  → Pi ↑ 0.14→0.17
 #   Knockout: DC=57.6%  Enh=16.2%  Wb=6.0%  Elo=14.8%  Pi=5.5%
 _WORLD_CUP_KNOCKOUT = WeightConfig(
     version="4.0.4-knockout",
