@@ -63,9 +63,9 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
 
     Priority: calibrator_wc.json (if WC, ≥20 samples) → calibrator.json.
 
-    Audit R4-C7: pipeline paths had calibration stubbed out (enabled=False).
-    This function loads the calibrator artifact from disk — same logic as
-    predict_match_full.py and prediction_orchestrator.py.
+    P1-1: Lowered WC threshold from 50→20. With 54+ WC match evaluations now
+    available, isotonic calibration provides a reliable second-order bias
+    correction that complements (not replaces) market signal.
     """
     from pathlib import Path as _Path
 
@@ -78,7 +78,7 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
         wc_path = str(artifacts_dir / "calibrator_wc.json")
         try:
             calibrator.load(wc_path)
-            if calibrator.is_fitted and calibrator.training_sample_count >= 50:
+            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
                 logger.info("Pipeline: using WC calibrator (%d samples)",
                             calibrator.training_sample_count)
                 return calibrator
@@ -655,12 +655,11 @@ class PredictionPipeline:
         calibration_applied = False
         try:
             calibrator = _load_isotonic_calibrator(competition)
-            # Skip isotonic calibration when market data is available:
-            # market IS the calibration signal. WC calibrator has too few
-            # samples (21) and can warp well-calibrated probabilities.
-            if market_applied or (market_probs is not None):
-                calibrator = None  # disable — market already calibrated
-            if calibrator is not None and calibrator.is_fitted and calibrator.training_sample_count >= 50:
+            # P1-1: Apply WC calibrator even when market data is available.
+            # Previously skipped because calibrator had only 21 WC samples;
+            # now at 54+ samples, isotonic correction is reliable enough to
+            # complement (not replace) market signal as a bias-correction layer.
+            if calibrator is not None and calibrator.is_fitted:
                 pre_cal = {
                     "home_win_prob": clean["home_win_prob"],
                     "draw_prob": clean["draw_prob"],
@@ -678,13 +677,10 @@ class PredictionPipeline:
                     "pre_calibration_probs": pre_cal,
                 }
             else:
-                if calibrator is None:
-                    cal_reason = "skipped: market data available (market IS calibration)"
-                else:
-                    cal_reason = (
-                        f"calibrator not fitted (fitted={calibrator.is_fitted}, "
-                        f"samples={calibrator.training_sample_count})"
-                    )
+                cal_reason = (
+                    f"calibrator not fitted (fitted={calibrator.is_fitted}, "
+                    f"samples={calibrator.training_sample_count})"
+                )
                 cal_monitor = {
                     "enabled": False,
                     "reason": cal_reason,
@@ -1528,12 +1524,8 @@ class PredictionPipeline:
         calibration_monitor: dict[str, object] = {"enabled": False}
         try:
             calibrator = _load_isotonic_calibrator(competition)
-            # Skip isotonic calibration when market data is available:
-            # market IS the calibration signal. WC calibrator has too few
-            # samples (21) and can warp well-calibrated probabilities.
-            if market_applied or (market_probs is not None):
-                calibrator = None  # disable — market already calibrated
-            if calibrator is not None and calibrator.is_fitted and calibrator.training_sample_count >= 50:
+            # P1-1: Apply WC calibrator even when market data is available.
+            if calibrator is not None and calibrator.is_fitted:
                 pre_cal = {
                     "home_win_prob": fused["home_win_prob"],
                     "draw_prob": fused["draw_prob"],
@@ -1552,7 +1544,7 @@ class PredictionPipeline:
                 }
             else:
                 if calibrator is None:
-                    cal_reason = "skipped: market data available (market IS calibration)"
+                    cal_reason = "skipped: calibrator not loaded"
                 else:
                     cal_reason = (
                         f"calibrator not fitted (fitted={calibrator.is_fitted}, "

@@ -13,13 +13,11 @@ from __future__ import annotations
 import json
 import logging
 import pickle
-import re
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import joblib
 import pandas as pd
 
 # ── Path setup ───────────────────────────────────────────────────────────────
@@ -27,21 +25,15 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.services.artifact_registry import load_registry, validate_bundle
 from app.services.prediction_timer import PredictionTimer
 from app.services.run_quality import RunQuality
 from app.services.dixon_coles import DixonColesModel
-from app.services.tabular_match_model import (
-    TabularMatchEnhancer,
-    fuse_outcome_probabilities,
-)
-from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
-from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
-from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
+from app.services.tabular_match_model import TabularMatchEnhancer
+from app.services.weibull_model import WeibullWrapper
+from app.services.elo_ratings import EloRatingSystem
+from app.services.pi_ratings import PiRatingWrapper
 from app.services.weights import get_weight_config
-from app.services.injury_data import fuse_injury_signals
-from app.services.fusion_graph import FusionGraph, probs_dict_to_list
-from app.services.signal_adjuster_sync import apply_signal_adjustments, load_approved_signals
+from app.services.fusion_graph import FusionGraph
 
 logger = logging.getLogger(__name__)
 

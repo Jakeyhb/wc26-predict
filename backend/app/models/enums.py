@@ -50,6 +50,7 @@ class PredictionRunType(StrEnum):
     T_MINUS_24H = "t_minus_24h"
     T_MINUS_3H = "t_minus_3h"
     LINEUP_CONFIRMED = "lineup_confirmed"
+    MANUAL = "manual"
 
 
 class MatchResultCode(StrEnum):

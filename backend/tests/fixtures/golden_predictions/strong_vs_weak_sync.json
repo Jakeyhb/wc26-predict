@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T06:18:42Z",
-    "generated_at": "2026-06-27T06:18:42Z",
+    "as_of": "2026-06-27T08:00:02Z",
+    "generated_at": "2026-06-27T08:00:02Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -189,8 +189,8 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T06:18:42Z",
-    "generated_at": "2026-06-27T06:18:42Z",
+    "as_of_time": "2026-06-27T08:00:02Z",
+    "generated_at": "2026-06-27T08:00:02Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {

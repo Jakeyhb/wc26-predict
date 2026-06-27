@@ -9,13 +9,14 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T06:18:43Z",
-    "generated_at": "2026-06-27T06:18:43Z",
+    "as_of": "2026-06-27T08:00:02Z",
+    "generated_at": "2026-06-27T08:00:02Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
       "elo",
-      "pi_rating"
+      "pi_rating",
+      "calibration"
     ],
     "weight_config": {
       "version": "2.7",
@@ -30,9 +31,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.21354311543941157,
-    "draw_prob": 0.26520159839395496,
-    "away_win_prob": 0.5212552861666335,
+    "home_win_prob": 0.02033271719038817,
+    "draw_prob": 0.36968576709796674,
+    "away_win_prob": 0.609981515711645,
     "home_xg": 0.9710901153258072,
     "away_xg": 1.2028129857104342,
     "confidence": "fitted",
@@ -101,10 +102,21 @@
     }
   },
   "calibration_monitor": {
-    "enabled": false,
-    "reason": "calibrator not fitted (fitted=True, samples=30)"
+    "enabled": true,
+    "sample_count": 30,
+    "calibration_stats": {
+      "is_fitted": true,
+      "training_samples": 30,
+      "fitted_at": "2026-06-17T12:28:38.633337+00:00",
+      "expected_calibration_error": 0.12791184850008377
+    },
+    "pre_calibration_probs": {
+      "home_win_prob": 0.21354311543941157,
+      "draw_prob": 0.26520159839395496,
+      "away_win_prob": 0.5212552861666335
+    }
   },
-  "calibration_applied": false,
+  "calibration_applied": true,
   "pipeline_params": {
     "dc_converged": true,
     "enhancer_rows": 11016,
@@ -121,7 +133,7 @@
       "away_win_prob": 0.5212552861666335
     },
     "market_weight_used": 0.0,
-    "calibration_applied": false
+    "calibration_applied": true
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -175,17 +187,22 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T06:18:43Z",
-    "generated_at": "2026-06-27T06:18:43Z",
+    "as_of_time": "2026-06-27T08:00:02Z",
+    "generated_at": "2026-06-27T08:00:02Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.21354311543941157,
-        "draw": 0.26520159839395496,
-        "away": 0.5212552861666335
+        "home": 0.02033271719038817,
+        "draw": 0.36968576709796674,
+        "away": 0.609981515711645
       },
       "snapshot_adjusted": {
+        "home": 0.02033271719038817,
+        "draw": 0.36968576709796674,
+        "away": 0.609981515711645
+      },
+      "snapshot_baseline": {
         "home": 0.21354311543941157,
         "draw": 0.26520159839395496,
         "away": 0.5212552861666335
@@ -226,8 +243,8 @@
         "reason": ""
       },
       "snapshot_baseline": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "dc_only": {
         "status": "available",

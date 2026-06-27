@@ -134,13 +134,13 @@ async def _sync_to_prediction_runs(
 
     # Map run_type string to PredictionRunType enum value
     run_type_map = {
-        "baseline_v0": "MANUAL",
-        "manual": "MANUAL",
-        "t_minus_24h": "T_MINUS_24H",
-        "t_minus_3h": "T_MINUS_3H",
-        "t_lineup": "T_LINEUP",
+        "baseline_v0": "manual",
+        "manual": "manual",
+        "t_minus_24h": "t_minus_24h",
+        "t_minus_3h": "t_minus_3h",
+        "t_lineup": "lineup_confirmed",
     }
-    prt_value = run_type_map.get(run_type, "MANUAL")
+    prt_value = run_type_map.get(run_type, "manual")
 
     evaluation_sample = result.get("evaluation_sample") or evaluation_sample_from_prediction_dict(result)
     feature_snapshot = _build_prediction_run_feature_snapshot(result, adjustment_log, evaluation_sample)
