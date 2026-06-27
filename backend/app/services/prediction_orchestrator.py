@@ -10,31 +10,40 @@ from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.exceptions import NotFoundError
 from app.logging import get_logger
-from app.models import Match, MatchResult, NewsSignal, PredictionRun
+from app.models import Match, NewsSignal, PredictionRun
 from app.models.enums import CompetitionType, PredictionRunType, ReviewStatus
 from app.services.calibration import IsotonicCalibrator
 from app.services.dixon_coles import DixonColesModel, load_training_frame
 from app.services.model_cache_disk import load_dc_from_disk, save_dc_model_to_disk
 from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
-from app.services.football_data_service import ELITE_CLUB_POOL_CODES
-from app.services.football_data_service import EUROPEAN_ELITE_POOL_CODES
-from app.services.football_data_service import FootballDataService
+from app.services.football_data_service import (
+    ELITE_CLUB_POOL_CODES,
+    EUROPEAN_ELITE_POOL_CODES,
+    FootballDataService,
+)
 from app.services.injury_data import InjuryDataService, fuse_injury_signals
 from app.services.market_calibrator import get_calibrator
 from app.services.signal_adjuster import SignalAdjuster
 from app.services.tabular_match_model import TabularMatchEnhancer
-from app.services.tabular_match_model import fuse_outcome_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.weights import get_weight_config
 from app.services.weather_service import WeatherService
+from app.core.engine import (
+    NEGBIN_FUSION_WEIGHT,
+    apply_market_boost,
+    attenuate_market_boost,
+    enforce_draw_floor,
+    fuse_dc_enhancer_adaptive,
+    overdispersed_scoreline,
+)
 from app.utils.datetime import utc_now
 
 settings = get_settings()
@@ -289,6 +298,8 @@ class PredictionOrchestrator:
             competition_name = getattr(match, "competition", "")
             wc = get_weight_config(competition_name, getattr(match, "stage", ""))
 
+            max_div = 0.0
+            direction_conflict = False
             enhancer_meta = await self._build_enhancer_prediction(match, training_df, match_context, _comp_weight)
             if enhancer_meta["enabled"]:
                 dc_raw = {
@@ -298,55 +309,48 @@ class PredictionOrchestrator:
                 }
                 enh_raw = enhancer_meta["probabilities"]
 
-                # V4.0.5: Adaptive DC weight on divergence > 20pp.
-                # When DC and Enhancer disagree by >20pp, reduce DC weight
-                # (Enhancer is 0/6 WC direction-correct; extreme outputs
-                # should not dominate when they diverge strongly).
-                # V4.1.1: direction-conflict guard — when DC and Enhancer
-                # disagree on the favorite, skip weight reduction entirely.
-                dc_weight_ef = float(wc.dc_enhancer_blend)
-                max_div = max(
-                    abs(dc_raw["home_win_prob"] - enh_raw["home_win_prob"]),
-                    abs(dc_raw["draw_prob"] - enh_raw["draw_prob"]),
-                    abs(dc_raw["away_win_prob"] - enh_raw["away_win_prob"]),
-                ) * 100
-                dc_fav = max(dc_raw, key=dc_raw.get)
-                enh_fav = max(enh_raw, key=enh_raw.get)
-                direction_conflict = (dc_fav != enh_fav)
+                fused_dc_enh, max_div, direction_conflict, dc_weight_ef = (
+                    fuse_dc_enhancer_adaptive(
+                        dc_raw,
+                        enh_raw,
+                        wc.dc_enhancer_blend,
+                    )
+                )
+                base_prediction = {**base_prediction, **fused_dc_enh}
                 if max_div > 20 and direction_conflict:
                     logger.warning(
                         "Orchestrator: DC-Enhancer direction conflict "
-                        "(DC=%s Enh=%s, div=%.1fpp). Enhancer overridden — "
+                        "(DC=%s Enh=%s, div=%.1fpp). "
                         "keeping DC weight %.2f",
-                        dc_fav, enh_fav, max_div, wc.dc_enhancer_blend,
+                        max(dc_raw, key=dc_raw.get),
+                        max(enh_raw, key=enh_raw.get),
+                        max_div,
+                        wc.dc_enhancer_blend,
                     )
-                    base_prediction = {
-                        **base_prediction,
-                        **fuse_outcome_probabilities(dc_raw, enh_raw, base_weight=wc.dc),
-                    }
                 elif max_div > 20:
-                    shift = min(0.15, (max_div - 20) * 0.015)
-                    dc_weight_ef = max(0.30, wc.dc_enhancer_blend - shift)
-                    enh_w_ef = 1.0 - dc_weight_ef
                     logger.info(
                         "Orchestrator adaptive DC: divergence=%.1fpp > 20pp, "
-                        "dc %.2f→%.2f (shift=%.2f)",
-                        max_div, wc.dc_enhancer_blend, dc_weight_ef, shift,
+                        "dc %.2f→%.2f",
+                        max_div,
+                        wc.dc_enhancer_blend,
+                        dc_weight_ef,
                     )
-                    base_prediction = {
-                        **base_prediction,
-                        "home_win_prob": dc_raw["home_win_prob"] * dc_weight_ef
-                        + enh_raw["home_win_prob"] * enh_w_ef,
-                        "draw_prob": dc_raw["draw_prob"] * dc_weight_ef
-                        + enh_raw["draw_prob"] * enh_w_ef,
-                        "away_win_prob": dc_raw["away_win_prob"] * dc_weight_ef
-                        + enh_raw["away_win_prob"] * enh_w_ef,
-                    }
-                else:
-                    base_prediction = {
-                        **base_prediction,
-                        **fuse_outcome_probabilities(dc_raw, enh_raw, base_weight=wc.dc),
-                    }
+
+            # ── NegBin 5% Fusion (V4.3.0: parity with pipeline paths) ──
+            negbin_applied = False
+            try:
+                _hxg = float(base_prediction.get("home_xg", 0))
+                _axg = float(base_prediction.get("away_xg", 0))
+                if _hxg > 0 and _axg > 0:
+                    od_sl = overdispersed_scoreline(_hxg, _axg)
+                    nb_probs = od_sl["negbin"]
+                    for k in ("home_win_prob", "draw_prob", "away_win_prob"):
+                        nb_key = {"home_win_prob": "home_win", "draw_prob": "draw", "away_win_prob": "away_win"}[k]
+                        base_prediction[k] = base_prediction[k] * (1 - NEGBIN_FUSION_WEIGHT) \
+                            + nb_probs[nb_key] * NEGBIN_FUSION_WEIGHT
+                    negbin_applied = True
+            except Exception:
+                logger.warning("NegBin fusion skipped in orchestrator", exc_info=True)
 
             # Weibull blending (session-cached fit, applied after DC+Enhancer)
             # Audit R4-C5: orchestrator was missing Weibull (0.10 weight = ~7% effective).
@@ -442,49 +446,37 @@ class PredictionOrchestrator:
                 logger.warning("Market calibration failed for %s vs %s — continuing without",
                                match.home_team.name, match.away_team.name, exc_info=True)
 
-            # R4-H7: Dynamic market boost (outside try block for resilience —
-            # survives calibrator.calibrate() failure as long as market_probs
-            # was fetched successfully).
+            # R4-H7: Dynamic market boost (V4.3.0: unified — engine.apply_market_boost)
             if (market_probs is not None
                     and not market_result.get("market_applied")
                     and all(k in market_probs for k in ("home_prob", "draw_prob", "away_prob"))):
-                model_market_div = max(
-                    abs(base_prediction["home_win_prob"] - market_probs["home_prob"]),
-                    abs(base_prediction["draw_prob"] - market_probs["draw_prob"]),
-                    abs(base_prediction["away_win_prob"] - market_probs["away_prob"]),
+                mb_result = apply_market_boost(
+                    fused=base_prediction,
+                    market_probs=market_probs,
+                    market_max_weight=wc.market_max,
+                    dc_enhancer_divergence_pp=max_div,
+                    dc_enhancer_direction_conflict=direction_conflict,
+                    pre_market_probs=base_prediction,
                 )
-                if model_market_div > 0.15:
-                    boost = min(0.20, (model_market_div - 0.15) * 1.0)
-                    boosted_weight = min(0.50, wc.market_max + boost)
-                    base_prediction["home_win_prob"] = (
-                        base_prediction["home_win_prob"] * (1 - boosted_weight)
-                        + market_probs["home_prob"] * boosted_weight
-                    )
-                    base_prediction["draw_prob"] = (
-                        base_prediction["draw_prob"] * (1 - boosted_weight)
-                        + market_probs["draw_prob"] * boosted_weight
-                    )
-                    base_prediction["away_win_prob"] = (
-                        base_prediction["away_win_prob"] * (1 - boosted_weight)
-                        + market_probs["away_prob"] * boosted_weight
-                    )
-                    total = (
-                        base_prediction["home_win_prob"]
-                        + base_prediction["draw_prob"]
-                        + base_prediction["away_win_prob"]
-                    )
-                    if total > 0:
-                        base_prediction["home_win_prob"] /= total
-                        base_prediction["draw_prob"] /= total
-                        base_prediction["away_win_prob"] /= total
+                if mb_result.market_applied:
+                    base_prediction.update(mb_result.probs)
                     market_result["market_applied"] = True
-                    market_result["market_weight_used"] = boosted_weight
+                    market_result["market_weight_used"] = mb_result.market_weight_used
                     market_result["divergence_triggered"] = True
+                    market_result["boost_attenuated"] = mb_result.boost_attenuated
                     logger.info(
                         "Orchestrator dynamic market boost: divergence=%.1f%%, "
                         "weight=%.2f",
-                        model_market_div * 100, boosted_weight,
+                        mb_result.divergence * 100, mb_result.market_weight_used,
                     )
+
+            # ── Draw floor (V4.3.0: parity with pipeline paths) ──
+            is_wc = "world cup" in (competition_name or "").lower()
+            if is_wc:
+                draw_result, draw_floor_applied = enforce_draw_floor(base_prediction)
+                if draw_floor_applied:
+                    base_prediction.update(draw_result)
+                    logger.info("Orchestrator: draw floor applied (bumped to 12%%)")
 
             # Injury signal blending
             injury_signals = self.injury_service.generate_signals_for_match(

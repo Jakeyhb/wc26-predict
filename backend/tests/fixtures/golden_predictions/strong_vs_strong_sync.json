@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T11:56:10Z",
-    "generated_at": "2026-06-26T11:56:10Z",
+    "as_of": "2026-06-27T06:18:43Z",
+    "generated_at": "2026-06-27T06:18:43Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -114,7 +114,14 @@
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
     "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
     "training_df_max_date": "2026-06-24 02:00:00+00:00",
-    "require_full_context": false
+    "require_full_context": false,
+    "pre_market_probs": {
+      "home_win_prob": 0.21354311543941157,
+      "draw_prob": 0.26520159839395496,
+      "away_win_prob": 0.5212552861666335
+    },
+    "market_weight_used": 0.0,
+    "calibration_applied": false
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -150,39 +157,26 @@
       "required": false
     },
     "weather": {
-      "status": "unavailable",
-      "reason": "forecast_unavailable",
-      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T11:56:03.561784+00:00', 'forecast_available': False}",
-      "attempted": true,
+      "status": "skipped",
+      "reason": "disabled_by_flag",
+      "detail": "",
+      "attempted": false,
       "required": false
     },
     "market": {
-      "status": "unavailable",
-      "reason": "no_market_data_for_match",
+      "status": "skipped",
+      "reason": "disabled_by_flag",
       "detail": "",
-      "attempted": true,
+      "attempted": false,
       "required": false
     }
   },
-  "degraded_reasons": [
-    {
-      "source": "weather",
-      "reason": "forecast_unavailable",
-      "severity": "warning",
-      "detail": ""
-    },
-    {
-      "source": "market_calibration",
-      "reason": "no_odds_for_match",
-      "severity": "warning",
-      "detail": ""
-    }
-  ],
+  "degraded_reasons": [],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T11:56:10Z",
-    "generated_at": "2026-06-26T11:56:10Z",
+    "as_of_time": "2026-06-27T06:18:43Z",
+    "generated_at": "2026-06-27T06:18:43Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {

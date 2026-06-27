@@ -34,11 +34,14 @@ from app.services.elo_ratings import EloRatingSystem, fuse_elo_probabilities
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.tabular_match_model import (
     TabularMatchEnhancer,
-    fuse_outcome_probabilities,
 )
 from app.services.weights import get_weight_config
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.market.sync_provider import fetch_market_consensus_sync
+from app.core.engine import (
+    attenuate_market_boost,
+    fuse_dc_enhancer_adaptive,
+)
 
 # ── Constants ──────────────────────────────────────────────────────────
 
@@ -183,6 +186,8 @@ def predict_group_match(
     }
 
     # Step 2: TabularMatchEnhancer (standard+)
+    max_div = 0.0
+    direction_conflict = False
     if mode in ("standard", "full") and enhancer is not None:
         match_date = training_df["match_date"].max()
         enh_pred = enhancer.predict_match(
@@ -190,7 +195,19 @@ def predict_group_match(
             competition_weight=1.0, is_neutral_venue=is_neutral,
             training_df=training_df,
         )
-        fused = fuse_outcome_probabilities(fused, enh_pred, base_weight=weight_config.dc)
+        dc_raw = {
+            "home_win_prob": fused["home_win_prob"],
+            "draw_prob": fused["draw_prob"],
+            "away_win_prob": fused["away_win_prob"],
+        }
+        enh_raw = {
+            "home_win_prob": enh_pred["home_win_prob"],
+            "draw_prob": enh_pred["draw_prob"],
+            "away_win_prob": enh_pred["away_win_prob"],
+        }
+        fused, max_div, direction_conflict, _dc_w = fuse_dc_enhancer_adaptive(
+            dc_raw, enh_raw, weight_config.dc,
+        )
 
     # Step 2.5: Weibull (standard+, applied after Enhancer for consistency)
     # V4.0.3-fix: Weibull was missing from tournament simulation pipeline.
@@ -232,6 +249,13 @@ def predict_group_match(
             market_weight = weight_config.market_max
             if model_market_div > 0.15:
                 boost = min(0.20, (model_market_div - 0.15) * 1.0)
+                boost, _ = attenuate_market_boost(
+                    boost,
+                    dc_enhancer_divergence_pp=max_div,
+                    dc_enhancer_direction_conflict=direction_conflict,
+                    pre_market_probs=fused,
+                    market_probs=market_raw,
+                )
                 market_weight = min(0.50, weight_config.market_max + boost)
             fused_market = {
                 "home_win_prob": fused["home_win_prob"] * (1 - market_weight) + market_home * market_weight,

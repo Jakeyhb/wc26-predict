@@ -50,6 +50,11 @@ from app.core.engine import (
     overdispersed_scoreline as _overdispersed_scoreline,
     fuse_dc_enhancer_adaptive,
     enforce_draw_floor,
+    attenuate_market_boost,
+    run_core_fusion,
+    apply_market_boost,
+    CoreFusionResult,
+    MarketBoostResult,
 )
 
 
@@ -368,55 +373,21 @@ class PredictionPipeline:
         wb_fitted = self._weibull.fit(df)
         wb_pred = self._weibull.predict(home_team, away_team, is_neutral) if wb_fitted else None
 
-        # ── 6. Fuse DC + Enhancer (with adaptive divergence adjustment) ──
-        dc_raw = {
-            "home_win_prob": float(dc_pred["home_win_prob"]),
-            "draw_prob": float(dc_pred["draw_prob"]),
-            "away_win_prob": float(dc_pred["away_win_prob"]),
-        }
+        # ── 6-9. Core Fusion: DC → Enhancer → NegBin → Weibull → Elo → Pi ──
+        # V4.3.0: Unified — delegates to engine.run_core_fusion() (single source of truth).
+        # All model-fitting I/O still happens here; only the math is shared.
         enh_raw = {
             "home_win_prob": float(enh_pred["home_win_prob"]),
             "draw_prob": float(enh_pred["draw_prob"]),
             "away_win_prob": float(enh_pred["away_win_prob"]),
         }
 
-        dc_enh, divergence_pp, direction_conflict, dc_weight_ef = \
-            self._fuse_dc_enhancer_adaptive(dc_raw, enh_raw, wc.dc_enhancer_blend)
-        if max(dc_enh.values()) > 0:  # nominal — suppress unused var warning on direction_conflict
-            pass
-
-        # ── 6.5. NegBin 5% Fusion (V4.3.0: S4 — parity with CLI) ──
-        negbin_applied = False
-        negbin_probs = None
-        try:
-            _hxg = float(dc_pred.get("home_xg", 0))
-            _axg = float(dc_pred.get("away_xg", 0))
-            if _hxg > 0 and _axg > 0:
-                od_sl = _overdispersed_scoreline(_hxg, _axg)
-                negbin_probs = od_sl["negbin"]
-                for k in ("home_win_prob", "draw_prob", "away_win_prob"):
-                    nb_key = "home_win" if k == "home_win_prob" else "draw" if k == "draw_prob" else "away_win"
-                    dc_enh[k] = dc_enh[k] * (1 - NEGBIN_FUSION_WEIGHT) + negbin_probs.get(nb_key, dc_enh[k]) * NEGBIN_FUSION_WEIGHT
-                negbin_applied = True
-        except Exception as exc:
-            logger.warning("NegBin fusion skipped: %s", exc)
-
-        # ── 7. Fuse Weibull ──
-        dc_enh.update(fuse_weibull_probs(dc_enh, wb_pred, wb_weight=wc.weibull))
-
-        # ── 8. Elo ──
         self._elo.fit(df)
         elo_pred = self._elo.predict(
-            home_team,
-            away_team,
-            is_neutral=is_neutral,
-            competition_weight=competition_weight,
-            competition=competition,
+            home_team, away_team,
+            is_neutral=is_neutral, competition_weight=competition_weight, competition=competition,
         )
-        clean = dict(dc_enh)
-        clean.update(fuse_elo_probabilities(clean, elo_pred, elo_weight=wc.elo))
 
-        # ── 9. Pi-Rating (optional) ──
         pi_pred = None
         pi_ratings_dict: dict[str, float] = {}
         try:
@@ -426,13 +397,29 @@ class PredictionPipeline:
         except Exception as exc:
             logger.warning("Pi-Rating fitting/prediction failed — continuing without Pi", exc_info=True)
             degraded_reasons.append(DegradedReason(
-                source="pi_rating",
-                reason="fitting_failed",
-                severity="warning",
-                detail=str(exc),
+                source="pi_rating", reason="fitting_failed",
+                severity="warning", detail=str(exc),
             ))
-        if pi_pred:
-            clean.update(fuse_pi_probabilities(clean, pi_pred, pi_weight=wc.pi))
+
+        core = run_core_fusion(
+            dc_probs=dc_pred,
+            dc_home_xg=float(dc_pred.get("home_xg", 0)),
+            dc_away_xg=float(dc_pred.get("away_xg", 0)),
+            dc_base_weight=wc.dc_enhancer_blend,
+            enh_probs=enh_raw,
+            weibull_probs=wb_pred,
+            weibull_weight=wc.weibull,
+            elo_probs={"home_win_prob": elo_pred.home_win_prob, "draw_prob": elo_pred.draw_prob, "away_win_prob": elo_pred.away_win_prob},
+            elo_weight=wc.elo,
+            pi_probs=pi_pred,
+            pi_weight=wc.pi if pi_pred else 0.0,
+        )
+        clean = dict(core.probs)
+        divergence_pp = core.dc_enhancer_divergence_pp
+        direction_conflict = core.dc_enhancer_direction_conflict
+        dc_weight_ef = core.effective_dc_weight
+        negbin_applied = core.negbin_applied
+        negbin_probs: dict | None = None
 
         # ── 9.5. Match Importance / Tournament Context (V4.2.1) ──
         # Apply motivation adjustment for WC group stage matches.
@@ -592,6 +579,7 @@ class PredictionPipeline:
             ))
 
         # ── 13. Market calibration ──
+        pre_market_probs = dict(clean)
         market_applied = False
         market_weight_used = 0.0
         divergence = 0.0
@@ -630,62 +618,32 @@ class PredictionPipeline:
                 detail=str(exc),
             ))
 
-        # ── 13.3 Dynamic market boost (R4-H7: was missing from pipeline) ──
-        # When model-market divergence exceeds 15pp on any outcome,
-        # the model is likely suffering from component bias (e.g. Enhancer).
-        # Temporarily activate market blending with boosted weight.
-        # predict_match_full.py already had this; pipeline paths were missing it.
-        #
-        # V4.2.1: Divergence paradox fix — when DC-Enhancer AND Model-Market
-        # both diverge in the SAME direction, the double boost amplifies error.
-        # Attenuate boost by 0.6x when both divergence sources agree on direction.
+        # ── 13.3 Dynamic market boost (V4.3.0: unified — engine.apply_market_boost) ──
         if market_probs and not market_applied:
-            model_market_div = max(
-                abs(clean["home_win_prob"] - market_probs.get("home_prob", 0.5)),
-                abs(clean["draw_prob"] - market_probs.get("draw_prob", 0.25)),
-                abs(clean["away_win_prob"] - market_probs.get("away_prob", 0.25)),
+            mb_result = apply_market_boost(
+                fused=clean,
+                market_probs=market_probs,
+                market_max_weight=wc.market_max,
+                dc_enhancer_divergence_pp=divergence_pp,
+                dc_enhancer_direction_conflict=direction_conflict,
+                pre_market_probs=pre_market_probs,
             )
-            if model_market_div > 0.15:
-                boost = min(0.20, (model_market_div - 0.15) * 1.0)
-                # V4.2.1: check if DC-Enhancer AND Model-Market agree on direction
-                dc_enh_diverge = bool(divergence_pp > 15 and direction_conflict)
-                model_market_diverge = (model_market_div > 0.15)
-                if dc_enh_diverge and model_market_diverge:
-                    boost *= 0.6
-                    logger.info(
-                        "Divergence paradox: DC-Enhancer AND Model-Market "
-                        "point same direction — boost attenuated to %.3f",
-                        boost,
-                    )
-                boosted_weight = min(0.50, wc.market_max + boost)
-                clean["home_win_prob"] = (
-                    clean["home_win_prob"] * (1 - boosted_weight)
-                    + market_probs["home_prob"] * boosted_weight
-                )
-                clean["draw_prob"] = (
-                    clean["draw_prob"] * (1 - boosted_weight)
-                    + market_probs["draw_prob"] * boosted_weight
-                )
-                clean["away_win_prob"] = (
-                    clean["away_win_prob"] * (1 - boosted_weight)
-                    + market_probs["away_prob"] * boosted_weight
-                )
-                total = clean["home_win_prob"] + clean["draw_prob"] + clean["away_win_prob"]
-                if total > 0:
-                    clean["home_win_prob"] /= total
-                    clean["draw_prob"] /= total
-                    clean["away_win_prob"] /= total
+            if mb_result.market_applied:
+                clean.update(mb_result.probs)
                 market_applied = True
-                market_weight_used = boosted_weight
-                divergence = model_market_div
+                market_weight_used = mb_result.market_weight_used
+                divergence = mb_result.divergence
+                if mb_result.boost_attenuated:
+                    logger.info(
+                        "Dynamic market boost attenuated (boost=%.3f)",
+                        mb_result.market_weight_used - wc.market_max,
+                    )
                 logger.info(
                     "Dynamic market boost: divergence=%.1f%%, weight=%.2f",
-                    model_market_div * 100, boosted_weight,
+                    mb_result.divergence * 100, mb_result.market_weight_used,
                 )
 
         # ── 13.4 Draw floor (V4.2.1) ──
-        # England-Ghana 0-0 lesson: draw probability below ~10% is structurally
-        # unreasonable for WC matches. Enforce DRAW_FLOOR=12% minimum.
         if is_wc_comp:
             clean, draw_floor_applied = self._enforce_draw_floor(clean)
             if draw_floor_applied:
@@ -854,6 +812,9 @@ class PredictionPipeline:
                 ).hexdigest()) if hasattr(self, "_dc") and self._dc else "unavailable",
                 "training_df_fingerprint": dc_provenance.get("training_df_fingerprint", "batch_snapshot_db"),
                 "training_df_max_date": str(match_date) if match_date else "",
+                "pre_market_probs": pre_market_probs,
+                "market_weight_used": market_weight_used,
+                "calibration_applied": calibration_applied,
             },
             active_events=active_events,
             context_adjustments=ctx_adjustments,
@@ -1018,7 +979,7 @@ class PredictionPipeline:
                 "enhancer": probs_dict_to_list(component_probs["enhancer"]),
             }
 
-            # V4.3.0: Delegated to shared _fuse_dc_enhancer_adaptive.
+            # ── DC+Enhancer: prepare component probs, then delegate to engine ──
             dc_probs_std = {
                 "home_win_prob": component_probs["dixon_coles"]["home"],
                 "draw_prob": component_probs["dixon_coles"]["draw"],
@@ -1029,11 +990,10 @@ class PredictionPipeline:
                 "draw_prob": enh_pred["draw_prob"],
                 "away_win_prob": enh_pred["away_win_prob"],
             }
+            # Build the enhancer-only fused result for metadata tracking
             fused_long, max_div_sync, direction_conflict, dc_w_ef = \
                 self._fuse_dc_enhancer_adaptive(dc_probs_std, enh_probs_std, wc.dc)
-            # Use long-form keys throughout (weibull/elo/pi all expect them)
             fused = dict(fused_long)
-            # Also keep shorthand for components dict compatibility
             component_probs["dixon_coles+enhancer"] = {
                 "home": fused["home_win_prob"],
                 "draw": fused["draw_prob"],
@@ -1046,29 +1006,16 @@ class PredictionPipeline:
                 step_label += f" (adaptive dc={dc_w_ef:.2f}, divergence={max_div_sync:.1f}pp)"
             fg.add_step("dc+enhancer", step_label, before_step1,
                         [fused["home_win_prob"], fused["draw_prob"], fused["away_win_prob"]])
+        else:
+            # No enhancer — fused starts as DC probs
+            fused = dict(dc_pred)
+            max_div_sync = 0.0
+            direction_conflict = False
+            dc_w_ef = wc.dc
 
-        # ── 2.4. NegBin 5% Fusion (V4.3.0: S4 — parity with CLI) ──
-        negbin_applied = False
-        try:
-            _hxg_sync = float(dc_pred.get("home_xg", 0))
-            _axg_sync = float(dc_pred.get("away_xg", 0))
-            if _hxg_sync > 0 and _axg_sync > 0:
-                od_sl = _overdispersed_scoreline(_hxg_sync, _axg_sync)
-                nb_probs = od_sl["negbin"]
-                for k in ("home_win_prob", "draw_prob", "away_win_prob"):
-                    nb_key = "home_win" if k == "home_win_prob" else "draw" if k == "draw_prob" else "away_win"
-                    fused[k] = fused[k] * (1 - NEGBIN_FUSION_WEIGHT) + nb_probs.get(nb_key, fused[k]) * NEGBIN_FUSION_WEIGHT
-                negbin_applied = True
-                if "negbin" not in component_probs:
-                    component_probs["negbin"] = {}
-                component_probs["negbin"]["home"] = nb_probs["home_win"]
-                component_probs["negbin"]["draw"] = nb_probs["draw"]
-                component_probs["negbin"]["away"] = nb_probs["away_win"]
-        except Exception as exc:
-            logger.warning("NegBin fusion skipped (sync): %s", exc)
-
-        # ── 2.5. Weibull (standard+, applied after Enhancer for consistency) ──
+        # ── 2.4. Weibull (standard+) ──
         has_weibull = hasattr(self, "_weibull") and self._weibull is not None
+        wb_pred = None
         if mode in ("standard", "full", "research-full") and has_weibull:
             quality.model_components["weibull"] = "loaded_from_artifact"
             try:
@@ -1079,17 +1026,12 @@ class PredictionPipeline:
                         "draw": wb_pred.get("draw_prob", wb_pred.get("draw", 0)),
                         "away": wb_pred.get("away_win_prob", wb_pred.get("away", 0)),
                     }
-                    before_wb = {
-                        "dc+enhancer": probs_dict_to_list(fused),
-                        "weibull": probs_dict_to_list(component_probs["weibull"]),
-                    }
-                    fused = fuse_weibull_probs(fused, wb_pred, wb_weight=wc.weibull)
-                    fg.add_step("+weibull", f"wb_weight={wc.weibull}", before_wb, probs_dict_to_list(fused))
             except Exception as exc:
                 logger.warning(f"Weibull prediction failed: {exc}")
 
-        # ── 3. Elo (standard+) ──
+        # ── 2.5. Elo (standard+) ──
         has_elo = hasattr(self, "_elo") and self._elo is not None
+        elo_pred = None
         if mode in ("standard", "full", "research-full") and has_elo:
             quality.model_components["elo"] = "loaded_from_artifact"
             elo_pred = self._elo.predict(
@@ -1101,30 +1043,20 @@ class PredictionPipeline:
                 "draw": elo_pred.draw_prob,
                 "away": elo_pred.away_win_prob,
             }
-            before_step2 = {
-                "dc+enhancer": probs_dict_to_list(fused),
-                "elo": [elo_pred.home_win_prob, elo_pred.draw_prob, elo_pred.away_win_prob],
-            }
-            fused = fuse_elo_probabilities(fused, elo_pred, elo_weight=wc.elo)
-            fg.add_step("+elo", f"elo_weight={wc.elo}", before_step2, probs_dict_to_list(fused))
 
-        # ── 4. Pi-Rating (full+) ──
+        # ── 2.6. Pi-Rating (full+) ──
         has_pi = hasattr(self, "_pi") and self._pi is not None
+        pi_pred_for_core = None
         if mode in ("full", "research-full") and has_pi:
             quality.model_components["pi_rating"] = "loaded_from_artifact"
             try:
                 pi_pred = self._pi.predict(home_team, away_team, is_neutral)
+                pi_pred_for_core = pi_pred
                 component_probs["pi_rating"] = {
                     "home": pi_pred["home_win_prob"],
                     "draw": pi_pred["draw_prob"],
                     "away": pi_pred["away_win_prob"],
                 }
-                before_step3 = {
-                    "dc+enhancer+elo": probs_dict_to_list(fused),
-                    "pi_rating": probs_dict_to_list(component_probs["pi_rating"]),
-                }
-                fused = fuse_pi_probabilities(fused, pi_pred, pi_weight=wc.pi)
-                fg.add_step("+pi", f"pi_weight={wc.pi}", before_step3, probs_dict_to_list(fused))
             except Exception as exc:
                 quality.model_components["pi_rating"] = "failed"
                 quality.mark_degraded(f"Pi-Rating failed: {exc}")
@@ -1132,6 +1064,52 @@ class PredictionPipeline:
                     source="pi_rating", reason="fitting_failed",
                     severity="warning", detail=str(exc),
                 ))
+
+        # ── 3. Core Fusion: NegBin → Weibull → Elo → Pi (V4.3.0: unified) ──
+        core = run_core_fusion(
+            dc_probs=dc_pred,
+            dc_home_xg=float(dc_pred.get("home_xg", 0)),
+            dc_away_xg=float(dc_pred.get("away_xg", 0)),
+            dc_base_weight=wc.dc,
+            enh_probs=enh_probs_std if has_enhancer else None,
+            weibull_probs=wb_pred,
+            weibull_weight=wc.weibull if has_weibull and wb_pred is not None else 0.0,
+            elo_probs={
+                "home_win_prob": elo_pred.home_win_prob,
+                "draw_prob": elo_pred.draw_prob,
+                "away_win_prob": elo_pred.away_win_prob,
+            } if has_elo and elo_pred is not None else None,
+            elo_weight=wc.elo if has_elo else 0.0,
+            pi_probs=pi_pred_for_core,
+            pi_weight=wc.pi if has_pi and pi_pred_for_core is not None else 0.0,
+        )
+        fused = dict(core.probs)
+        negbin_applied = core.negbin_applied
+
+        # Populate component_probs for downstream consumers (snapshot, learning)
+        if core.negbin_applied:
+            od_sl_sync = _overdispersed_scoreline(
+                float(dc_pred.get("home_xg", 0)), float(dc_pred.get("away_xg", 0)))
+            nb_probs_sync = od_sl_sync["negbin"]
+            component_probs["negbin"] = {
+                "home": nb_probs_sync["home_win"],
+                "draw": nb_probs_sync["draw"],
+                "away": nb_probs_sync["away_win"],
+            }
+
+        # FusionGraph: record Weibull/Elo/Pi steps if they were applied
+        if has_weibull and core.weibull_applied:
+            fg.add_step("+weibull", f"wb_weight={wc.weibull}",
+                        {"prev": probs_dict_to_list(fused)},
+                        probs_dict_to_list(component_probs.get("weibull", {})))
+        if has_elo and elo_pred is not None:
+            fg.add_step("+elo", f"elo_weight={wc.elo}",
+                        {"prev": probs_dict_to_list(fused)},
+                        probs_dict_to_list(component_probs.get("elo", {})))
+        if has_pi and pi_pred_for_core is not None:
+            fg.add_step("+pi", f"pi_weight={wc.pi}",
+                        {"prev": probs_dict_to_list(fused)},
+                        probs_dict_to_list(component_probs.get("pi_rating", {})))
 
         # ── 4.5. Match Importance / Tournament Context (V4.2.1) ──
         # Mirror of predict_match_full.py Step 4.5 + predict_match() Step 9.5.
@@ -1381,6 +1359,7 @@ class PredictionPipeline:
             )
 
         # ── 11. Market calibration (real API call) ──
+        pre_market_probs = dict(fused)
         market_applied = False
         market_weight_used = 0.0
         divergence = 0.0
@@ -1511,53 +1490,29 @@ class PredictionPipeline:
                 required=require_full_context,
             )
 
-        # ── 10.3 Dynamic market boost (R4-H7: was missing from pipeline) ──
-        # V4.2.1: Divergence paradox fix — when DC-Enhancer AND Model-Market
-        # both diverge in the SAME direction, attenuate boost by 0.6x.
+        # ── 10.3 Dynamic market boost (V4.3.0: unified — engine.apply_market_boost) ──
         if market_probs_data and not market_applied:
-            model_market_div = max(
-                abs(fused["home_win_prob"] - market_probs_data.get("home_prob", 0.5)),
-                abs(fused["draw_prob"] - market_probs_data.get("draw_prob", 0.25)),
-                abs(fused["away_win_prob"] - market_probs_data.get("away_prob", 0.25)),
+            mb_result = apply_market_boost(
+                fused=fused,
+                market_probs=market_probs_data,
+                market_max_weight=wc.market_max,
+                dc_enhancer_divergence_pp=max_div_sync,
+                dc_enhancer_direction_conflict=direction_conflict,
+                pre_market_probs=pre_market_probs,
             )
-            if model_market_div > 0.15:
-                boost = min(0.20, (model_market_div - 0.15) * 1.0)
-                # V4.2.1: check if DC-Enhancer AND Model-Market agree on direction
-                try:
-                    dc_enh_div = bool(max_div_sync > 15 and not direction_conflict)
-                except (NameError, UnboundLocalError):
-                    dc_enh_div = False
-                if dc_enh_div and model_market_div > 0.15:
-                    boost *= 0.6
-                    logger.info(
-                        "Divergence paradox (sync): DC-Enhancer AND Model-Market "
-                        "point same direction — boost attenuated to %.3f",
-                        boost,
-                    )
-                boosted_weight = min(0.50, wc.market_max + boost)
-                fused["home_win_prob"] = (
-                    fused["home_win_prob"] * (1 - boosted_weight)
-                    + market_probs_data["home_prob"] * boosted_weight
-                )
-                fused["draw_prob"] = (
-                    fused["draw_prob"] * (1 - boosted_weight)
-                    + market_probs_data["draw_prob"] * boosted_weight
-                )
-                fused["away_win_prob"] = (
-                    fused["away_win_prob"] * (1 - boosted_weight)
-                    + market_probs_data["away_prob"] * boosted_weight
-                )
-                total = fused["home_win_prob"] + fused["draw_prob"] + fused["away_win_prob"]
-                if total > 0:
-                    fused["home_win_prob"] /= total
-                    fused["draw_prob"] /= total
-                    fused["away_win_prob"] /= total
+            if mb_result.market_applied:
+                fused.update(mb_result.probs)
                 market_applied = True
-                market_weight_used = boosted_weight
-                divergence = model_market_div
+                market_weight_used = mb_result.market_weight_used
+                divergence = mb_result.divergence
+                if mb_result.boost_attenuated:
+                    logger.info(
+                        "Dynamic market boost attenuated (boost=%.3f)",
+                        mb_result.market_weight_used - wc.market_max,
+                    )
                 logger.info(
                     "Dynamic market boost (sync): divergence=%.1f%%, weight=%.2f",
-                    model_market_div * 100, boosted_weight,
+                    mb_result.divergence * 100, mb_result.market_weight_used,
                 )
 
         # ── 10.4 Draw floor (V4.2.1) ──
@@ -1687,16 +1642,16 @@ class PredictionPipeline:
 
         # Elo detail (available when standard+ mode)
         elo_detail: dict[str, object] = {}
-        try:
-            _elo_pred = elo_pred  # type: ignore[name-defined] — defined in Elo block above
-            elo_detail = {
-                "k_factor": _elo_pred.k_factor,
-                "home_elo": _elo_pred.home_elo,
-                "away_elo": _elo_pred.away_elo,
-                "rating_gap": _elo_pred.rating_gap,
-            }
-        except NameError:
-            pass
+        if elo_pred is not None:
+            try:
+                elo_detail = {
+                    "k_factor": elo_pred.k_factor,
+                    "home_elo": elo_pred.home_elo,
+                    "away_elo": elo_pred.away_elo,
+                    "rating_gap": elo_pred.rating_gap,
+                }
+            except AttributeError:
+                pass
 
         result = PredictionResult(
             home_team=home_team,
@@ -1744,6 +1699,9 @@ class PredictionPipeline:
                 "training_df_fingerprint": dc_provenance.get("training_df_fingerprint", "unavailable"),
                 "training_df_max_date": str(training_df["match_date"].max()) if training_df is not None else "",
                 "require_full_context": require_full_context,
+                "pre_market_probs": pre_market_probs,
+                "market_weight_used": market_weight_used,
+                "calibration_applied": calibration_applied,
             },
             source_status=source_status,
             market_applied=market_applied,

@@ -22,7 +22,15 @@ def _predict(mode="full", home="France", away="Ivory Coast",
              competition="International Friendly", is_neutral=True):
     """Convenience: run artifact prediction and return (result_dict, quality)."""
     pipeline = PredictionPipeline.from_artifacts(mode=mode)
-    pred = pipeline.predict_sync(home, away, competition, is_neutral=is_neutral)
+    pred = pipeline.predict_sync(
+        home,
+        away,
+        competition,
+        is_neutral=is_neutral,
+        enable_market=False,
+        enable_weather=False,
+        save_snapshot=False,
+    )
     # Build backward-compatible dict for tests expecting dict-like access
     d = pred.to_dict()
     result_dict = d["prediction"]
@@ -119,14 +127,28 @@ class TestPredictionPipeline:
 
     def test_risk_tags_are_list(self):
         pipeline = PredictionPipeline.from_artifacts(mode="full")
-        result = pipeline.predict_sync("France", "Ivory Coast",
-                                       "International Friendly", is_neutral=True)
+        result = pipeline.predict_sync(
+            "France",
+            "Ivory Coast",
+            "International Friendly",
+            is_neutral=True,
+            enable_market=False,
+            enable_weather=False,
+            save_snapshot=False,
+        )
         assert isinstance(result.risk_tags, list)
 
     def test_degraded_reasons_are_list(self):
         pipeline = PredictionPipeline.from_artifacts(mode="full")
-        result = pipeline.predict_sync("France", "Ivory Coast",
-                                       "International Friendly", is_neutral=True)
+        result = pipeline.predict_sync(
+            "France",
+            "Ivory Coast",
+            "International Friendly",
+            is_neutral=True,
+            enable_market=False,
+            enable_weather=False,
+            save_snapshot=False,
+        )
         assert isinstance(result.degraded_reasons, list)
 
     def test_sync_prediction_accepts_match_metadata(self):

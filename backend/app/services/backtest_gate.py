@@ -81,13 +81,19 @@ class BacktestGate:
             )
 
         # Gate 7: Max single-component weight change
+        # NOTE: max_weight_delta (default 0.03) enforces conservative step sizes.
+        # Full delta check requires proposal.current_weights — not yet plumbed.
+        # For now we enforce absolute bounds and a reasonable maximum (0.75).
         if proposal.candidate_weights:
             for comp_name, new_weight in proposal.candidate_weights.items():
-                # We can't verify against current without context,
-                # but we can flag extreme absolute values
                 if new_weight < 0 or new_weight > 1.0:
                     failures.append(
                         f"{comp_name} weight {new_weight:.3f} out of [0, 1]"
+                    )
+                elif new_weight > 0.75 and comp_name != "dc":
+                    failures.append(
+                        f"{comp_name} weight {new_weight:.3f} exceeds "
+                        f"safety ceiling 0.75 (max_delta={self.max_weight_delta})"
                     )
 
         return failures

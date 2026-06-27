@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T11:56:03Z",
-    "generated_at": "2026-06-26T11:56:03Z",
+    "as_of": "2026-06-27T06:18:42Z",
+    "generated_at": "2026-06-27T06:18:42Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -128,7 +128,14 @@
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
     "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
     "training_df_max_date": "2026-06-24 02:00:00+00:00",
-    "require_full_context": false
+    "require_full_context": false,
+    "pre_market_probs": {
+      "home_win_prob": 0.6573701226186632,
+      "draw_prob": 0.17123975122565172,
+      "away_win_prob": 0.17139012615568502
+    },
+    "market_weight_used": 0.0,
+    "calibration_applied": true
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -164,39 +171,26 @@
       "required": false
     },
     "weather": {
-      "status": "unavailable",
-      "reason": "forecast_unavailable",
-      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T11:55:51.253464+00:00', 'forecast_available': False}",
-      "attempted": true,
+      "status": "skipped",
+      "reason": "disabled_by_flag",
+      "detail": "",
+      "attempted": false,
       "required": false
     },
     "market": {
-      "status": "unavailable",
-      "reason": "no_market_data_for_match",
+      "status": "skipped",
+      "reason": "disabled_by_flag",
       "detail": "",
-      "attempted": true,
+      "attempted": false,
       "required": false
     }
   },
-  "degraded_reasons": [
-    {
-      "source": "weather",
-      "reason": "forecast_unavailable",
-      "severity": "warning",
-      "detail": ""
-    },
-    {
-      "source": "market_calibration",
-      "reason": "no_odds_for_match",
-      "severity": "warning",
-      "detail": ""
-    }
-  ],
+  "degraded_reasons": [],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T11:56:03Z",
-    "generated_at": "2026-06-26T11:56:03Z",
+    "as_of_time": "2026-06-27T06:18:42Z",
+    "generated_at": "2026-06-27T06:18:42Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {
@@ -209,6 +203,11 @@
         "home": 0.5497693649726817,
         "draw": 0.20147141985446868,
         "away": 0.24875921517284963
+      },
+      "snapshot_baseline": {
+        "home": 0.6573701226186632,
+        "draw": 0.17123975122565172,
+        "away": 0.17139012615568502
       },
       "dc_only": {
         "home": 0.6657244681590918,
@@ -246,8 +245,8 @@
         "reason": ""
       },
       "snapshot_baseline": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "dc_only": {
         "status": "available",

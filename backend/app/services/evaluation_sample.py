@@ -106,7 +106,10 @@ def evaluation_sample_from_prediction_dict(result: dict[str, Any]) -> dict[str, 
     raw_candidates = {
         "current_fusion": final_probs,
         "snapshot_adjusted": final_probs,
-        "snapshot_baseline": calibration_monitor.get("baseline_probs"),
+        "snapshot_baseline": (
+            calibration_monitor.get("pre_calibration_probs")
+            or calibration_monitor.get("baseline_probs")
+        ),
         "dc_only": components.get("dc") or components.get("dixon_coles"),
         "tabular_only": components.get("enhancer") or components.get("tabular"),
         "elo_only": components.get("elo"),

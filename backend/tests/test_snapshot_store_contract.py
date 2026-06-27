@@ -97,7 +97,7 @@ def test_extract_market_probs_requires_complete_three_way_payload():
 
 def test_snapshot_and_prediction_run_params_share_evaluation_sample():
     sample = {"schema_version": "v1", "candidate_probs": {"uniform_baseline": {"home": 1 / 3, "draw": 1 / 3, "away": 1 / 3}}}
-    pipeline_params = _build_snapshot_pipeline_params({"training_rows": 20}, {"training_rows": 10}, sample)
+    pipeline_params = _build_snapshot_pipeline_params({"training_rows": 20}, {"training_rows": 10}, {}, sample)
     feature_snapshot = _build_prediction_run_feature_snapshot(
         {
             "meta": {

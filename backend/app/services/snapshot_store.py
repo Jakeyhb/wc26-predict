@@ -89,7 +89,12 @@ async def save_prediction_snapshot(
         missing_inputs=[str(item) for item in result.get("missing_inputs", [])],
         confidence=confidence,
         calibration_monitor=cal_monitor,
-        pipeline_params=_build_snapshot_pipeline_params(pipeline, m, evaluation_sample),
+        pipeline_params=_build_snapshot_pipeline_params(
+            pipeline,
+            m,
+            p,
+            evaluation_sample,
+        ),
         report_path=report_path,
         report_markdown=report_markdown,
     )
@@ -276,6 +281,7 @@ def _extract_market_probs(result: dict[str, Any]) -> dict[str, float] | None:
 def _build_snapshot_pipeline_params(
     pipeline: dict[str, Any],
     meta: dict[str, Any],
+    prediction: dict[str, Any],
     evaluation_sample: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -286,6 +292,20 @@ def _build_snapshot_pipeline_params(
         "enhancer_features": pipeline.get("enhancer_features"),
         "elo_matches": pipeline.get("elo_matches"),
         "training_rows": pipeline.get("training_rows", meta.get("training_rows")),
+        "weight_config": deepcopy(meta.get("weight_config") or {}),
+        "pre_market_probs": deepcopy(pipeline.get("pre_market_probs")),
+        "market_weight_used": float(
+            pipeline.get(
+                "market_weight_used",
+                prediction.get("market_weight_used", 0.0),
+            )
+            or 0.0
+        ),
+        "negbin_applied": bool(prediction.get("negbin_applied", False)),
+        "negbin_weight": 0.05 if prediction.get("negbin_applied") else 0.0,
+        "calibration_applied": bool(
+            pipeline.get("calibration_applied", False)
+        ),
         "evaluation_sample": evaluation_sample,
     }
 
@@ -308,6 +328,21 @@ def _build_prediction_run_feature_snapshot(
         "adjustment_log": adjustment_log,
         "prediction_mode": "script_snapshot",
         "source": "snapshot.py -> save_prediction_snapshot()",
+        "weight_config": deepcopy(meta.get("weight_config") or {}),
+        "pre_market_probs": deepcopy(pipeline.get("pre_market_probs")),
+        "market_weight_used": float(
+            pipeline.get(
+                "market_weight_used",
+                (result.get("prediction") or {}).get("market_weight_used", 0.0),
+            )
+            or 0.0
+        ),
+        "calibration_applied": bool(
+            pipeline.get(
+                "calibration_applied",
+                result.get("calibration_applied", False),
+            )
+        ),
         "evaluation_sample": evaluation_sample,
     }
 

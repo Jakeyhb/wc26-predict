@@ -44,7 +44,6 @@ MATCH_SCENARIOS = [
 
 def _make_fixture_path(desc: str, path_name: str) -> Path:
     """Return path to a golden fixture file."""
-    FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
     return FIXTURES_DIR / f"{desc}_{path_name}.json"
 
 
@@ -59,6 +58,9 @@ def _run_cli_prediction(home: str, away: str, competition: str,
         "--home", home,
         "--away", away,
         "--competition", competition,
+        "--no-market",
+        "--no-weather",
+        "--no-save",
     ]
     if stage:
         cmd += ["--stage", stage]
@@ -76,15 +78,12 @@ def _run_cli_prediction(home: str, away: str, competition: str,
         )
         if result.returncode != 0:
             pytest.skip(f"CLI prediction failed: {result.stderr[:200]}")
-        # CLI writes JSON to stdout among other lines — find the JSON block
+        # CLI writes a marker immediately before its canonical JSON payload.
         output = result.stdout
-        # The CLI outputs JSON between "=== PREDICTION RESULT ===" markers or as
-        # the last substantial output. Try to find it.
-        json_start = output.rfind("{")
-        json_end = output.rfind("}")
-        if json_start >= 0 and json_end > json_start:
+        marker = "=== PREDICTION JSON ==="
+        if marker in output:
             try:
-                return json.loads(output[json_start:json_end + 1])
+                return json.loads(output.split(marker, 1)[1].strip())
             except json.JSONDecodeError:
                 pass
         pytest.skip(f"Could not parse CLI JSON output (len={len(output)})")
@@ -106,6 +105,9 @@ def _run_sync_prediction(home: str, away: str, competition: str,
     result = pipeline.predict_sync(
         home, away, competition,
         is_neutral=True,
+        enable_market=False,
+        enable_weather=False,
+        save_snapshot=False,
     )
     d = result.to_dict()
     # Record stage context for golden fixture comparison
@@ -165,12 +167,10 @@ class TestGoldenSnapshots:
         fixture_path = _make_fixture_path(desc, "sync")
 
         if not fixture_path.exists():
-            # First run: save golden
-            fixture_path.write_text(
-                json.dumps(result, indent=2, default=str, ensure_ascii=False),
-                encoding="utf-8",
+            pytest.fail(
+                f"Missing golden fixture: {fixture_path}. "
+                "Run this module directly to regenerate fixtures."
             )
-            pytest.skip(f"Golden fixture created at {fixture_path}")
 
         # Replay: compare
         golden = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -249,18 +249,11 @@ class TestStructuralInvariants:
             f"[{desc}] No version/provenance in result. Top keys: {list(result.keys())[:10]}"
 
     def test_sync_path_negbin_status_recorded(self):
-        """Explicitly record NegBin presence/absence for the API sync path."""
+        """NegBin is part of the API sync path."""
         result = _run_sync_prediction("Brazil", "Haiti", "FIFA World Cup 2026",
                                        "Group A - Matchday 1")
         pred = result.get("prediction", result)
-        negbin_present = bool(pred.get("negbin_applied"))
-        # Currently EXPECTED: negbin_present == False (P0-1 unfixed)
-        # After S4 this test assertion must flip to True
-        # Using a gentle assertion that records but doesn't hard-fail
-        if not negbin_present:
-            print("NOTE: P0-1 — NegBin 5% not yet in API sync path (expected before S4)")
-        # Soft-check: just verify the flag exists (even if False)
-        assert "negbin_applied" in pred or True  # always passes; records presence
+        assert pred.get("negbin_applied") is True
 
 
 # ── path parity tests ───────────────────────────────────────────
@@ -326,8 +319,9 @@ class TestPathParity:
 
 # ── fixture generation script ───────────────────────────────────
 
-def generate_all_fixtures():
-    """Regenerate all golden fixtures. Run manually after refactoring."""
+def generate_all_fixtures(*, include_cli: bool = False):
+    """Regenerate deterministic sync fixtures and optionally CLI fixtures."""
+    FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
     print("Generating golden fixtures...")
     for home, away, competition, stage, desc in MATCH_SCENARIOS:
         try:
@@ -339,18 +333,19 @@ def generate_all_fixtures():
             )
             print(f"  [OK] {desc}_sync.json ({path.stat().st_size} bytes)")
 
-            cli_result = _run_cli_prediction(home, away, competition, stage)
-            if cli_result:
-                cli_path = _make_fixture_path(desc, "cli")
-                cli_path.write_text(
-                    json.dumps(cli_result, indent=2, default=str, ensure_ascii=False),
-                    encoding="utf-8",
-                )
-                print(f"  [OK] {desc}_cli.json ({cli_path.stat().st_size} bytes)")
+            if include_cli:
+                cli_result = _run_cli_prediction(home, away, competition, stage)
+                if cli_result:
+                    cli_path = _make_fixture_path(desc, "cli")
+                    cli_path.write_text(
+                        json.dumps(cli_result, indent=2, default=str, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                    print(f"  [OK] {desc}_cli.json ({cli_path.stat().st_size} bytes)")
         except Exception as e:
             print(f"  [FAIL] {desc}: {e}")
     print("Done.")
 
 
 if __name__ == "__main__":
-    generate_all_fixtures()
+    generate_all_fixtures(include_cli="--include-cli" in sys.argv)

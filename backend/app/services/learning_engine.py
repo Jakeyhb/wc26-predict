@@ -200,38 +200,42 @@ class LearningEngine:
         positive marginal = component helped (removing it made prediction worse)
         negative marginal = component hurt (removing it made prediction better)
         """
-        baseline = snapshot.baseline_probs or {}
-        final_brier = _brier(
-            {"home": baseline.get("home", 0.33), "draw": baseline.get("draw", 0.33), "away": baseline.get("away", 0.33)},
+        final_probs = _coerce_probs(
+            snapshot.adjusted_probs or snapshot.baseline_probs or {}
+        )
+        attribution_reference = _coerce_probs(
+            snapshot.baseline_probs or final_probs
+        )
+        final_brier = _brier(final_probs, actual_index)
+        attribution_reference_brier = _brier(
+            attribution_reference,
             actual_index,
         )
 
         component = snapshot.component_probs or {}
         components = {}
-        for key in ["dc", "enhancer", "elo", "pi", "pi_rating", "weibull", "market", "signals"]:
+        component_aliases = {
+            "dc": "dc",
+            "enhancer": "enhancer",
+            "negbin": "negbin",
+            "elo": "elo",
+            "pi": "pi",
+            "pi_rating": "pi",
+            "weibull": "weibull",
+            "market": "market",
+            "signals": "signals",
+        }
+        for key, canonical_key in component_aliases.items():
             probs = component.get(key, {})
             if probs:
-                components[key] = _coerce_probs(probs)
+                components[canonical_key] = _coerce_probs(probs)
         if snapshot.market_probs:
             components.setdefault("market", _coerce_probs(snapshot.market_probs))
 
-        # Weights from unified config source
-        from app.services.weights import get_weight_config
-        stage = _lookup_stage_for_match(snapshot.home_team, snapshot.away_team)
-        wc = get_weight_config(
-            snapshot.competition or "FIFA World Cup 2026",
-            stage,
+        weights, weight_source = self._weights_for_snapshot(
+            snapshot,
+            components,
         )
-        weights = {
-            "dc": wc.dc,
-            "enhancer": wc.enhancer,
-            "elo": wc.elo,
-            "pi": wc.pi,
-            "pi_rating": wc.pi,
-            "weibull": wc.weibull,
-            "market": wc.market_max,
-            "signals": 0.0,
-        }
 
         # Leave-one-out marginal contributions
         dc_marginal = None
@@ -244,25 +248,40 @@ class LearningEngine:
             # Without DC: fuse enhancer-only (or enhancer+elo if available)
             without_dc = self._fuse_without(components, weights, exclude="dc")
             if without_dc:
-                dc_marginal = _brier(without_dc, actual_index) - final_brier
+                dc_marginal = (
+                    _brier(without_dc, actual_index)
+                    - attribution_reference_brier
+                )
 
             # Without Enhancer: fuse dc-only (or dc+elo)
             without_enh = self._fuse_without(components, weights, exclude="enhancer")
             if without_enh:
-                enhancer_marginal = _brier(without_enh, actual_index) - final_brier
+                enhancer_marginal = (
+                    _brier(without_enh, actual_index)
+                    - attribution_reference_brier
+                )
 
             # Without Elo: fuse dc+enhancer only
             without_elo = self._fuse_without(components, weights, exclude="elo")
             if without_elo:
-                elo_marginal = _brier(without_elo, actual_index) - final_brier
+                elo_marginal = (
+                    _brier(without_elo, actual_index)
+                    - attribution_reference_brier
+                )
 
             without_market = self._fuse_without(components, weights, exclude="market")
             if without_market and "market" in components:
-                market_marginal = _brier(without_market, actual_index) - final_brier
+                market_marginal = (
+                    _brier(without_market, actual_index)
+                    - attribution_reference_brier
+                )
 
             without_signal = self._fuse_without(components, weights, exclude="signals")
             if without_signal and "signals" in components:
-                signal_marginal = _brier(without_signal, actual_index) - final_brier
+                signal_marginal = (
+                    _brier(without_signal, actual_index)
+                    - attribution_reference_brier
+                )
 
         # Old proportional fields — keep for backward compat, set to None
         dc_contrib = None
@@ -270,9 +289,9 @@ class LearningEngine:
         elo_contrib = None
 
         # Error direction
-        pred_home = baseline.get("home", 0.33)
-        pred_draw = baseline.get("draw", 0.33)
-        pred_away = baseline.get("away", 0.33)
+        pred_home = final_probs["home"]
+        pred_draw = final_probs["draw"]
+        pred_away = final_probs["away"]
         pred_index = max(range(3), key=lambda i: [pred_home, pred_draw, pred_away][i])
         if pred_index == actual_index:
             direction = "correct"
@@ -310,6 +329,15 @@ class LearningEngine:
             elo_marginal=elo_marginal,
             market_marginal=market_marginal,
             signal_marginal=signal_marginal,
+            context_tags={
+                "attribution_method": "sequential_leave_one_out_v2",
+                "weight_source": weight_source,
+                "reference": (
+                    "snapshot_baseline"
+                    if snapshot.baseline_probs
+                    else "final_probability_fallback"
+                ),
+            },
         )
         db.add(log)
         return log
@@ -381,6 +409,48 @@ class LearningEngine:
         return str(run.id) if run is not None else None
 
     @staticmethod
+    def _weights_for_snapshot(
+        snapshot: PredictionSnapshot,
+        components: dict[str, dict[str, float]],
+    ) -> tuple[dict[str, float], str]:
+        """Return historical blend weights, with an explicit legacy fallback."""
+        params = snapshot.pipeline_params or {}
+        historical = params.get("weight_config") if isinstance(params, dict) else None
+        if isinstance(historical, dict) and historical.get("dc") is not None:
+            dc_weight = float(historical["dc"])
+            weights = {
+                "dc": dc_weight,
+                "enhancer": 1.0 - dc_weight,
+                "negbin": float(params.get("negbin_weight", 0.05)),
+                "elo": float(historical.get("elo", 0.0)),
+                "pi": float(historical.get("pi", 0.0)),
+                "weibull": float(historical.get("weibull", 0.0)),
+                "market": float(params.get("market_weight_used", 0.0)),
+                "signals": 0.0,
+            }
+            if "negbin" not in components:
+                weights["negbin"] = 0.0
+            return weights, "snapshot"
+
+        from app.services.weights import get_weight_config
+
+        stage = _lookup_stage_for_match(snapshot.home_team, snapshot.away_team)
+        wc = get_weight_config(
+            snapshot.competition or "FIFA World Cup 2026",
+            stage,
+        )
+        return {
+            "dc": wc.dc,
+            "enhancer": 1.0 - wc.dc,
+            "negbin": 0.05 if "negbin" in components else 0.0,
+            "elo": wc.elo,
+            "pi": wc.pi,
+            "weibull": wc.weibull,
+            "market": wc.market_max if "market" in components else 0.0,
+            "signals": 0.0,
+        }, "current_config_fallback"
+
+    @staticmethod
     def _fuse_without(
         components: dict[str, dict[str, float]],
         weights: dict[str, float],
@@ -395,7 +465,16 @@ class LearningEngine:
         each component's impact in the actual fusion chain.
         """
         # Fusion order (same as production pipeline)
-        FUSION_ORDER = ["dc", "enhancer", "weibull", "elo", "pi", "market", "signals"]
+        FUSION_ORDER = [
+            "dc",
+            "enhancer",
+            "negbin",
+            "weibull",
+            "elo",
+            "pi",
+            "market",
+            "signals",
+        ]
         remaining_order = [k for k in FUSION_ORDER if k in components and k != exclude]
 
         if not remaining_order:
@@ -616,13 +695,21 @@ class LearningEngine:
     ) -> None:
         """Record whether model or market was closer when they disagreed."""
         market = snapshot.market_probs
-        if not market or not isinstance(market, dict) or not snapshot.baseline_probs:
+        if not market or not isinstance(market, dict):
             return
 
-        model_home = snapshot.baseline_probs.get("home", 0.5)
-        market_home = market.get("home")
-        if market_home is None:
-            return  # market_probs exists but home is null (e.g. {"home": null}) — skip
+        params = snapshot.pipeline_params or {}
+        pre_market = (
+            params.get("pre_market_probs")
+            if isinstance(params, dict)
+            else None
+        )
+        model_probs = _coerce_probs(
+            pre_market or snapshot.baseline_probs or {}
+        )
+        market_probs = _coerce_probs(market)
+        model_home = model_probs["home"]
+        market_home = market_probs["home"]
         divergence = abs(model_home - market_home)
 
         # Only log significant divergences
@@ -655,11 +742,10 @@ class LearningEngine:
 
         Identifies context tags from the snapshot and updates running averages.
         """
-        baseline = snapshot.baseline_probs or {}
-        brier = _brier(
-            {"home": baseline.get("home", 0.33), "draw": baseline.get("draw", 0.33), "away": baseline.get("away", 0.33)},
-            actual_index,
+        final_probs = _coerce_probs(
+            snapshot.adjusted_probs or snapshot.baseline_probs or {}
         )
+        brier = _brier(final_probs, actual_index)
 
         # Identify context tags
         contexts = []

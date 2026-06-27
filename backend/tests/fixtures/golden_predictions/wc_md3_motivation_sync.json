@@ -9,13 +9,14 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-26T11:56:15Z",
-    "generated_at": "2026-06-26T11:56:15Z",
+    "as_of": "2026-06-27T06:18:43Z",
+    "generated_at": "2026-06-27T06:18:43Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
       "elo",
-      "pi_rating"
+      "pi_rating",
+      "calibration"
     ],
     "weight_config": {
       "version": "4.3.0",
@@ -30,9 +31,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.12631363225811695,
-    "draw_prob": 0.28244463699617134,
-    "away_win_prob": 0.5912417307457116,
+    "home_win_prob": 0.02,
+    "draw_prob": 0.1952376851176125,
+    "away_win_prob": 0.7847623149503273,
     "home_xg": 0.7160647166781222,
     "away_xg": 1.540403292839824,
     "confidence": "fitted",
@@ -87,18 +88,7 @@
       "away": 0.6390063134182232
     },
     "weibull": null,
-    "market": {
-      "home_prob": 0.09708836359947247,
-      "draw_prob": 0.16739373034391805,
-      "away_prob": 0.7355179060566095,
-      "provider": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
-      "overround": 0.029989550679205834,
-      "home_odds": 10.0,
-      "draw_odds": 5.8,
-      "away_odds": 1.32,
-      "bookmaker": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
-      "manual_entry": true
-    }
+    "market": null
   },
   "elo": {
     "home_elo": 1574.9640488457976,
@@ -112,10 +102,21 @@
     }
   },
   "calibration_monitor": {
-    "enabled": false,
-    "reason": "skipped: market data available (market IS calibration)"
+    "enabled": true,
+    "sample_count": 69,
+    "calibration_stats": {
+      "is_fitted": true,
+      "training_samples": 69,
+      "fitted_at": "2026-06-25T09:50:26.295575+00:00",
+      "expected_calibration_error": 0.052319
+    },
+    "pre_calibration_probs": {
+      "home_win_prob": 0.12631363225811695,
+      "draw_prob": 0.28244463699617134,
+      "away_win_prob": 0.5912417307457116
+    }
   },
-  "calibration_applied": false,
+  "calibration_applied": true,
   "pipeline_params": {
     "dc_converged": true,
     "enhancer_rows": 11016,
@@ -125,7 +126,14 @@
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
     "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
     "training_df_max_date": "2026-06-24 02:00:00+00:00",
-    "require_full_context": false
+    "require_full_context": false,
+    "pre_market_probs": {
+      "home_win_prob": 0.12631363225811695,
+      "draw_prob": 0.28244463699617134,
+      "away_win_prob": 0.5912417307457116
+    },
+    "market_weight_used": 0.0,
+    "calibration_applied": true
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -161,42 +169,40 @@
       "required": false
     },
     "weather": {
-      "status": "unavailable",
-      "reason": "forecast_unavailable",
-      "detail": "{'temperature_c': None, 'precipitation_mm': 0.0, 'wind_speed_kmh': None, 'humidity_percent': None, 'weather_code': None, 'weather_description': '未知', 'fetched_at': '2026-06-26T11:56:10.823963+00:00', 'forecast_available': False}",
-      "attempted": true,
+      "status": "skipped",
+      "reason": "disabled_by_flag",
+      "detail": "",
+      "attempted": false,
       "required": false
     },
     "market": {
-      "status": "used",
-      "reason": "manual_odds_fallback",
-      "detail": "PMU (FR)/The-Odds-API (live 2026-06-24 14:34 UTC)",
-      "attempted": true,
+      "status": "skipped",
+      "reason": "disabled_by_flag",
+      "detail": "",
+      "attempted": false,
       "required": false
     }
   },
-  "degraded_reasons": [
-    {
-      "source": "weather",
-      "reason": "forecast_unavailable",
-      "severity": "warning",
-      "detail": ""
-    }
-  ],
+  "degraded_reasons": [],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-26T11:56:15Z",
-    "generated_at": "2026-06-26T11:56:15Z",
+    "as_of_time": "2026-06-27T06:18:43Z",
+    "generated_at": "2026-06-27T06:18:43Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.0",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.12631363225811698,
-        "draw": 0.2824446369961714,
-        "away": 0.5912417307457117
+        "home": 0.019999999998641202,
+        "draw": 0.19523768510434808,
+        "away": 0.7847623148970106
       },
       "snapshot_adjusted": {
+        "home": 0.019999999998641202,
+        "draw": 0.19523768510434808,
+        "away": 0.7847623148970106
+      },
+      "snapshot_baseline": {
         "home": 0.12631363225811698,
         "draw": 0.2824446369961714,
         "away": 0.5912417307457117
@@ -221,11 +227,6 @@
         "draw": 0.18535129779727935,
         "away": 0.6390063134182232
       },
-      "market_only": {
-        "home": 0.09708836359947247,
-        "draw": 0.16739373034391805,
-        "away": 0.7355179060566095
-      },
       "uniform_baseline": {
         "home": 0.3333333333333333,
         "draw": 0.3333333333333333,
@@ -242,8 +243,8 @@
         "reason": ""
       },
       "snapshot_baseline": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "dc_only": {
         "status": "available",
@@ -266,8 +267,8 @@
         "reason": "missing_or_invalid_probs"
       },
       "market_only": {
-        "status": "available",
-        "reason": ""
+        "status": "missing",
+        "reason": "missing_or_invalid_probs"
       },
       "uniform_baseline": {
         "status": "available",
