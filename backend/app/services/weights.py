@@ -76,14 +76,14 @@ class WeightConfig:
 # They match the snapshot.py _get_model_config() logic.
 
 _WORLD_CUP = WeightConfig(
-    version="4.3.0",
-    dc=0.68,            # DC+Enhancer dir both 50% (3/6) in June26 panel; keep stable
-    enhancer=0.32,      # Actual enhancer blend = 1-dc = 0.32
-    elo=0.12,           # 2/6 dir correct (33%) in June26 panel; keep, wait for more data
-    pi=0.17,            # ↑ 0.14→0.17: 4/6 dir correct (67%) in June26 panel, best non-market
-    weibull=0.10,       # (unchanged: 3/6 dir correct, mixed performance)
-    market_max=0.30,    # 4/6 dir correct (67%) in June26 panel; keep at 0.30
-    label="WORLD_CUP_V4.3.0",
+    version="4.3.1",
+    dc=0.90,            # ↑ 0.68→0.90: Enhancer 3/13 dir (23%) systematically biased away/dog;
+    enhancer=0.10,      # effective enhancer ≈6.5% after sequential dilution
+    elo=0.12,           # 9/13 dir correct (69%), reliable anchor
+    pi=0.17,            # 9/13 dir correct (69%), best non-market component
+    weibull=0.10,       # (unchanged)
+    market_max=0.30,    # 11/13 dir correct (85%), strongest component
+    label="WORLD_CUP_V4.3.1",
 )
 
 # V4.0.4-knockout: Drastically reduce Enhancer influence for WC knockout matches.
@@ -98,14 +98,14 @@ _WORLD_CUP = WeightConfig(
 #   V4.3.0:  DC=48.6%  Enh=22.9%  Wb=7.7%  Elo=13.4%  Pi=9.0%  → Pi ↑ 0.14→0.17
 #   Knockout: DC=57.6%  Enh=16.2%  Wb=6.0%  Elo=14.8%  Pi=5.5%
 _WORLD_CUP_KNOCKOUT = WeightConfig(
-    version="4.0.4-knockout",
-    dc=0.78,            # ↑ from 0.63 → enhancer blend drops from 0.37 to 0.22
-    enhancer=0.22,      # Actual enhancer blend = 1-dc = 0.22 (for learning_engine margin attribution)
-    elo=0.20,           # ↑ from 0.12: 4/5 WC dir correct, reliable anchor
-    pi=0.15,            # ↑ from 0.08: Brier 0.29 best in competitive WC fixtures
+    version="4.3.1-knockout",
+    dc=0.90,            # ↑ 0.78→0.90: par with group; Enhancer bias even more dangerous in KO
+    enhancer=0.10,      # effective enhancer ≈5.7% (sequential dilution + higher Elo/Pi)
+    elo=0.22,           # ↑ 0.20→0.22: reliable in competitive fixtures
+    pi=0.18,            # ↑ 0.15→0.18: Brier 0.29 best in competitive WC
     weibull=0.10,       # (unchanged)
     market_max=0.30,    # (unchanged)
-    label="WORLD_CUP_KNOCKOUT_V4.0.4",
+    label="WORLD_CUP_KNOCKOUT_V4.3.1",
 )
 
 _UCL_FINAL = WeightConfig(

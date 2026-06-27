@@ -37,7 +37,7 @@ def test_weight_config_immutable_values():
 def test_world_cup_weights_valid():
     """World Cup returns a valid WeightConfig (exact values may vary due to DB)."""
     config = get_weight_config("FIFA World Cup 2026", "Group A - Matchday 1")
-    assert 0.4 < config.dc <= 0.75  # DB may override code default; V3.9.6 WC=0.70
+    assert 0.4 < config.dc <= 0.95  # V4.3.1 WC=0.90 (Enhancer reduced from 23% dir accuracy)
     assert 0.0 < config.elo < 0.2
     assert config.active is True
 

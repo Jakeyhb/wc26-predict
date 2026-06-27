@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T08:00:02Z",
-    "generated_at": "2026-06-27T08:00:02Z",
+    "as_of": "2026-06-27T08:03:09Z",
+    "generated_at": "2026-06-27T08:03:09Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -19,21 +19,21 @@
       "calibration"
     ],
     "weight_config": {
-      "version": "4.3.0",
-      "dc": 0.68,
-      "enhancer": 0.32,
+      "version": "4.3.1",
+      "dc": 0.9,
+      "enhancer": 0.1,
       "elo": 0.12,
       "pi": 0.17,
       "weibull": 0.1,
       "market_max": 0.3,
       "active": true,
-      "label": "WORLD_CUP_V4.3.0"
+      "label": "WORLD_CUP_V4.3.1"
     }
   },
   "prediction": {
-    "home_win_prob": 0.5497693649726817,
-    "draw_prob": 0.20147141985446868,
-    "away_win_prob": 0.24875921517284963,
+    "home_win_prob": 0.5645052576510357,
+    "draw_prob": 0.1966835161990389,
+    "away_win_prob": 0.23881122614992542,
     "home_xg": 1.7636185694871962,
     "away_xg": 0.60041469479392,
     "confidence": "fitted",
@@ -113,9 +113,9 @@
       "expected_calibration_error": 0.052319
     },
     "pre_calibration_probs": {
-      "home_win_prob": 0.6573701226186632,
-      "draw_prob": 0.17123975122565172,
-      "away_win_prob": 0.17139012615568502
+      "home_win_prob": 0.6772278810279566,
+      "draw_prob": 0.1854120332850604,
+      "away_win_prob": 0.13736008568698305
     }
   },
   "calibration_applied": true,
@@ -123,16 +123,16 @@
     "dc_converged": true,
     "enhancer_rows": 11016,
     "elo_matches": 0,
-    "config_label": "WORLD_CUP_V4.3.0 (DC68%+Enh32%+Elo12%+Pi17%)",
+    "config_label": "WORLD_CUP_V4.3.1 (DC90%+Enh10%+Elo12%+Pi17%)",
     "training_rows": 16737,
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
     "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
     "training_df_max_date": "2026-06-24 02:00:00+00:00",
     "require_full_context": false,
     "pre_market_probs": {
-      "home_win_prob": 0.6573701226186632,
-      "draw_prob": 0.17123975122565172,
-      "away_win_prob": 0.17139012615568502
+      "home_win_prob": 0.6772278810279566,
+      "draw_prob": 0.1854120332850604,
+      "away_win_prob": 0.13736008568698305
     },
     "market_weight_used": 0.0,
     "calibration_applied": true
@@ -189,25 +189,25 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T08:00:02Z",
-    "generated_at": "2026-06-27T08:00:02Z",
+    "as_of_time": "2026-06-27T08:03:09Z",
+    "generated_at": "2026-06-27T08:03:09Z",
     "model_version": "4.3.0-beta",
-    "weight_label": "WORLD_CUP_V4.3.0",
+    "weight_label": "WORLD_CUP_V4.3.1",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.5497693649726817,
-        "draw": 0.20147141985446868,
-        "away": 0.24875921517284963
+        "home": 0.5645052576510357,
+        "draw": 0.1966835161990389,
+        "away": 0.23881122614992542
       },
       "snapshot_adjusted": {
-        "home": 0.5497693649726817,
-        "draw": 0.20147141985446868,
-        "away": 0.24875921517284963
+        "home": 0.5645052576510357,
+        "draw": 0.1966835161990389,
+        "away": 0.23881122614992542
       },
       "snapshot_baseline": {
-        "home": 0.6573701226186632,
-        "draw": 0.17123975122565172,
-        "away": 0.17139012615568502
+        "home": 0.6772278810279566,
+        "draw": 0.1854120332850604,
+        "away": 0.13736008568698305
       },
       "dc_only": {
         "home": 0.6657244681590918,
