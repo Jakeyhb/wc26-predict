@@ -88,6 +88,8 @@ class InjuryDataService:
             if self._seed_path.exists():
                 data = json.loads(self._seed_path.read_text(encoding="utf-8"))
                 for item in data:
+                    if "player_name" not in item:
+                        continue  # skip comment/placeholder entries
                     records.append(InjuryRecord(
                         player_name=item["player_name"],
                         team_name=item["team_name"],

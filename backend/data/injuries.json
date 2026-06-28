@@ -1,5 +1,192 @@
 [
   {
-    "_comment": "Intentionally empty. Injury data requires live API/manual source. System degrades gracefully (skips injury signals when empty). See app/services/injury_data.py for schema."
+    "player_name": "Raphinha",
+    "team_name": "Brazil",
+    "status": "out",
+    "injury_type": "right hamstring muscle injury",
+    "expected_return": "Round of 16 or Quarterfinal",
+    "confidence": 0.95,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Takefusa Kubo",
+    "team_name": "Japan",
+    "status": "doubtful",
+    "injury_type": "left knee injury",
+    "expected_return": "possible substitute appearance",
+    "confidence": 0.7,
+    "source": "multiple_media",
+    "last_updated": "2026-06-27T00:00:00Z"
+  },
+  {
+    "player_name": "Nico Schlotterbeck",
+    "team_name": "Germany",
+    "status": "out",
+    "injury_type": "serious ankle ligament injury",
+    "expected_return": "tournament over",
+    "confidence": 0.95,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Nathaniel Brown",
+    "team_name": "Germany",
+    "status": "doubtful",
+    "injury_type": "muscular problem",
+    "expected_return": "possible to play vs Paraguay",
+    "confidence": 0.6,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Diego Gomez",
+    "team_name": "Paraguay",
+    "status": "out",
+    "injury_type": "suspension (yellow card accumulation)",
+    "expected_return": "available for next round",
+    "confidence": 1.0,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Omar Alderete",
+    "team_name": "Paraguay",
+    "status": "doubtful",
+    "injury_type": "knee injury",
+    "expected_return": "late fitness test",
+    "confidence": 0.65,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Ramon Sosa",
+    "team_name": "Paraguay",
+    "status": "doubtful",
+    "injury_type": "muscle injury",
+    "expected_return": "late fitness test",
+    "confidence": 0.6,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T00:00:00Z"
+  },
+  {
+    "player_name": "Themba Zwane",
+    "team_name": "South Africa",
+    "status": "out",
+    "injury_type": "suspension (3-match ban, red card vs Mexico)",
+    "expected_return": "tournament over unless SA reaches quarterfinal",
+    "confidence": 1.0,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Teboho Mokoena",
+    "team_name": "South Africa",
+    "status": "available",
+    "injury_type": "returning from 1-match suspension",
+    "expected_return": "starting vs Canada",
+    "confidence": 1.0,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Ismael Kone",
+    "team_name": "Canada",
+    "status": "out",
+    "injury_type": "fractured tibia (vs Qatar)",
+    "expected_return": "tournament over",
+    "confidence": 0.95,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Alphonso Davies",
+    "team_name": "Canada",
+    "status": "doubtful",
+    "injury_type": "hamstring injury (missed entire group stage)",
+    "expected_return": "available but likely off bench vs South Africa",
+    "confidence": 0.65,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Stephen Eustaquio",
+    "team_name": "Canada",
+    "status": "doubtful",
+    "injury_type": "muscle problem",
+    "expected_return": "late fitness test",
+    "confidence": 0.55,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Alfie Jones",
+    "team_name": "Canada",
+    "status": "doubtful",
+    "injury_type": "fitness concern",
+    "expected_return": "late fitness test",
+    "confidence": 0.5,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:00:00Z"
+  },
+  {
+    "player_name": "Quinten Timber",
+    "team_name": "Netherlands",
+    "status": "doubtful",
+    "injury_type": "concussion (individual rehabilitation)",
+    "expected_return": "late fitness test",
+    "confidence": 0.55,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
+  },
+  {
+    "player_name": "Denzel Dumfries",
+    "team_name": "Netherlands",
+    "status": "available",
+    "injury_type": "slight knock, cleared to play",
+    "expected_return": "starting vs Morocco",
+    "confidence": 0.9,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
+  },
+  {
+    "player_name": "Brian Brobbey",
+    "team_name": "Netherlands",
+    "status": "available",
+    "injury_type": "minor concern, cleared to play",
+    "expected_return": "starting vs Morocco",
+    "confidence": 0.9,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
+  },
+  {
+    "player_name": "Memphis Depay",
+    "team_name": "Netherlands",
+    "status": "available",
+    "injury_type": "thigh injury recovery, building match fitness",
+    "expected_return": "bench role vs Morocco",
+    "confidence": 0.8,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
+  },
+  {
+    "player_name": "Abde Ezzalzouli",
+    "team_name": "Morocco",
+    "status": "out",
+    "injury_type": "sprained right knee + MCL tear (pre-tournament)",
+    "expected_return": "tournament over",
+    "confidence": 0.95,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
+  },
+  {
+    "player_name": "Nayef Aguerd",
+    "team_name": "Morocco",
+    "status": "out",
+    "injury_type": "failed to regain fitness (pre-tournament)",
+    "expected_return": "tournament over",
+    "confidence": 0.95,
+    "source": "multiple_media",
+    "last_updated": "2026-06-28T08:15:00Z"
   }
 ]

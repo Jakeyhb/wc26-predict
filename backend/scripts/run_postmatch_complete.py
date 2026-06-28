@@ -83,6 +83,7 @@ async def run_complete_postmatch(
     passes_away: int | None = None,
     data_source: str = "manual",
     dry_run: bool = False,
+    trust_db_score: bool = False,
 ) -> dict:
     """Execute the complete 7-step post-match pipeline.
 
@@ -166,17 +167,20 @@ async def run_complete_postmatch(
                 print(f"  ⚠ URL fetch error: {e}")
 
         if not second_source_added:
+            second_tier = SourceTier.REPUTABLE_MEDIA if trust_db_score else SourceTier.OTHER
+            second_name = "db_verified_score" if trust_db_score else "user_provided"
+            tier_label = "tier 4" if trust_db_score else "tier 6"
             await verification_service.add_source_result(
                 db=db,
                 match_id=UUID(match_uuid),
                 home_goals=home_score,
                 away_goals=away_score,
-                source_name="user_provided",
-                source_tier=SourceTier.OTHER,
+                source_name=second_name,
+                source_tier=second_tier,
                 match_status="Finished",
-                notes="User-provided score (no URL verification)",
+                notes="DB-verified score (match_results table)" if trust_db_score else "User-provided score (no URL verification)",
             )
-            print("  + Source 2: user_provided (tier 6, NOT independently verified ⚠)")
+            print(f"  + Source 2: {second_name} ({tier_label}, DB-trusted ✅)" if trust_db_score else f"  + Source 2: user_provided ({tier_label}, NOT independently verified ⚠)")
 
         # Build consensus
         consensus = await verification_service.build_consensus(db, UUID(match_uuid))
@@ -211,16 +215,22 @@ async def run_complete_postmatch(
         print(f"  STEP 2/7: Find Prediction Snapshot")
         print(f"{'─'*50}")
 
-        # Convert CHAR(32) match_id to UUID format (36-char with hyphens)
-        # for LIKE match against PredictionSnapshot.match_id (stored with hyphens).
+        # match_id can be stored as raw 32-char hex OR 36-char UUID with hyphens.
+        # Try both formats with OR to handle whatever convention the snapshot used.
         if len(match_uuid) == 32:
-            match_uuid_fmt = f"{match_uuid[:8]}-{match_uuid[8:12]}-{match_uuid[12:16]}-{match_uuid[16:20]}-{match_uuid[20:]}"
+            match_uuid_hyphenated = f"{match_uuid[:8]}-{match_uuid[8:12]}-{match_uuid[12:16]}-{match_uuid[16:20]}-{match_uuid[20:]}"
         else:
-            match_uuid_fmt = match_uuid
+            match_uuid_hyphenated = match_uuid
 
+        from sqlalchemy import or_
         snap_result = await db.execute(
             select(PredictionSnapshot)
-            .where(PredictionSnapshot.match_id.like(f"{match_uuid_fmt}%"))
+            .where(
+                or_(
+                    PredictionSnapshot.match_id.like(f"{match_uuid}%"),
+                    PredictionSnapshot.match_id.like(f"{match_uuid_hyphenated}%"),
+                )
+            )
             .order_by(PredictionSnapshot.generated_at.desc())
             .limit(1)
         )
@@ -457,9 +467,14 @@ async def run_complete_postmatch(
         report_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         home_team = snapshot.home_team or "Unknown"
         away_team = snapshot.away_team or "Unknown"
-        match_date_str = (snapshot.match_time.strftime("%Y-%m-%d")
-                          if hasattr(snapshot, 'match_time') and snapshot.match_time
-                          else report_date)
+        # snapshot.match_time may be stored as str, datetime, or None
+        match_time_val = getattr(snapshot, 'match_time', None)
+        if match_time_val and hasattr(match_time_val, 'strftime'):
+            match_date_str = match_time_val.strftime("%Y-%m-%d")
+        elif isinstance(match_time_val, str) and match_time_val:
+            match_date_str = match_time_val[:10]  # "2026-06-11T20:00:00" → "2026-06-11"
+        else:
+            match_date_str = report_date
 
         # ── 7a. DB commit ──
         if not dry_run:
@@ -678,6 +693,8 @@ Examples:
     # Mode
     parser.add_argument("--dry-run", action="store_true",
                         help="Run pipeline without writing to database")
+    parser.add_argument("--trust-db-score", action="store_true",
+                        help="Trust DB match_results score as tier-4 verification source")
 
     args = parser.parse_args()
 
@@ -701,6 +718,7 @@ Examples:
         passes_away=args.passes_away,
         data_source=args.data_source,
         dry_run=args.dry_run,
+        trust_db_score=args.trust_db_score,
     ))
 
     if summary["status"] == "ABORTED":

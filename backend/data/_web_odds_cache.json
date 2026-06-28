@@ -5,25 +5,281 @@
   "Brazil|Japan": {
     "captured_at": "2026-06-28T07:00:00Z",
     "bookmakers": [
-      {"name": "BetOnline", "region": "US", "home": 1.72, "draw": 3.80, "away": 5.00},
-      {"name": "Lucky Rebel", "region": "US", "home": 1.71, "draw": 3.85, "away": 5.00},
-      {"name": "BetNow", "region": "US", "home": 1.71, "draw": 3.75, "away": 5.25},
-      {"name": "DraftKings", "region": "US", "home": 1.74, "draw": 3.80, "away": 4.90},
-      {"name": "FanDuel", "region": "US", "home": 1.69, "draw": 3.90, "away": 5.10},
-      {"name": "bet365", "region": "UK", "home": 1.75, "draw": 3.60, "away": 4.75},
-      {"name": "William Hill", "region": "UK", "home": 1.73, "draw": 3.50, "away": 4.80},
-      {"name": "Paddy Power", "region": "UK", "home": 1.67, "draw": 3.80, "away": 5.25},
-      {"name": "球探体育", "region": "CN", "home": 1.69, "draw": 3.85, "away": 4.80},
-      {"name": "竞彩", "region": "CN", "home": 1.66, "draw": 3.28, "away": 4.50}
+      {
+        "name": "BetOnline",
+        "region": "US",
+        "home": 1.72,
+        "draw": 3.8,
+        "away": 5.0
+      },
+      {
+        "name": "Lucky Rebel",
+        "region": "US",
+        "home": 1.71,
+        "draw": 3.85,
+        "away": 5.0
+      },
+      {
+        "name": "BetNow",
+        "region": "US",
+        "home": 1.71,
+        "draw": 3.75,
+        "away": 5.25
+      },
+      {
+        "name": "DraftKings",
+        "region": "US",
+        "home": 1.74,
+        "draw": 3.8,
+        "away": 4.9
+      },
+      {
+        "name": "FanDuel",
+        "region": "US",
+        "home": 1.69,
+        "draw": 3.9,
+        "away": 5.1
+      },
+      {
+        "name": "bet365",
+        "region": "UK",
+        "home": 1.75,
+        "draw": 3.6,
+        "away": 4.75
+      },
+      {
+        "name": "William Hill",
+        "region": "UK",
+        "home": 1.73,
+        "draw": 3.5,
+        "away": 4.8
+      },
+      {
+        "name": "Paddy Power",
+        "region": "UK",
+        "home": 1.67,
+        "draw": 3.8,
+        "away": 5.25
+      },
+      {
+        "name": "球探体育",
+        "region": "CN",
+        "home": 1.69,
+        "draw": 3.85,
+        "away": 4.8
+      },
+      {
+        "name": "竞彩",
+        "region": "CN",
+        "home": 1.66,
+        "draw": 3.28,
+        "away": 4.5
+      }
     ],
     "over_under": [
-      {"name": "BetOnline", "over": 2.08, "under": 1.78},
-      {"name": "DraftKings", "over": 2.05, "under": 1.77},
-      {"name": "bet365", "over": 2.10, "under": 1.83}
+      {
+        "name": "BetOnline",
+        "over": 2.08,
+        "under": 1.78
+      },
+      {
+        "name": "DraftKings",
+        "over": 2.05,
+        "under": 1.77
+      },
+      {
+        "name": "bet365",
+        "over": 2.1,
+        "under": 1.83
+      }
     ],
     "to_advance": [
-      {"name": "FanDuel", "brazil": 1.32, "japan": 3.40},
-      {"name": "Betano", "brazil": 1.39, "japan": 3.05}
+      {
+        "name": "FanDuel",
+        "brazil": 1.32,
+        "japan": 3.4
+      },
+      {
+        "name": "Betano",
+        "brazil": 1.39,
+        "japan": 3.05
+      }
+    ]
+  },
+  "Germany|Paraguay": {
+    "captured_at": "2026-06-28T07:36:26.021337+00:00",
+    "bookmakers": [
+      {
+        "name": "FanDuel",
+        "region": "US",
+        "home": 1.4,
+        "draw": 5.0,
+        "away": 8.25
+      },
+      {
+        "name": "DraftKings",
+        "region": "US",
+        "home": 1.38,
+        "draw": 5.1,
+        "away": 8.5
+      },
+      {
+        "name": "BetOnline",
+        "region": "US",
+        "home": 1.37,
+        "draw": 5.2,
+        "away": 8.75
+      },
+      {
+        "name": "bwin",
+        "region": "UK",
+        "home": 1.36,
+        "draw": 5.0,
+        "away": 9.0
+      },
+      {
+        "name": "bet365",
+        "region": "UK",
+        "home": 1.4,
+        "draw": 5.0,
+        "away": 8.5
+      },
+      {
+        "name": "William Hill",
+        "region": "UK",
+        "home": 1.38,
+        "draw": 5.25,
+        "away": 9.0
+      },
+      {
+        "name": "Paddy Power",
+        "region": "UK",
+        "home": 1.36,
+        "draw": 5.0,
+        "away": 9.25
+      },
+      {
+        "name": "Mozzart",
+        "region": "EU",
+        "home": 1.4,
+        "draw": 5.28,
+        "away": 8.1
+      },
+      {
+        "name": "1win",
+        "region": "EU",
+        "home": 1.38,
+        "draw": 5.28,
+        "away": 9.25
+      }
+    ]
+  },
+  "South Africa|Canada": {
+    "captured_at": "2026-06-28T08:00:00Z",
+    "bookmakers": [
+      {
+        "name": "FanDuel",
+        "region": "US",
+        "home": 5.1,
+        "draw": 3.7,
+        "away": 1.714
+      },
+      {
+        "name": "DraftKings",
+        "region": "US",
+        "home": 5.0,
+        "draw": 3.5,
+        "away": 1.769
+      },
+      {
+        "name": "BetMGM",
+        "region": "US",
+        "home": 4.9,
+        "draw": 3.6,
+        "away": 1.741
+      },
+      {
+        "name": "Caesars",
+        "region": "US",
+        "home": 5.0,
+        "draw": 3.65,
+        "away": 1.714
+      },
+      {
+        "name": "bet365",
+        "region": "UK",
+        "home": 5.25,
+        "draw": 3.6,
+        "away": 1.7
+      },
+      {
+        "name": "BetOnline",
+        "region": "US",
+        "home": 5.65,
+        "draw": 3.64,
+        "away": 1.714
+      },
+      {
+        "name": "William Hill",
+        "region": "UK",
+        "home": 5.0,
+        "draw": 3.4,
+        "away": 1.7
+      }
+    ]
+  },
+  "Netherlands|Morocco": {
+    "captured_at": "2026-06-28T08:15:00Z",
+    "bookmakers": [
+      {
+        "name": "FanDuel",
+        "region": "US",
+        "home": 2.1,
+        "draw": 3.1,
+        "away": 3.9
+      },
+      {
+        "name": "DraftKings",
+        "region": "US",
+        "home": 2.15,
+        "draw": 3.2,
+        "away": 3.8
+      },
+      {
+        "name": "BetMGM",
+        "region": "US",
+        "home": 2.12,
+        "draw": 3.15,
+        "away": 3.85
+      },
+      {
+        "name": "Caesars",
+        "region": "US",
+        "home": 2.1,
+        "draw": 3.1,
+        "away": 3.9
+      },
+      {
+        "name": "bet365",
+        "region": "UK",
+        "home": 2.15,
+        "draw": 3.3,
+        "away": 3.7
+      },
+      {
+        "name": "BetOnline",
+        "region": "US",
+        "home": 2.12,
+        "draw": 3.25,
+        "away": 3.75
+      },
+      {
+        "name": "William Hill",
+        "region": "UK",
+        "home": 2.1,
+        "draw": 3.2,
+        "away": 3.8
+      }
     ]
   }
 }
