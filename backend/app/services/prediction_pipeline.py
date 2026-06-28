@@ -589,10 +589,12 @@ class PredictionPipeline:
             market_probs = await market.fetch_market_probs(
                 home_team, away_team, competition_weight, competition=competition
             )
-            # Fallback: manual odds when all APIs are down
+            # Fallback: web consensus → manual odds when all APIs are down
             if market_probs is None:
-                from app.services.market.sync_provider import _lookup_manual_odds
-                market_probs = _lookup_manual_odds(home_team, away_team)
+                from app.services.market.sync_provider import _lookup_web_consensus, _lookup_manual_odds
+                market_probs = _lookup_web_consensus(home_team, away_team)
+                if market_probs is None:
+                    market_probs = _lookup_manual_odds(home_team, away_team)
             market_result = market.calibrate(
                 {"home_win_prob": clean["home_win_prob"],
                  "draw_prob": clean["draw_prob"],

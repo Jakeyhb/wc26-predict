@@ -144,10 +144,11 @@ class MarketCalibrator:
     ) -> dict[str, Any] | None:
         """Fetch market-implied probabilities for a match.
 
-        Provider priority (R4-H6 fix — unified with sync_provider.py):
+        Provider priority (V4.3.2 — unified with sync_provider.py):
         1. apifootball.com (if key configured and odds available)
-        2. API-Sports / api-football.com (fallback)
-        3. The Odds API (tertiary fallback)
+        2. The Odds API (secondary fallback)
+        3. Web search multi-bookmaker consensus (_web_odds_cache.json)
+        4. Manual odds file (_manual_odds.json, last resort)
 
         Returns None if:
         - No API keys are configured
@@ -243,6 +244,62 @@ class MarketCalibrator:
 
         except Exception as e:
             logger.warning(f"Market fetch error (The Odds API): {e}")
+
+        # ── Provider 3: Web search multi-bookmaker consensus ──
+        # Pure file I/O — reads _web_odds_cache.json populated by ingest_web_odds.py
+        try:
+            from app.services.market.web_odds_aggregator import lookup
+            web_result = lookup(home_team, away_team)
+            if web_result is not None:
+                from datetime import datetime as _dt, timezone as _tz
+                logger.info(
+                    f"Market data from web consensus "
+                    f"({web_result.get('sample_bookmakers', 0)} bookmakers) for "
+                    f"{home_team} vs {away_team}: "
+                    f"home={web_result['home_prob']:.3f}"
+                )
+                return {
+                    "home_prob": web_result["home_prob"],
+                    "draw_prob": web_result["draw_prob"],
+                    "away_prob": web_result["away_prob"],
+                    "vig": web_result.get("overround", 0),
+                    "sample_bookmakers": web_result.get("sample_bookmakers", 0),
+                    "source": "web-search-consensus",
+                    "bookmaker": web_result.get("bookmaker", "multi-bookmaker"),
+                    "web_verified": True,
+                    "cv": {
+                        "home": web_result.get("cv_home", 0),
+                        "draw": web_result.get("cv_draw", 0),
+                        "away": web_result.get("cv_away", 0),
+                    },
+                    "fetched_at": web_result.get("captured_at", ""),
+                }
+        except Exception as e:
+            logger.debug("Web odds aggregator lookup failed: %s", e)
+
+        # ── Provider 4: Manual odds file (last resort) ──
+        try:
+            from app.services.market.sync_provider import _lookup_manual_odds
+            manual_result = _lookup_manual_odds(home_team, away_team)
+            if manual_result is not None:
+                from datetime import datetime as _dt, timezone as _tz
+                logger.info(
+                    f"Market data from manual file for "
+                    f"{home_team} vs {away_team}: "
+                    f"home={manual_result['home_prob']:.3f}"
+                )
+                return {
+                    "home_prob": manual_result["home_prob"],
+                    "draw_prob": manual_result["draw_prob"],
+                    "away_prob": manual_result["away_prob"],
+                    "vig": manual_result.get("overround", 0),
+                    "sample_bookmakers": 1,
+                    "source": "manual-odds-file",
+                    "bookmaker": manual_result.get("bookmaker", "manual"),
+                    "fetched_at": "",
+                }
+        except Exception as e:
+            logger.debug("Manual odds lookup failed: %s", e)
 
         return None
 

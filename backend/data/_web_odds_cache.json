@@ -1,0 +1,29 @@
+{
+  "_schema": "1.0",
+  "_description": "Multi-bookmaker odds cache populated via web search cross-validation. Each entry stores per-bookmaker raw odds + computed consensus. Used by web_odds_aggregator.py as tertiary fallback when API returns ≤2 bookmakers.",
+  "_ttl_hours": 6,
+  "Brazil|Japan": {
+    "captured_at": "2026-06-28T07:00:00Z",
+    "bookmakers": [
+      {"name": "BetOnline", "region": "US", "home": 1.72, "draw": 3.80, "away": 5.00},
+      {"name": "Lucky Rebel", "region": "US", "home": 1.71, "draw": 3.85, "away": 5.00},
+      {"name": "BetNow", "region": "US", "home": 1.71, "draw": 3.75, "away": 5.25},
+      {"name": "DraftKings", "region": "US", "home": 1.74, "draw": 3.80, "away": 4.90},
+      {"name": "FanDuel", "region": "US", "home": 1.69, "draw": 3.90, "away": 5.10},
+      {"name": "bet365", "region": "UK", "home": 1.75, "draw": 3.60, "away": 4.75},
+      {"name": "William Hill", "region": "UK", "home": 1.73, "draw": 3.50, "away": 4.80},
+      {"name": "Paddy Power", "region": "UK", "home": 1.67, "draw": 3.80, "away": 5.25},
+      {"name": "球探体育", "region": "CN", "home": 1.69, "draw": 3.85, "away": 4.80},
+      {"name": "竞彩", "region": "CN", "home": 1.66, "draw": 3.28, "away": 4.50}
+    ],
+    "over_under": [
+      {"name": "BetOnline", "over": 2.08, "under": 1.78},
+      {"name": "DraftKings", "over": 2.05, "under": 1.77},
+      {"name": "bet365", "over": 2.10, "under": 1.83}
+    ],
+    "to_advance": [
+      {"name": "FanDuel", "brazil": 1.32, "japan": 3.40},
+      {"name": "Betano", "brazil": 1.39, "japan": 3.05}
+    ]
+  }
+}

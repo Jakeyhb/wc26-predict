@@ -11,7 +11,8 @@ Provides:
 Graceful degradation:
     1. apifootball.com       (primary — live API)
     2. The Odds API          (secondary — live API)
-    3. _manual_odds.json     (last resort — cached odds when all APIs down)
+    3. _web_odds_cache.json   (tertiary — web-search multi-bookmaker consensus)
+    4. _manual_odds.json       (last resort — single-bookmaker cached odds)
 """
 
 from __future__ import annotations
@@ -29,11 +30,28 @@ logger = logging.getLogger(__name__)
 _MANUAL_ODDS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "_manual_odds.json"
 
 
+def _lookup_web_consensus(home_team: str, away_team: str) -> dict[str, Any] | None:
+    """Check the web odds cache for multi-bookmaker consensus.
+
+    This is the tertiary fallback when live APIs return 0 or ≤2 bookmakers.
+    The cache is populated via web search (Claude → ingest_web_odds.py →
+    _web_odds_cache.json) with 8-12 bookmakers for high-profile matches.
+
+    Returns None when the cache entry is stale (>6h) or missing.
+    """
+    try:
+        from app.services.market.web_odds_aggregator import lookup
+        return lookup(home_team, away_team)
+    except Exception as exc:
+        logger.debug("Web odds aggregator unavailable: %s", exc)
+        return None
+
+
 def _lookup_manual_odds(home_team: str, away_team: str) -> dict[str, Any] | None:
     """Check the manual odds file for web-verified odds.
 
-    Used as a tertiary fallback when both apifootball.com and The Odds API
-    are unavailable or have exhausted their quotas.
+    Used as a quaternary fallback when apifootball.com, The Odds API, and
+    the web odds cache are all unavailable or have exhausted their quotas.
     """
     if not _MANUAL_ODDS_PATH.exists():
         return None
@@ -84,10 +102,11 @@ def fetch_market_consensus_sync(
 ) -> dict[str, Any] | None:
     """Fetch 1X2 market implied probabilities synchronously.
 
-    Priority (V4.1.4 — APIs restored, now primary):
+    Priority (V4.3.2 — web consensus as tertiary fallback):
     1. apifootball.com (live API — key configured)
     2. The Odds API (live API — key configured)
-    3. _manual_odds.json (last resort — cached odds when all APIs down)
+    3. _web_odds_cache.json (web-search multi-bookmaker consensus, 6h TTL)
+    4. _manual_odds.json (last resort — single-bookmaker cached odds)
 
     Returns:
         {
@@ -103,7 +122,7 @@ def fetch_market_consensus_sync(
         or None if all providers failed.
     """
     # ── Primary: live APIs (apifootball.com → The Odds API) ──
-    # Both APIs are operational as of V4.1.4. Try them first for fresh odds.
+    # Both APIs are operational as of V4.3.2. Try them first for fresh odds.
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -121,6 +140,16 @@ def fetch_market_consensus_sync(
             "skipping async API calls for %s vs %s",
             home_team, away_team,
         )
+
+    # ── Fallback: web odds cache (multi-bookmaker consensus) ──
+    # Pure file I/O — works in both sync and async contexts.
+    result = _lookup_web_consensus(home_team, away_team)
+    if result is not None:
+        logger.info(
+            "Market odds from web consensus (%d bookmakers): %s vs %s",
+            result.get("sample_bookmakers", 0), home_team, away_team,
+        )
+        return result
 
     # ── Fallback: manual odds file (last resort) ──
     # Pure file I/O — works in both sync and async contexts.
