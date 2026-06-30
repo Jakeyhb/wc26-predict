@@ -159,6 +159,8 @@ def fuse_dc_enhancer_adaptive(
     dc_probs: dict[str, float],
     enh_probs: dict[str, float],
     dc_base_weight: float,
+    *,
+    consensus_probs: list[dict[str, float]] | None = None,
 ) -> tuple[dict[str, float], float, bool, float]:
     """Fuse DC and Enhancer with adaptive divergence guard.
 
@@ -167,15 +169,39 @@ def fuse_dc_enhancer_adaptive(
     conflict guard: when DC and Enhancer disagree on the favorite, skip weight
     reduction and use normal fusion.
 
+    V4.3.2 — Consensus gate: when *consensus_probs* (probs from Elo, Pi,
+    Weibull, Market) disagree with Enhancer on the favorite AND the
+    Enhancer's favorite probability deviates >30pp from the consensus
+    median, the Enhancer is fully gated (weight = 0).  This prevents a
+    single rogue component from pulling the ensemble toward extreme
+    underdog / 3-way-coinflip predictions.
+
     Args:
         dc_probs: dict with home_win_prob/draw_prob/away_win_prob
         enh_probs: dict with home_win_prob/draw_prob/away_win_prob
-        dc_base_weight: base DC weight from weight config (e.g. 0.68)
+        dc_base_weight: base DC weight from weight config (e.g. 0.90)
+        consensus_probs: optional list of other component dicts for
+            consensus-based Enhancer gating
 
     Returns:
         (fused_probs, max_divergence_pp, direction_conflict, effective_dc_weight)
     """
     dc_w_ef = float(dc_base_weight)
+
+    # ── V4.3.2 Consensus gate: disable Enhancer when it is an extreme outlier ──
+    enhancer_gated = False
+    if consensus_probs and len(consensus_probs) >= 2:
+        enh_fav_key = max(enh_probs, key=enh_probs.get)
+        enh_fav_val = enh_probs[enh_fav_key]
+        # Median favorite probability across consensus components
+        consensus_vals = sorted(
+            comp[enh_fav_key] for comp in consensus_probs
+            if enh_fav_key in comp
+        )
+        if len(consensus_vals) >= 2:
+            median_consensus = consensus_vals[len(consensus_vals) // 2]
+            if abs(enh_fav_val - median_consensus) > 0.30:
+                enhancer_gated = True
 
     # Compute per-outcome divergence
     divs = {}
@@ -187,12 +213,14 @@ def fuse_dc_enhancer_adaptive(
     enh_fav = max(enh_probs, key=enh_probs.get)
     direction_conflict = (dc_fav != enh_fav)
 
-    if max_div > 20 and not direction_conflict:
+    if enhancer_gated:
+        # Enhancer is an extreme outlier vs consensus — skip entirely
+        dc_w_ef = 1.0
+    elif max_div > 20 and not direction_conflict:
         shift = min(0.15, (max_div - 20) * 0.015)
         dc_w_ef = max(0.30, dc_base_weight - shift)
 
-    # Always use manual weighted-fusion (was: lazy-imported fuse_outcome_probabilities
-    # for normal case; now inlined to avoid circular dependency on tabular_match_model)
+    # Always use manual weighted-fusion
     enh_w = 1.0 - dc_w_ef
     fused = _normalize_triplet({
         k: dc_probs[k] * dc_w_ef + enh_probs[k] * enh_w
@@ -302,10 +330,20 @@ def run_core_fusion(
     direction_conflict = False
     dc_w_ef = dc_base_weight
 
-    # ── Step 2: DC + Enhancer (adaptive) ──
+    # ── Step 2: DC + Enhancer (adaptive, with consensus gate) ──
     if enh_probs is not None:
+        # Build consensus list from other available components
+        _consensus = []
+        for _src in [weibull_probs, elo_probs, pi_probs]:
+            if _src is not None:
+                _consensus.append({
+                    "home_win_prob": float(_src.get("home_win_prob", 0)),
+                    "draw_prob": float(_src.get("draw_prob", 0)),
+                    "away_win_prob": float(_src.get("away_win_prob", 0)),
+                })
         fused, divergence_pp, direction_conflict, dc_w_ef = \
-            fuse_dc_enhancer_adaptive(fused, enh_probs, dc_base_weight)
+            fuse_dc_enhancer_adaptive(fused, enh_probs, dc_base_weight,
+                                      consensus_probs=_consensus if _consensus else None)
 
     # ── Step 3: NegBin 5% (overdispersion correction) ──
     negbin_applied = False

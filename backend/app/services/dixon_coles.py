@@ -48,12 +48,12 @@ WC26_FIFA_TIERS: dict[str, int] = {
     "Netherlands": 1, "Germany": 1, "Belgium": 1, "Croatia": 1,
     "Italy": 1, "Denmark": 2, "Switzerland": 2, "Austria": 2,
     "Serbia": 2, "Ukraine": 2, "Sweden": 2, "Turkey": 2,
-    "Poland": 2, "Wales": 3, "Hungary": 3, "Czechia": 3,
+    "Poland": 2, "Wales": 3, "Hungary": 3, "Czech Republic": 3, "Czechia": 3,
     "Norway": 3, "Scotland": 3, "Romania": 3, "Slovakia": 3,
     "Greece": 3, "Slovenia": 4, "Bulgaria": 4, "Finland": 4,
     # CAF
     "Morocco": 2, "Senegal": 2, "Egypt": 2, "Nigeria": 2,
-    "Cameroon": 3, "Côte d'Ivoire": 3, "Ghana": 3,
+    "Cameroon": 3, "Ivory Coast": 3, "Ghana": 3,
     "Tunisia": 3, "Algeria": 3, "South Africa": 3,
     "Mali": 3, "Burkina Faso": 4, "Burundi": 4, "DR Congo": 4, "Guinea": 4,
     # AFC
@@ -389,7 +389,7 @@ class DixonColesModel:
             args=(home_idx, away_idx, h_arr, a_arr, w_arr, neutral_arr, team_count, team_counts),
             method="L-BFGS-B",
             bounds=bounds,
-            options={"maxiter": 2000, "maxfun": 10000},
+            options={"maxiter": 5000, "maxfun": 50000},
         )
         if result.success:
             self.attack_params, self.defense_params, self.home_advantage, self.rho = self._unpack_params(result.x)

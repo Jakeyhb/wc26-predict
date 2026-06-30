@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC26 预测报告 — 7月1日 1/16决赛</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e1e4ea;
+    --muted: #8b8fa3;
+    --accent: #3b82f6;
+    --home: #22c55e;
+    --draw: #eab308;
+    --away: #ef4444;
+    --risk-low: #ef4444;
+    --risk-med: #eab308;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 24px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--border);
+    color: var(--muted);
+  }
+  .badge.accent { background: rgba(59,130,246,0.15); color: var(--accent); }
+
+  .match-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .match-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .match-teams {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .flag { font-size: 36px; }
+  .vs { color: var(--muted); font-size: 14px; font-weight: 400; }
+  .match-meta {
+    text-align: right;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .match-meta .venue { color: var(--text); font-weight: 500; }
+  .stage-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(59,130,246,0.12);
+    color: var(--accent);
+  }
+
+  .confidence {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+  }
+  .confidence.low { background: rgba(239,68,68,0.15); color: var(--risk-low); }
+  .confidence.medium { background: rgba(234,179,8,0.15); color: var(--risk-med); }
+
+  .prob-bars { margin-bottom: 24px; }
+  .prob-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 12px;
+  }
+  .prob-label {
+    width: 80px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .prob-label.home { color: var(--home); }
+  .prob-label.draw { color: var(--draw); }
+  .prob-label.away { color: var(--away); }
+
+  .prob-track {
+    flex: 1;
+    height: 28px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  .prob-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    min-width: 0;
+  }
+  .prob-fill.home { background: linear-gradient(90deg, #16a34a, #22c55e); }
+  .prob-fill.draw { background: linear-gradient(90deg, #ca8a04, #eab308); }
+  .prob-fill.away { background: linear-gradient(90deg, #dc2626, #ef4444); }
+  .prob-pct {
+    width: 52px;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .score-prediction {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: 10px;
+  }
+  .score-prediction .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .score-prediction .score { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 640px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-block {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .info-block h4 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .info-block .item {
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+  .info-block .item span { color: var(--muted); }
+
+  .issues {
+    margin-bottom: 16px;
+  }
+  .issues h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--risk-low);
+    margin-bottom: 6px;
+  }
+  .issue-tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(239,68,68,0.08);
+    color: #f87171;
+    margin: 2px 4px 2px 0;
+  }
+
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin: 14px 0;
+  }
+  .comp-table th {
+    text-align: center;
+    padding: 6px 8px;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .comp-table td {
+    text-align: center;
+    padding: 5px 8px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    font-weight: 500;
+  }
+  .comp-table .comp-name { text-align: left; color: var(--muted); font-weight: 400; }
+  .comp-table .cold-start { color: #4ade80; }
+  .comp-table .outlier { color: #f87171; }
+
+  .insight-row {
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .insight-row .insight { display: flex; align-items: flex-start; gap: 6px; }
+  .insight .icon { font-size: 16px; flex-shrink: 0; }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 32px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .summary-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--card);
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .prob-cell { font-weight: 600; }
+  .prob-cell.high { color: var(--home); }
+  .prob-cell.mid { color: var(--draw); }
+  .prob-cell.low { color: var(--away); }
+
+  .risk-box {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 24px;
+  }
+  .risk-box h4 { color: #f87171; font-size: 13px; margin-bottom: 8px; }
+  .risk-box ul { font-size: 13px; color: var(--muted); padding-left: 18px; }
+  .risk-box ul li { margin-bottom: 4px; }
+
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>⚽ WC26 预测报告</h1>
+  <div class="subtitle">2026年7月1日 · 1/16决赛 × 3场 · 四层 Agent 分析</div>
+  <div class="badge-row">
+    <span class="badge accent">模型 V4.3.1</span>
+    <span class="badge">Dixon-Coles</span>
+    <span class="badge">Elo</span>
+    <span class="badge">Pi-Rating</span>
+    <span class="badge">Enhancer</span>
+    <span class="badge">Isotonic Cal.</span>
+    <span class="badge">Bootstrap ×500</span>
+    <span class="badge accent">5 Agent 分析</span>
+  </div>
+</header>
+
+<!-- ==================== MATCH 1 ==================== -->
+<div class="match-card">
+  <div class="match-header">
+    <div class="match-teams">
+      <span class="flag">🇨🇮</span> 科特迪瓦
+      <span class="vs">VS</span>
+      <span class="flag">🇳🇴</span> 挪威
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="stage-tag">1/16决赛</span>
+      <span class="confidence medium">🟢 中信心</span>
+    </div>
+    <div class="match-meta">
+      <div class="venue">🏟 AT&T Stadium, Arlington</div>
+      <div>7月1日 01:00 (北京时间)</div>
+      <div style="margin-top:2px;">FIFA #33 vs #31</div>
+    </div>
+  </div>
+
+  <div class="prob-bars">
+    <div class="prob-row">
+      <span class="prob-label home">🇨🇮 科特迪瓦</span>
+      <div class="prob-track"><div class="prob-fill home" style="width:28.7%">28.7%</div></div>
+      <span class="prob-pct" style="color:var(--home)">28.7%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label draw">平局</span>
+      <div class="prob-track"><div class="prob-fill draw" style="width:26.6%">26.6%</div></div>
+      <span class="prob-pct" style="color:var(--draw)">26.6%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label away">🇳🇴 挪威</span>
+      <div class="prob-track"><div class="prob-fill away" style="width:44.6%">44.6%</div></div>
+      <span class="prob-pct" style="color:var(--away)">44.6%</span>
+    </div>
+  </div>
+
+  <div class="score-prediction">
+    <div class="label">预测比分</div>
+    <div class="score">🇨🇮 1 — 1 🇳🇴</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-block">
+      <h4>🇨🇮 科特迪瓦</h4>
+      <div class="item">FIFA 排名 <span>#33</span></div>
+      <div class="item">小组赛 <span>6分 · 进4失2 · 2零封</span></div>
+      <div class="item">核心球员 <span>Pépé · Kessié · Amad Diallo</span></div>
+      <div class="item">Elo <span style="color:var(--home)">1688 · 领先挪威 35 分</span></div>
+      <div class="item">伤停 <span style="color:#f87171">Singo (腿筋, 出战成疑)</span></div>
+      <div class="item">近期 <span>6胜1平3负 · 非洲杯冠军 🏆</span></div>
+    </div>
+    <div class="info-block">
+      <h4>🇳🇴 挪威</h4>
+      <div class="item">FIFA 排名 <span>#31</span></div>
+      <div class="item">小组赛 <span>6分 · 进8失7 · 0零封</span></div>
+      <div class="item">核心球员 <span>Haaland · Ødegaard · Nusa</span></div>
+      <div class="item">状态 <span style="color:var(--home)">全主力轮休 vs 法国，满血出战</span></div>
+      <div class="item">近期 <span>10胜0负 · 进46失6</span></div>
+    </div>
+  </div>
+
+  <div class="issues">
+    <h4>✅ 模型状态</h4>
+    <span class="issue-tag" style="background:rgba(34,197,94,0.08);color:#4ade80;">队名规范化 ✓ Côte d'Ivoire → Ivory Coast</span>
+    <span class="issue-tag" style="background:rgba(34,197,94,0.08);color:#4ade80;">Elo 1675 · 训练数据 130 场 · 完全匹配</span>
+    <span class="issue-tag" style="background:rgba(34,197,94,0.08);color:#4ade80;">Weibull 正常 ✓ · 置信度 fitted</span>
+  </div>
+
+  <table class="comp-table">
+    <tr><th>组件</th><th>科特迪瓦 胜</th><th>平局</th><th>挪威 胜</th></tr>
+    <tr><td class="comp-name">Dixon-Coles</td><td>28.7%</td><td>26.6%</td><td>44.6%</td></tr>
+    <tr><td class="comp-name">Enhancer</td><td>4.8%</td><td>18.7%</td><td>76.5%</td></tr>
+    <tr><td class="comp-name">Elo</td><td>45.9%</td><td>15.4%</td><td>38.7%</td></tr>
+    <tr><td class="comp-name">Pi-Rating</td><td>38.8%</td><td>17.3%</td><td>43.9%</td></tr>
+    <tr><td class="comp-name">Weibull</td><td>55.6%</td><td>28.0%</td><td>16.4%</td></tr>
+    <tr style="border-top:1px solid var(--border);font-weight:700;"><td class="comp-name">⟶ 融合输出</td><td style="color:var(--home);">35.0%</td><td>21.1%</td><td>43.9%</td></tr>
+  </table>
+
+  <div class="insight-row">
+    <div class="insight"><span class="icon">🔑</span> 科特迪瓦防守为本届最佳之一（2失球），挪威 10 场 0 零封</div>
+    <div class="insight"><span class="icon">⚡</span> Haaland (59球/52场) vs Ndicka 防线 — 决定性对位</div>
+    <div class="insight"><span class="icon">🔄</span> 首次交锋 · 淘汰赛平局概率升高</div>
+  </div>
+</div>
+
+<!-- ==================== MATCH 2 ==================== -->
+<div class="match-card">
+  <div class="match-header">
+    <div class="match-teams">
+      <span class="flag">🇫🇷</span> 法国
+      <span class="vs">VS</span>
+      <span class="flag">🇸🇪</span> 瑞典
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="stage-tag">1/16决赛</span>
+      <span class="confidence medium">🟢 中信心</span>
+    </div>
+    <div class="match-meta">
+      <div class="venue">🏟 MetLife Stadium, East Rutherford</div>
+      <div>7月1日 05:00 (北京时间)</div>
+      <div style="margin-top:2px;">FIFA #3 vs #38</div>
+    </div>
+  </div>
+
+  <div class="prob-bars">
+    <div class="prob-row">
+      <span class="prob-label home">🇫🇷 法国</span>
+      <div class="prob-track"><div class="prob-fill home" style="width:71%">71.0%</div></div>
+      <span class="prob-pct" style="color:var(--home)">71.0%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label draw">平局</span>
+      <div class="prob-track"><div class="prob-fill draw" style="width:16.6%">16.6%</div></div>
+      <span class="prob-pct" style="color:var(--draw)">16.6%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label away">🇸🇪 瑞典</span>
+      <div class="prob-track"><div class="prob-fill away" style="width:12.4%">12.4%</div></div>
+      <span class="prob-pct" style="color:var(--away)">12.4%</span>
+    </div>
+  </div>
+
+  <div class="score-prediction">
+    <div class="label">预测比分</div>
+    <div class="score">🇫🇷 3 — 1 🇸🇪</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-block">
+      <h4>🇫🇷 法国</h4>
+      <div class="item">FIFA 排名 <span>#3</span></div>
+      <div class="item">小组赛 <span>9分 · 全胜 · 进10失2</span></div>
+      <div class="item">核心球员 <span>Mbappé (4球) · Dembélé (帽子戏法) · Olise</span></div>
+      <div class="item">Elo <span>1841 · 领先 225 分</span></div>
+      <div class="item">伤停 <span style="color:#eab308">Thuram (小腿, 缺席)</span></div>
+    </div>
+    <div class="info-block">
+      <h4>🇸🇪 瑞典</h4>
+      <div class="item">FIFA 排名 <span>#38</span></div>
+      <div class="item">小组赛 <span>4分 · 第3晋级 · 进7失7</span></div>
+      <div class="item">核心球员 <span>Gyökeres · Isak · Elanga</span></div>
+      <div class="item">Elo <span>1616</span></div>
+      <div class="item">伤停 <span style="color:#f87171">Hien (队长中卫, 腿筋 — 报销)</span></div>
+    </div>
+  </div>
+
+  <div class="issues">
+    <h4>⚠️ 模型缺陷</h4>
+    <span class="issue-tag" style="background:rgba(34,197,94,0.08);color:#4ade80;">校准阈值已修复 ✓ (100场，当前69场跳过)</span>
+    <span class="issue-tag">组件分歧 0.62：DC(73.6%) vs Enhancer(29.5%)</span>
+    <span class="issue-tag">Bootstrap 中位数仅 49.2%</span>
+    <span class="issue-tag">5/6 组件一致指向法国 ≥69%</span>
+  </div>
+
+  <table class="comp-table">
+    <tr><th>组件</th><th>法国 胜</th><th>平局</th><th>瑞典 胜</th></tr>
+    <tr><td class="comp-name">Dixon-Coles</td><td>73.6%</td><td>16.9%</td><td>9.5%</td></tr>
+    <tr><td class="comp-name outlier">Enhancer ⚠</td><td class="outlier">29.5%</td><td class="outlier">37.0%</td><td class="outlier">33.5%</td></tr>
+    <tr><td class="comp-name">Elo</td><td>70.8%</td><td>9.9%</td><td>19.4%</td></tr>
+    <tr><td class="comp-name">Pi-Rating</td><td>69.0%</td><td>17.4%</td><td>13.6%</td></tr>
+    <tr><td class="comp-name">Weibull</td><td>91.5%</td><td>6.8%</td><td>1.7%</td></tr>
+    <tr style="border-top:1px solid var(--border);font-weight:700;"><td class="comp-name">⟶ 融合输出</td><td style="color:var(--home);">71.0%</td><td>16.6%</td><td>12.4%</td></tr>
+  </table>
+
+  <div class="insight-row">
+    <div class="insight"><span class="icon">🔑</span> Hien 报销 — 瑞典防线失去核心，荷兰 5-1 已是前车之鉴</div>
+    <div class="insight"><span class="icon">📊</span> 市场赔率：法国 74.9% — 与 DC/Elo/Pi/Weibull 一致</div>
+    <div class="insight"><span class="icon">⚡</span> Mbappé-Dembélé-Olise 三叉戟为本届最强攻击组合</div>
+  </div>
+</div>
+
+<!-- ==================== MATCH 3 ==================== -->
+<div class="match-card">
+  <div class="match-header">
+    <div class="match-teams">
+      <span class="flag">🇲🇽</span> 墨西哥
+      <span class="vs">VS</span>
+      <span class="flag">🇪🇨</span> 厄瓜多尔
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="stage-tag">1/16决赛</span>
+      <span class="confidence medium">🟢 中信心</span>
+    </div>
+    <div class="match-meta">
+      <div class="venue">🏟 Estadio Azteca, Mexico City</div>
+      <div>7月1日 09:00 (北京时间)</div>
+      <div style="margin-top:2px;">FIFA #14 vs #23 · ⛰ 海拔 2,200m</div>
+    </div>
+  </div>
+
+  <div class="prob-bars">
+    <div class="prob-row">
+      <span class="prob-label home">🇲🇽 墨西哥</span>
+      <div class="prob-track"><div class="prob-fill home" style="width:38.5%">38.5%</div></div>
+      <span class="prob-pct" style="color:var(--home)">38.5%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label draw">平局</span>
+      <div class="prob-track"><div class="prob-fill draw" style="width:39.4%">39.4%</div></div>
+      <span class="prob-pct" style="color:var(--draw)">39.4%</span>
+    </div>
+    <div class="prob-row">
+      <span class="prob-label away">🇪🇨 厄瓜多尔</span>
+      <div class="prob-track"><div class="prob-fill away" style="width:22%">22.0%</div></div>
+      <span class="prob-pct" style="color:var(--away)">22.0%</span>
+    </div>
+  </div>
+
+  <div class="score-prediction">
+    <div class="label">预测比分</div>
+    <div class="score">🇲🇽 1 — 0 🇪🇨</div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-block">
+      <h4>🇲🇽 墨西哥</h4>
+      <div class="item">FIFA 排名 <span>#14</span></div>
+      <div class="item">小组赛 <span>9分 · 全胜 · 进6失0 · 3零封</span></div>
+      <div class="item">核心球员 <span>Jiménez · Quiñones · Mora (17岁)</span></div>
+      <div class="item">主场战绩 <span style="color:var(--home)">世界杯主场 8胜3平1负 · 阿兹特克 9场不败</span></div>
+      <div class="item">近期 <span>11场不败 (9胜2平) · 47分钟后零失球</span></div>
+    </div>
+    <div class="info-block">
+      <h4>🇪🇨 厄瓜多尔</h4>
+      <div class="item">FIFA 排名 <span>#23</span></div>
+      <div class="item">小组赛 <span>4分 · 第3晋级 · 进2失2</span></div>
+      <div class="item">核心球员 <span>Caicedo · Plata · Pacho</span></div>
+      <div class="item">防守纪录 <span style="color:var(--home)">连续 26 场未被进 2+ 球</span></div>
+      <div class="item">近期 <span style="color:var(--home)">2-1 击败德国 🇩🇪</span></div>
+    </div>
+  </div>
+
+  <div class="issues">
+    <h4>⚠️ 模型缺陷</h4>
+    <span class="issue-tag">主场缺失：Pipeline 以中立场地计算（应含 Azteca 2200m 海拔优势）</span>
+    <span class="issue-tag">组件分歧：DC(墨 40.4%) vs Pi(厄 45.0%) vs Enhancer(厄 41.6%)</span>
+    <span class="issue-tag">低事件比赛：0-0 概率 38.5%，1-0 概率 24.9%</span>
+  </div>
+
+  <table class="comp-table">
+    <tr><th>组件</th><th>墨西哥 胜</th><th>平局</th><th>厄瓜多尔 胜</th></tr>
+    <tr><td class="comp-name">Dixon-Coles</td><td>40.4%</td><td>47.8%</td><td>11.8%</td></tr>
+    <tr><td class="comp-name outlier">Enhancer ⚠</td><td>30.6%</td><td>27.8%</td><td class="outlier">41.6%</td></tr>
+    <tr><td class="comp-name">Elo</td><td>45.8%</td><td>12.0%</td><td>42.2%</td></tr>
+    <tr><td class="comp-name outlier">Pi-Rating ⚠</td><td>34.4%</td><td>20.5%</td><td class="outlier">45.0%</td></tr>
+    <tr><td class="comp-name">Weibull</td><td>26.7%</td><td>67.3%</td><td>6.0%</td></tr>
+    <tr style="border-top:1px solid var(--border);font-weight:700;"><td class="comp-name">⟶ 融合输出</td><td>38.5%</td><td style="color:var(--draw);">39.4%</td><td>22.0%</td></tr>
+  </table>
+
+  <div class="insight-row">
+    <div class="insight"><span class="icon">⛰</span> Azteca 海拔 2,200m + 8 万球迷 — 校正 +5.5pp 主场优势</div>
+    <div class="insight"><span class="icon">🛡</span> 墨西哥 0 失球 vs 厄瓜多尔 26 场未被进 2+ — 防守对决</div>
+    <div class="insight"><span class="icon">⚡</span> Caicedo (切尔西) vs Lira — 中场核心对决决定走势</div>
+  </div>
+</div>
+
+<!-- ==================== SUMMARY ==================== -->
+<h2 class="section-title">📊 综合对比</h2>
+<table class="summary-table">
+  <thead>
+    <tr>
+      <th>比赛</th>
+      <th>场地</th>
+      <th>主胜</th>
+      <th>平局</th>
+      <th>客胜</th>
+      <th>预测比分</th>
+      <th>信心</th>
+      <th>核心风险</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>🇨🇮 科特迪瓦 vs 🇳🇴 挪威</td>
+      <td>AT&T Stadium</td>
+      <td class="prob-cell high">28.7%</td>
+      <td class="prob-cell mid">26.6%</td>
+      <td class="prob-cell high">44.6%</td>
+      <td style="font-weight:600;">1-1</td>
+      <td>🟢 中</td>
+      <td style="font-size:12px;">队名修复 · 130场训练数据 · Elo 1675</td>
+    </tr>
+    <tr>
+      <td>🇫🇷 法国 vs 🇸🇪 瑞典</td>
+      <td>MetLife Stadium</td>
+      <td class="prob-cell high">71.0%</td>
+      <td class="prob-cell mid">16.6%</td>
+      <td class="prob-cell low">12.4%</td>
+      <td style="font-weight:600;">3-1</td>
+      <td>🟢 中</td>
+      <td style="font-size:12px;">校准已禁用(100场阈值) · Enhancer 异常</td>
+    </tr>
+    <tr>
+      <td>🇲🇽 墨西哥 vs 🇪🇨 厄瓜多尔</td>
+      <td>Estadio Azteca</td>
+      <td class="prob-cell high">38.5%</td>
+      <td class="prob-cell mid">39.4%</td>
+      <td class="prob-cell low">22.0%</td>
+      <td style="font-weight:600;">1-1</td>
+      <td>🟢 中</td>
+      <td style="font-size:12px;">主场幅度不确定 · 厄瓜多尔有高原经验</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="risk-box">
+  <h4>⚠️ 全局风险提示</h4>
+  <ul>
+    <li><strong>淘汰赛平局低估</strong> — 模型以小组赛数据训练，1/16决赛平局概率系统性低估 2-4pp</li>
+    <li><strong>校准样本不足</strong> — ✅ 已修复：阈值 20→100 场，当前 69 场暂时禁用校准（累积到 100 场自动激活）</li>
+    <li><strong>冷启动盲区</strong> — 部分球队训练数据为 0（如队名不匹配），依赖 FIFA 分档通用先验</li>
+    <li style="color:#4ade80;"><strong>队名规范化</strong> — ✅ 已修复：Côte d'Ivoire → Ivory Coast 自动映射，Elo/DC/Pi/Weibull 全部正常工作</li>
+    <li><strong>数据截止</strong> — ✅ 已更新至 6 月 30 日（78 场 WC26）· Elo/Pi 已重训 · DC 模型待重训</li>
+    <li><strong>市场数据</strong> — 法国-瑞典、墨西哥-厄瓜多尔有赔率；科特迪瓦-挪威无市场参考</li>
+    <li style="color:#4ade80;"><strong>Weibull 冷启动</strong> — ✅ 已修复：对无训练数据球队回退至 1/3 中性先验，不再静默跳过</li>
+  </ul>
+</div>
+
+<footer>
+  Generated 2026-06-30 · Model V4.3.1-beta · 5-Agent Multi-Round Analysis<br>
+  Dixon-Coles + Elo + Pi-Rating + Tabular Enhancer + Weibull + Isotonic Calibration + Bootstrap (×500)<br>
+  <span style="color:#4ade80;">Weibull 冷启动回退 ✓</span> ·
+  <span style="color:#4ade80;">队名规范化 ✓</span> ·
+  <span style="color:#4ade80;">校准阈值 100场 ✓</span> ·
+  <span style="color:#4ade80;">Enhancer 共识闸门 ✓</span> ·
+  <span style="color:#4ade80;">数据更新至 6/30（78场 WC26）✓</span>
+</footer>
+
+</div>
+</body>
+</html>

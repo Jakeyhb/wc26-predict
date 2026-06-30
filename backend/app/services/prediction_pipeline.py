@@ -38,6 +38,47 @@ from app.services.weights import get_weight_config
 
 logger = logging.getLogger(__name__)
 
+# ── Team name canonicalization ──────────────────────────────────────
+# Training data, Elo ratings, Pi ratings, and DC model artifacts all use
+# a single canonical name per team.  Prediction callers may pass alternate
+# spellings (e.g. "Côte d'Ivoire" vs training-data "Ivory Coast").
+# Normalize at the pipeline entry point so every downstream component
+# sees the canonical name.
+
+TEAM_NAME_ALIASES: dict[str, str] = {
+    # ── Ivory Coast (training data uses "Ivory Coast", not "Côte d'Ivoire") ──
+    "côte d'ivoire": "Ivory Coast",
+    "côte divoire": "Ivory Coast",
+    "cote d'ivoire": "Ivory Coast",
+    "cote divoire": "Ivory Coast",
+    "ivory coast": "Ivory Coast",
+    # ── Czech Republic (WC26_FIFA_TIERS had "Czechia"; training data uses "Czech Republic") ──
+    "czechia": "Czech Republic",
+    # ── United States (training data contains BOTH "USA" and "United States" as separate entries;
+    # "USA" has weaker ratings; always canonicalize to "United States") ──
+    "usa": "United States",
+    "usmnt": "United States",
+    "u s a": "United States",
+    "united states of america": "United States",
+    # ── South Korea (common alternates) ──
+    "korea republic": "South Korea",
+    "republic of korea": "South Korea",
+    # ── China (training data uses "China PR") ──
+    "china": "China PR",
+}
+
+
+def _normalize_team_name(name: str) -> str:
+    """Return the canonical team name used across all model artifacts.
+
+    Case-insensitive; strips extra whitespace.  Returns *name* unchanged
+    when no alias is registered (so new teams added to training data are
+    automatically picked up without updating the alias table).
+    """
+    key = name.strip().lower()
+    return TEAM_NAME_ALIASES.get(key, name.strip())
+
+
 # ── Constants ──
 DEFAULT_COMPETITION_WEIGHT = 0.9
 WORLD_CUP_COMPETITION_WEIGHT = 1.5
@@ -78,7 +119,7 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
         wc_path = str(artifacts_dir / "calibrator_wc.json")
         try:
             calibrator.load(wc_path)
-            if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+            if calibrator.is_fitted and calibrator.training_sample_count >= 100:
                 logger.info("Pipeline: using WC calibrator (%d samples)",
                             calibrator.training_sample_count)
                 return calibrator
@@ -291,6 +332,10 @@ class PredictionPipeline:
         Returns:
             PredictionResult with all probabilities, xG, and metadata.
         """
+        # ── Normalize team names to canonical form ──
+        home_team = _normalize_team_name(home_team)
+        away_team = _normalize_team_name(away_team)
+
         # ── Auto-detect competition settings ──
         if competition_weight is None:
             competition_weight = _default_competition_weight(competition)
@@ -893,6 +938,10 @@ class PredictionPipeline:
             require_full_context: Enforce the strict enhanced contract. Requires
                 real match_id, match_date, venue, market, and weather attempts.
         """
+        # ── Normalize team names to canonical form ──
+        home_team = _normalize_team_name(home_team)
+        away_team = _normalize_team_name(away_team)
+
         if mode is None:
             mode = getattr(self, "_mode", "full")
 

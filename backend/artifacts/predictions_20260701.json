@@ -1,0 +1,173 @@
+{
+  "generated_at": "2026-06-30T06:30:00Z",
+  "model_version": "4.3.0-beta",
+  "weight_config": "WORLD_CUP_V4.3.1",
+  "matches": [
+    {
+      "match": "Côte d'Ivoire vs Norway",
+      "match_date": "2026-07-01T01:00:00+08:00",
+      "venue": "AT&T Stadium, Arlington",
+      "stage": "Round of 32",
+      "pipeline_raw": {
+        "home_win_prob": 0.020,
+        "draw_prob": 0.154,
+        "away_win_prob": 0.826,
+        "home_xg": 0.707,
+        "away_xg": 2.375,
+        "elo_home": 1500.0,
+        "elo_away": 1666.3
+      },
+      "pipeline_issues": [
+        "cold_start: Côte d'Ivoire has 0 training matches",
+        "weibull_failed: both teams not in training data",
+        "elo_default: CIV Elo at 1500 (should be ~1635)",
+        "confidence_penalty: 0.15"
+      ],
+      "adjusted_prediction": {
+        "home_win_prob": 0.20,
+        "draw_prob": 0.28,
+        "away_win_prob": 0.52,
+        "predicted_score": "1-2",
+        "confidence": "low"
+      },
+      "adjustment_rationale": [
+        "CIV FIFA #33 vs NOR #31 — near equal ranking",
+        "CIV best defense in group: 2 GA, 2 clean sheets",
+        "Norway 0 clean sheets in last 10, 7 GA in group",
+        "CIV AFCON 2025 champions",
+        "Norway rested all stars vs France",
+        "Knockout format elevates draw probability"
+      ],
+      "key_players": {
+        "civ": ["Nicolas Pepe", "Franck Kessie", "Amad Diallo", "Ibrahim Sangare", "Evan Ndicka"],
+        "nor": ["Erling Haaland", "Martin Odegaard", "Antonio Nusa", "Alexander Sorloth", "Julian Ryerson"]
+      },
+      "injuries": {
+        "civ": ["Wilfried Singo (hamstring, major doubt)"],
+        "nor": []
+      }
+    },
+    {
+      "match": "France vs Sweden",
+      "match_date": "2026-07-01T05:00:00+08:00",
+      "venue": "MetLife Stadium, East Rutherford",
+      "stage": "Round of 32",
+      "pipeline_raw": {
+        "home_win_prob": 0.592,
+        "draw_prob": 0.182,
+        "away_win_prob": 0.226,
+        "home_xg": 2.672,
+        "away_xg": 1.033,
+        "elo_home": 1840.9,
+        "elo_away": 1615.9
+      },
+      "pipeline_issues": [
+        "isotonic_calibration_pull: France from 71% to 59.2% (69 samples may be insufficient)",
+        "high_model_disagreement_0.62: DC(73.6%) vs Enhancer(29.5%)",
+        "enhancer_outlier: likely overfitting Sweden attacking metrics vs weak opposition"
+      ],
+      "component_probs": {
+        "dc": {"home": 0.736, "draw": 0.169, "away": 0.095},
+        "enhancer": {"home": 0.295, "draw": 0.370, "away": 0.335},
+        "elo": {"home": 0.708, "draw": 0.099, "away": 0.194},
+        "pi_rating": {"home": 0.690, "draw": 0.174, "away": 0.136},
+        "weibull": {"home": 0.915, "draw": 0.068, "away": 0.017},
+        "market": {"home": 0.749, "draw": 0.161, "away": 0.091}
+      },
+      "bootstrap_ci": {
+        "home_win_median": 0.492,
+        "draw_median": 0.270,
+        "away_win_median": 0.233
+      },
+      "adjusted_prediction": {
+        "home_win_prob": 0.64,
+        "draw_prob": 0.20,
+        "away_win_prob": 0.16,
+        "predicted_score": "3-1",
+        "confidence": "medium"
+      },
+      "adjustment_rationale": [
+        "50% weight on calibration (midpoint between 59% and 71%)",
+        "Market (74.9%) strongly disagrees with calibration",
+        "Sweden missing Hien (CB captain, hamstring — OUT)",
+        "France 10 GF in group, Mbappe 4 goals, Dembele hat-trick",
+        "Sweden 1-5 loss to Netherlands (comparable to France)",
+        "DC/Elo/Pi/Weibull/Market ALL agree France >69%"
+      ],
+      "key_players": {
+        "fra": ["Kylian Mbappe", "Ousmane Dembele", "Michael Olise", "Aurelien Tchouameni", "William Saliba"],
+        "swe": ["Viktor Gyokeres", "Alexander Isak", "Anthony Elanga", "Yasin Ayari", "Victor Lindelof"]
+      },
+      "injuries": {
+        "fra": ["Marcus Thuram (calf, out)"],
+        "swe": ["Isak Hien (hamstring, OUT of tournament)"]
+      }
+    },
+    {
+      "match": "Mexico vs Ecuador",
+      "match_date": "2026-07-01T09:00:00+08:00",
+      "venue": "Estadio Azteca, Mexico City",
+      "stage": "Round of 32",
+      "pipeline_raw": {
+        "home_win_prob": 0.406,
+        "draw_prob": 0.374,
+        "away_win_prob": 0.220,
+        "home_xg": 0.710,
+        "away_xg": 0.282,
+        "elo_home": 1696.7,
+        "elo_away": 1682.6
+      },
+      "pipeline_issues": [
+        "venue_mismatch: treated as NEUTRAL, actual venue is Azteca (2200m altitude, 80000 home fans)",
+        "component_disagreement: DC(MEX 40.4%) vs Enhancer(ECU 41.6%) vs Pi(ECU 45.0%)",
+        "home_advantage_not_applied: Mexico WC home record 8W-3D-1L"
+      ],
+      "component_probs": {
+        "dc": {"home": 0.404, "draw": 0.478, "away": 0.118},
+        "enhancer": {"home": 0.306, "draw": 0.278, "away": 0.416},
+        "elo": {"home": 0.458, "draw": 0.120, "away": 0.422},
+        "pi_rating": {"home": 0.344, "draw": 0.205, "away": 0.450},
+        "weibull": {"home": 0.267, "draw": 0.673, "away": 0.060},
+        "market": {"home": 0.433, "draw": 0.332, "away": 0.235}
+      },
+      "bootstrap_ci": {
+        "home_win_median": 0.376,
+        "draw_median": 0.329,
+        "away_win_median": 0.292
+      },
+      "adjusted_prediction": {
+        "home_win_prob": 0.46,
+        "draw_prob": 0.33,
+        "away_win_prob": 0.21,
+        "predicted_score": "1-0",
+        "confidence": "medium"
+      },
+      "adjustment_rationale": [
+        "Azteca home advantage: +5.5pp (conservative, Ecuador has altitude experience at Quito 2850m)",
+        "Mexico 0 GA in group (3 clean sheets), unbeaten in 11 matches",
+        "Ecuador 26-match streak without conceding 2+ goals",
+        "Ecuador just beat Germany 2-1 — genuine quality signal",
+        "Opta 25000 sims: Mexico 46.4%",
+        "Low-event match: 0-0 at 38.5% probability, 1-0 at 24.9%"
+      ],
+      "key_players": {
+        "mex": ["Raul Jimenez", "Julian Quinones", "Gilberto Mora", "Erik Lira", "Raul Rangel"],
+        "ecu": ["Moises Caicedo", "Gonzalo Plata", "Enner Valencia", "Piero Hincapie", "Willian Pacho"]
+      },
+      "injuries": {
+        "mex": [],
+        "ecu": ["Piero Hincapie (questionable)"]
+      }
+    }
+  ],
+  "meta_analysis": {
+    "total_agents_used": 5,
+    "data_sources": ["懂球帝", "CBS Sports", "ESPN", "Opta Analyst", "FIFA.com", "The Odds API", "FBref", "MARCA", "Sports Illustrated", "虎扑"],
+    "global_risk_factors": [
+      "All 3 matches are knockout stage — draw probability systematically underestimated by 2-4pp",
+      "Isotonic calibrator trained on 69 matches may be insufficient for extreme probabilities",
+      "Model training data cutoff June 24 — knockout-specific tactical patterns not captured",
+      "Market data available for FRA-SWE and MEX-ECU but odds quality varies"
+    ]
+  }
+}

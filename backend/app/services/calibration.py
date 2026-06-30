@@ -63,7 +63,7 @@ class IsotonicCalibrator:
         self.training_sample_count = len(eval_records)
         self._expected_calibration_error = 0.0
 
-        if len(eval_records) < 20:
+        if len(eval_records) < 100:
             return self
 
         try:

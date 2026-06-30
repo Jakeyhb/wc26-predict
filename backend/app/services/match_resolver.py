@@ -24,8 +24,9 @@ _ALIASES = {
     "u s a": "united states",
     "south korea republic of korea": "south korea",
     "korea republic": "south korea",
-    "cote divoire": "ivory coast",
-    "côte divoire": "ivory coast",
+    "cote d ivoire": "ivory coast",  # "Côte d'Ivoire" after Unicode-safe normalize_name()
+    "cote divoire": "ivory coast",   # legacy
+    "côte divoire": "ivory coast",   # legacy
     "england fc": "england",
 }
 
@@ -45,10 +46,20 @@ class ResolvedMatch:
 
 
 def normalize_name(value: str | None) -> str:
-    """Normalize team/competition labels for matching."""
+    """Normalize team/competition labels for matching.
+
+    Unicode-safe: decomposes accented characters (e.g. é→e, ô→o) via
+    NFKD before stripping non-alphanumeric characters, so names like
+    "Côte d’Ivoire" and "São Tomé" survive normalization intact.
+    """
+    import unicodedata
+
     text = (value or "").strip().lower()
     text = text.replace("&", " and ")
-    text = re.sub(r"['’`]", "", text)
+    text = re.sub(r"[‘’`]", "", text)
+    # Decompose accented chars → base + combining mark, then strip marks
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
     text = re.sub(r"[^a-z0-9]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     text = _ALIASES.get(text, text)

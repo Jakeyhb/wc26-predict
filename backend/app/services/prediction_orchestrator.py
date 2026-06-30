@@ -728,7 +728,7 @@ class PredictionOrchestrator:
             wc_path = str(_artifacts_dir / "calibrator_wc.json")
             try:
                 calibrator.load(wc_path)
-                if calibrator.is_fitted and calibrator.training_sample_count >= 20:
+                if calibrator.is_fitted and calibrator.training_sample_count >= 100:
                     logger.info("Using WC-specific calibrator (%d samples)",
                                 calibrator.training_sample_count)
                     return calibrator

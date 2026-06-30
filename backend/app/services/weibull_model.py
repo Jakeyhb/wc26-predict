@@ -178,6 +178,13 @@ class WeibullWrapper:
         """Predict win/draw/loss probabilities using fitted Weibull model.
 
         Note: penaltyblog uses ``neutral_venue=`` keyword, **not** ``neutral=``.
+
+        Cold-start fallback: when one or both teams are absent from the
+        training data, penaltyblog raises ``ValueError("Both teams must
+        have been in the training data.")``.  Instead of returning
+        ``None`` (which silently removes the Weibull contribution from
+        the fusion chain), we return a uniform-neutral prior — the same
+        principle Elo and Pi-Rating use when they lack team history.
         """
         if not self._fitted or self._model is None:
             return None
@@ -190,6 +197,20 @@ class WeibullWrapper:
                 "draw_prob": float(grid.draw),
                 "away_win_prob": float(grid.away_win),
             }
+        except ValueError as e:
+            msg = str(e)
+            if "must have been in the training data" in msg:
+                logger.info(
+                    "Weibull cold-start fallback: %s vs %s (%s)",
+                    home_team, away_team, msg,
+                )
+                return {
+                    "home_win_prob": 1.0 / 3.0,
+                    "draw_prob": 1.0 / 3.0,
+                    "away_win_prob": 1.0 / 3.0,
+                }
+            logger.warning("Weibull predict failed: %s", e)
+            return None
         except Exception as e:
             logger.warning("Weibull predict failed: %s", e)
             return None
