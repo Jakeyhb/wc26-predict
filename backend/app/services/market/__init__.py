@@ -7,7 +7,7 @@ Sub-packages:
 - schemas: OddsSnapshot and MarketConsensus dataclasses
 """
 from app.services.market.schemas import MarketConsensus, OddsSnapshot
-from app.services.market.probability import normalize_1x2_odds, normalize_1x2_shin, normalize_1x2_power
+from app.services.market.probability import normalize_1x2_odds, normalize_1x2_shin, normalize_1x2_power, normalize_1x2_domain_driven, correct_domain_bias
 from app.services.market.consensus import build_consensus, snapshots_from_market_probs
 from app.services.market.provider_base import MarketProvider, MarketOddsResult
 
@@ -19,6 +19,8 @@ __all__ = [
     "normalize_1x2_odds",
     "normalize_1x2_shin",
     "normalize_1x2_power",
+    "normalize_1x2_domain_driven",
+    "correct_domain_bias",
     "build_consensus",
     "snapshots_from_market_probs",
 ]

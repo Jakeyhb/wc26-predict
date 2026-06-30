@@ -154,11 +154,15 @@ def _compute_consensus(
     median_draw = statistics.median(draws)
     median_away = statistics.median(aways)
 
-    # De-vig via proportional method (same as normalize_1x2_odds)
-    implied_h = 1.0 / median_home
-    implied_d = 1.0 / median_draw
-    implied_a = 1.0 / median_away
-    total = implied_h + implied_d + implied_a
+    # De-vig via domain-driven method (Karimov et al. 2025).
+    # Corrects for systematic bookmaker bias: draw/away overestimation.
+    from app.services.market.probability import normalize_1x2_domain_driven
+    corrected = normalize_1x2_domain_driven(median_home, median_draw, median_away)
+    implied_h = corrected["home"]
+    implied_d = corrected["draw"]
+    implied_a = corrected["away"]
+    # Compute original overround from raw odds for diagnostic purposes
+    raw_total = 1.0 / median_home + 1.0 / median_draw + 1.0 / median_away
 
     # Coefficient of variation (CV = std / mean)
     cv_home = statistics.stdev(homes) / statistics.mean(homes) if len(homes) > 1 else 0
@@ -168,14 +172,14 @@ def _compute_consensus(
     bookmaker_names = [b.get("name", "?") for b in bookmakers]
 
     return {
-        "home_prob": implied_h / total,
-        "draw_prob": implied_d / total,
-        "away_prob": implied_a / total,
+        "home_prob": implied_h,   # already normalized by domain-driven de-vig
+        "draw_prob": implied_d,
+        "away_prob": implied_a,
         "home_odds": median_home,
         "draw_odds": median_draw,
         "away_odds": median_away,
         "provider": "web-search-consensus",
-        "overround": total - 1.0,
+        "overround": raw_total - 1.0,  # original bookmaker margin
         "bookmaker": f"{len(bookmakers)}-bookmaker-consensus",
         "sample_bookmakers": len(bookmakers),
         "cv_home": cv_home,

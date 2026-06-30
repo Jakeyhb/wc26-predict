@@ -118,6 +118,24 @@ def _default_knockout_prob() -> dict[str, float]:
 # ── Core simulator ────────────────────────────────────────────────────
 
 
+def _win_prob_to_xg(w: float) -> float:
+    """Convert a win probability to expected goals via Csató & Gyimesi (2025).
+
+    Polynomial fit on 40,000+ matches (EJOR 2025):
+      λ = 3.904·W⁴ − 0.585·W³ − 2.983·W² + 3.132·W + 0.332
+
+    Replaces the heuristic λ = 1.0 + 0.8×(hw−aw) which lacked theoretical
+    grounding and conflated home/away probabilities into a difference term.
+    """
+    return (
+        3.904 * w ** 4
+        - 0.585 * w ** 3
+        - 2.983 * w ** 2
+        + 3.132 * w
+        + 0.332
+    )
+
+
 class TournamentSimulator:
     """Monte Carlo World Cup tournament simulator.
 
@@ -363,9 +381,12 @@ class TournamentSimulator:
         # Simplified: map win probs to relative scoring rates.
         hw, dr, aw = probs["home_win"], probs["draw"], probs["away_win"]
 
-        # Base rates scaled by win probabilities
-        base_lam = 1.0 + 0.8 * (hw - aw)
-        base_mu = 1.0 + 0.8 * (aw - hw)
+        # Base rates from win probability via Csató & Gyimesi (2025) polynomial.
+        # λ = 3.904W⁴ − 0.585W³ − 2.983W² + 3.132W + 0.332
+        # Fitted on 40,000+ matches (EJOR). Replaces the heuristic
+        # λ = 1.0 + 0.8×(hw−aw) which had no theoretical grounding.
+        base_lam = _win_prob_to_xg(hw)
+        base_mu = _win_prob_to_xg(aw)
 
         # Clamp
         lam = max(0.3, min(2.5, base_lam))

@@ -194,6 +194,33 @@
 | 完全置信所需 Provider 数 | 4 | L58 | 4+ 家 = 100% provider 置信 |
 | 完全置信所需 Bookmaker 数 | 8 | L59 | 8+ 家 = 100% bookmaker 置信 |
 
+### 十一-B、去水分域驱动修正 (`services/market/probability.py`)
+
+**来源**: Karimov et al. (2025) Mathematics MDPI — 359,035 场比赛分析，发现博彩商对平局和客胜系统性高估 3-8%。
+
+| 常量 | 值 | 适用场景 | 设定依据 |
+|:---|:---|:---|:---|
+| Draw 修正因子 | 0.94 (strong fav) / 0.95 (balanced/away fav) | 平局概率降权 5-6% | 博彩商系统性高估平局 |
+| Away 修正因子 | 0.96 (strong home fav) / 0.98 (balanced) | 客胜概率降权 2-4% | 博彩商高估冷门客胜 |
+| Home 修正因子 | 0.97-0.98 (balanced/away fav) | 主胜概率微调 | 非热门的偏主队被低估 |
+| 域检测门限 (strong home) | home > 0.50 | 强主队域 | 修正目标：平局+客胜 |
+| 域检测门限 (balanced) | \|home − away\| < 0.10 | 平衡域 | 修正目标：平局为主 |
+| 域检测门限 (away fav) | away > home + 0.05 | 强客队域 | 修正目标：平局+主胜 |
+
+### 十一-C、MC λ 多项式系数 (`services/tournament_simulator.py`)
+
+**来源**: Csató & Gyimesi (2025) EJOR — 40,000+ 场比赛拟合。替换启发式 λ = 1.0 + 0.8×(hw−aw)。
+
+| 系数 | 值 | 设定依据 |
+|:---|:---|:---|
+| W⁴ 系数 | 3.904 | 4 次多项式拟合 40,000+ 场 |
+| W³ 系数 | −0.585 | 同上 |
+| W² 系数 | −2.983 | 同上 |
+| W¹ 系数 | 3.132 | 同上 |
+| 常数项 | 0.332 | 零胜率球队最低期望进球 0.332 |
+| λ 裁剪下限 | 0.30 | tournament_simulator L371 |
+| λ 裁剪上限 | 2.50 | tournament_simulator L371 |
+
 ---
 
 ## 十二、复盘自动化 (`scripts/auto_postmatch.py`)
@@ -249,3 +276,5 @@
 | 2026-06-20 | DB sanity dc floor | — | 0.20 | R4-H8: 自动优化权重门槛 |
 | 2026-06-20 | DB sanity market_max cap | — | 0.95 | R4-H8: 市场垄断防护 |
 | 2026-06-18 | MIN_PROB | — | 0.02 | V4.3.1: 安全裁剪防 0% 极端输出 |
+| 2026-06-30 | MC λ 公式 | 1.0+0.8×(hw−aw) | Csató-Gyimesi 4次多项式 | B2: 40,000场拟合替换启发式 |
+| 2026-06-30 | De-vig 方法 | 纯 proportional | 域驱动修正 (Karimov et al. 2025) | B3: 359,035场分析，修正平局/客胜系统性高估 |
