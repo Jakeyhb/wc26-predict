@@ -5,9 +5,9 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V4.3.0_beta-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_2B_self_evolution-red?style=flat-square" alt="phase">
-  <img src="https://img.shields.io/badge/backend_tests-213_passed-success?style=flat-square" alt="backend tests">
+  <img src="https://img.shields.io/badge/version-V4.5.0_beta-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-A3_Stacking_+_B1_Conformal-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/backend_tests-287_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/model_loading-disk_cache_only-brightgreen?style=flat-square" alt="model loading">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
