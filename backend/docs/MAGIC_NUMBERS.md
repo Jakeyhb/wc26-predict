@@ -2,7 +2,7 @@
 
 > **维护规则**: 每次修改常量 → 必须更新此表。每次新增常量 → 必须在此表注册。
 > **最后更新**: 2026-07-01
-> **对应版本**: V4.4.2-beta
+> **对应版本**: V4.5.0-beta
 
 本文档是 WC26 Predict 系统中所有硬编码常量的单一真相来源。每个值附设定依据、历史来源和修改记录。
 
@@ -300,3 +300,31 @@
 | **2026-07-01** | **DC `half_life_days`** | **180** | **180（不变）** | **P1-2: Walk-forward CV确认180d最优（Brier=0.541），短半衰期在粗搜索中因数据泄露虚高** |
 | 2026-07-01 | CG λ polynomial | 4次多项式 | **feature-flag 关闭** | **P0-3: 文献归属验证失败，标注 UNVERIFIED_SOURCE** |
 | **2026-07-01** | **序贯融合有效权重** | **名称权重** | **pipeline_params 自动输出** | **P1-2: 固化WC小组赛/淘汰赛有效权重快照; DC名义0.90→小组有效0.59/淘汰有效0.52** |
+
+---
+
+## 15. A3 Stacking Meta-Learner (`core/stacking_features.py` + `services/stacking_meta_learner.py`)
+
+| 常量 | 值 | 行号/位置 | 设定依据 | 引入版本 | 修改记录 |
+|:---|:---|:---|:---|:---|:---|
+| `STACKING_META_LEARNER_ENABLED` | `False` | `stacking_features.py:28` | 回测验证后才开启 | V4.5 | — |
+| `STACKING_C` | `1.0` | `stacking_features.py:31` | LogisticRegression 默认正则化强度 | V4.5 | — |
+| `STACKING_MAX_ITER` | `1000` | `stacking_features.py:32` | LBFGS 收敛上限 | V4.5 | — |
+| `STACKING_MIN_TRAINING_SAMPLES` | `20` | `stacking_features.py:33` | 最少拟合样本数，不足则 fallback uniform | V4.5 | — |
+| `STACKING_FEATURE_FILL` | `1/3` | `stacking_features.py:34` | 缺失组件默认填充概率 | V4.5 | — |
+| `STACKING_FEATURE_KEYS` | 7 组件 | `stacking_features.py:37` | 特征向量canonical顺序 (DC,Enh,NB,WB,Elo,Pi,Market) | V4.5 | — |
+
+**设计依据**: IPP Porto (2025) 多篇论文独立验证 stacking 优于单一融合。7 组件 → 21 特征 → 3 类 multinomial logistic regression。系数序列化为 JSON（非 pickle）以保证可审计性。
+
+---
+
+## 16. B1 Weighted Conformal Prediction (`core/conformal_core.py` + `services/conformal_predictor.py`)
+
+| 常量 | 值 | 行号/位置 | 设定依据 | 引入版本 | 修改记录 |
+|:---|:---|:---|:---|:---|:---|
+| `WEIGHTED_CONFORMAL_PREDICTION_ENABLED` | `False` | `conformal_core.py:24` | 校准集构建后才开启 | V4.5 | — |
+| `CONFORMAL_ALPHA` | `0.1` | `conformal_core.py:27` | 90% nominal coverage | V4.5 | — |
+| `CONFORMAL_RECENCY_HALFLIFE_DAYS` | `30.0` | `conformal_core.py:28` | 30天后权重衰减 50% | V4.5 | — |
+| `CONFORMAL_MIN_CALIBRATION_SIZE` | `10` | `conformal_core.py:29` | 最少校准记录数 | V4.5 | — |
+
+**设计依据**: Stocker et al. (2025) + Barber & Pananjady (2025)。Split-conformal with exponential recency weighting。Nonconformity score = 1 − P(true_class)。不支持 Bootstrap — 仅需校准集存储。

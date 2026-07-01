@@ -182,6 +182,12 @@ class PredictionResult:
     # Each entry is a DegradedReason with source/reason/severity/detail.
     degraded_reasons: list[DegradedReason] = field(default_factory=list)
 
+    # ── A3: Stacking Meta-Learner (V4.5) ──
+    stacking_result: dict[str, Any] | None = None
+
+    # ── B1: Weighted Conformal Prediction (V4.5) ──
+    conformal_result: dict[str, Any] | None = None
+
     # ── Derived ──
     @property
     def favorite(self) -> str:
@@ -253,6 +259,8 @@ class PredictionResult:
             "calibration_monitor": self.calibration_monitor,
             "calibration_applied": self.calibration_applied,
             "pipeline_params": self.pipeline_params,
+            "stacking_result": self.stacking_result,
+            "conformal_result": self.conformal_result,
             "missing_inputs": self.missing_inputs,
             "active_event_ids": [e.get("id", "") for e in self.active_events],
             "context_adjustments": self.context_adjustments,
@@ -332,4 +340,6 @@ class PredictionResult:
             mode=str(meta.get("mode", "internal_research")),
             as_of=str(meta.get("as_of", "")),
             generated_at=str(meta.get("generated_at", "")),
+            stacking_result=data.get("stacking_result"),
+            conformal_result=data.get("conformal_result"),
         )

@@ -818,6 +818,67 @@ class PredictionPipeline:
         if calibration_applied:
             components_used.append("calibration")
 
+        # ── 10.8 A3: Stacking Meta-Learner (feature-flagged, V4.5) ──
+        stacking_result: dict[str, Any] | None = None
+        from app.core.stacking_features import STACKING_META_LEARNER_ENABLED as _sml_enabled
+        if _sml_enabled:
+            try:
+                from app.services.stacking_meta_learner import StackingMetaLearner
+                _artifact_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "stacking_meta_learner.json"
+                )
+                _learner = StackingMetaLearner()
+                _learner.load(_artifact_path)
+                if _learner.is_fitted:
+                    _stacked = _learner.predict_proba(component_probs, market_probs)
+                    stacking_result = {
+                        "applied": True,
+                        "pre_stacking_probs": dict(fused),
+                        "stacked_probs": _stacked,
+                        "training_samples": _learner.training_sample_count,
+                    }
+                    fused["home_win_prob"] = _stacked["home_win_prob"]
+                    fused["draw_prob"] = _stacked["draw_prob"]
+                    fused["away_win_prob"] = _stacked["away_win_prob"]
+                    components_used.append("stacking")
+                    logger.info("A3 stacking applied (%d training samples)", _learner.training_sample_count)
+                else:
+                    stacking_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("A3 stacking skipped: %s", exc)
+                stacking_result = {"applied": False, "reason": str(exc)}
+
+        # ── 10.9 B1: Weighted Conformal Prediction (feature-flagged, V4.5) ──
+        conformal_result: dict[str, Any] | None = None
+        from app.core.conformal_core import WEIGHTED_CONFORMAL_PREDICTION_ENABLED as _wcp_enabled
+        if _wcp_enabled:
+            try:
+                from app.services.conformal_predictor import WeightedConformalPredictor
+                _cp_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "conformal_predictor.json"
+                )
+                _predictor = WeightedConformalPredictor()
+                _predictor.load(_cp_path)
+                if _predictor.is_fitted:
+                    conformal_result = _predictor.predict(
+                        probs=fused,
+                        as_of=kickoff_at or now_utc,
+                    )
+                    _cp_probs = conformal_result["adjusted_probs"]
+                    fused["home_win_prob"] = _cp_probs[0]
+                    fused["draw_prob"] = _cp_probs[1]
+                    fused["away_win_prob"] = _cp_probs[2]
+                    components_used.append("conformal")
+                    logger.info(
+                        "B1 conformal applied (set_size=%d, threshold=%.4f)",
+                        conformal_result["set_size"], conformal_result["threshold"],
+                    )
+                else:
+                    conformal_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("B1 conformal skipped: %s", exc)
+                conformal_result = {"applied": False, "reason": str(exc)}
+
         # Build dc_provenance for pipeline_params (V4.0.3-fix: was undefined)
         dc_provenance: dict[str, object] = {}
         try:
@@ -928,6 +989,8 @@ class PredictionPipeline:
                 "calibration_applied": calibration_applied,
                 "score_matrix_calibration": score_matrix_diag,
                 "ko_draw_guard": ko_draw_guard_result,
+                "stacking_result": stacking_result,
+                "conformal_result": conformal_result,
                 "effective_weights": {
                     "dc_effective": round(wc.dc * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
                     "enhancer_effective": round(wc.enhancer * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
@@ -957,6 +1020,8 @@ class PredictionPipeline:
             },
             calibration_monitor=cal_monitor,
             calibration_applied=calibration_applied,
+            stacking_result=stacking_result,
+            conformal_result=conformal_result,
         )
 
         # ── Post-flight gate (P0-4) ──
@@ -1784,6 +1849,71 @@ class PredictionPipeline:
         if calibration_applied:
             components_used.append("calibration")
 
+        # ── 10.8 A3: Stacking Meta-Learner (feature-flagged, V4.5) ──
+        stacking_result: dict[str, Any] | None = None
+        from app.core.stacking_features import STACKING_META_LEARNER_ENABLED
+        if STACKING_META_LEARNER_ENABLED:
+            try:
+                from app.services.stacking_meta_learner import StackingMetaLearner
+                _artifact_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "stacking_meta_learner.json"
+                )
+                _learner = StackingMetaLearner()
+                _learner.load(_artifact_path)
+                if _learner.is_fitted:
+                    _stacked = _learner.predict_proba(component_probs, market_probs)
+                    stacking_result = {
+                        "applied": True,
+                        "pre_stacking_probs": dict(fused),
+                        "stacked_probs": _stacked,
+                        "training_samples": _learner.training_sample_count,
+                    }
+                    fused["home_win_prob"] = _stacked["home_win_prob"]
+                    fused["draw_prob"] = _stacked["draw_prob"]
+                    fused["away_win_prob"] = _stacked["away_win_prob"]
+                    components_used.append("stacking")
+                    logger.info(
+                        "A3 stacking applied (%d training samples)",
+                        _learner.training_sample_count,
+                    )
+                else:
+                    stacking_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("A3 stacking skipped: %s", exc)
+                stacking_result = {"applied": False, "reason": str(exc)}
+
+        # ── 10.9 B1: Weighted Conformal Prediction (feature-flagged, V4.5) ──
+        conformal_result: dict[str, Any] | None = None
+        from app.core.conformal_core import WEIGHTED_CONFORMAL_PREDICTION_ENABLED
+        if WEIGHTED_CONFORMAL_PREDICTION_ENABLED:
+            try:
+                from app.services.conformal_predictor import WeightedConformalPredictor
+                _cp_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "conformal_predictor.json"
+                )
+                _predictor = WeightedConformalPredictor()
+                _predictor.load(_cp_path)
+                if _predictor.is_fitted:
+                    conformal_result = _predictor.predict(
+                        probs=fused,
+                        as_of=kickoff_at or now_utc,
+                    )
+                    # Apply conformal-calibrated probabilities
+                    _cp_probs = conformal_result["adjusted_probs"]
+                    fused["home_win_prob"] = _cp_probs[0]
+                    fused["draw_prob"] = _cp_probs[1]
+                    fused["away_win_prob"] = _cp_probs[2]
+                    components_used.append("conformal")
+                    logger.info(
+                        "B1 conformal prediction applied (set_size=%d, threshold=%.4f)",
+                        conformal_result["set_size"], conformal_result["threshold"],
+                    )
+                else:
+                    conformal_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("B1 conformal prediction skipped: %s", exc)
+                conformal_result = {"applied": False, "reason": str(exc)}
+
         # Parameter provenance — traceable fingerprint of model state
         dc_provenance: dict[str, object] = {}
         try:
@@ -1877,6 +2007,8 @@ class PredictionPipeline:
                 "calibration_applied": calibration_applied,
                 "score_matrix_calibration": score_matrix_diag,
                 "ko_draw_guard": ko_draw_guard_result,
+                "stacking_result": stacking_result,
+                "conformal_result": conformal_result,
                 "effective_weights": {
                     "dc_effective": round(wc.dc * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
                     "enhancer_effective": round(wc.enhancer * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
@@ -1896,6 +2028,8 @@ class PredictionPipeline:
             elo_detail=elo_detail,
             calibration_monitor=calibration_monitor,
             calibration_applied=calibration_applied,
+            stacking_result=stacking_result,
+            conformal_result=conformal_result,
         )
 
         # ── 15. Save pre-match snapshot (best-effort) ──
