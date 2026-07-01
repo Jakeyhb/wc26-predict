@@ -79,13 +79,15 @@ class StackingMetaLearner:
             self.is_fitted = False
             return self
 
-        model = LogisticRegression(
-            multi_class="multinomial",
-            solver="lbfgs",
-            C=STACKING_C,
-            max_iter=STACKING_MAX_ITER,
-            random_state=42,
-        )
+        try:
+            model = LogisticRegression(
+                multi_class="multinomial", solver="lbfgs",
+                C=STACKING_C, max_iter=STACKING_MAX_ITER, random_state=42,
+            )
+        except TypeError:
+            model = LogisticRegression(
+                solver="lbfgs", C=STACKING_C, max_iter=STACKING_MAX_ITER, random_state=42,
+            )
         model.fit(X_np, y_np)
 
         self._coef = model.coef_.tolist()          # (3, 21)
