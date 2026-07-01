@@ -21,6 +21,12 @@ if sys.platform == "win32":
     )
 
 from app.services.prediction_pipeline import PredictionPipeline
+from app.core.verification_gates import (
+    preflight_check,
+    postflight_check,
+    format_gate_results,
+    all_errors_passed,
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -89,6 +95,16 @@ def main() -> int:
     args = _parse_args()
     is_neutral = not args.non_neutral
 
+    # ── Pre-flight gate ────────────────────────────────────────────
+    preflight_warnings = preflight_check(
+        venue_confirmed=bool(args.venue),
+        competition_type=args.competition,
+        match_stage="",
+    )
+    if preflight_warnings:
+        print(format_gate_results(preflight_warnings, "Pre-flight Gate"), file=sys.stderr)
+        # Non-fatal: continue but with degraded confidence
+
     pipeline = PredictionPipeline.from_artifacts(mode=args.mode)
     result = pipeline.predict_sync(
         args.home,
@@ -104,6 +120,28 @@ def main() -> int:
         enable_weather=not args.no_weather,
     )
     payload = result.to_dict()
+
+    # ── Post-flight gate ───────────────────────────────────────────
+    probs_for_gate = payload.get("prediction", {}) if isinstance(payload, dict) else {}
+    component_count = (
+        len(payload.get("component_probs", {}))
+        if isinstance(payload, dict)
+        else 0
+    )
+    postflight_failures = postflight_check(
+        probs=probs_for_gate if probs_for_gate else None,
+        all_components_run=component_count,
+        market_applied=payload.get("prediction", {}).get("market_applied", False) if isinstance(payload, dict) and isinstance(payload.get("prediction"), dict) else False,
+        calibration_applied=payload.get("calibration_applied", False) if isinstance(payload, dict) else False,
+    )
+    if postflight_failures:
+        print(format_gate_results(postflight_failures, "Post-flight Gate"), file=sys.stderr)
+        if not all_errors_passed(postflight_failures):
+            print("⛔ Post-flight errors — DB write blocked.", file=sys.stderr)
+            # Still print JSON but exit non-zero so callers know it's degraded
+            print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+            return 2
+
     if args.bootstrap:
         payload["bootstrap_ci"] = _bootstrap_payload(
             args.home,

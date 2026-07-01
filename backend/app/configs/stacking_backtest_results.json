@@ -1,0 +1,83 @@
+{
+  "generated_at": "2026-07-01T07:06:03.210725+00:00",
+  "dc_half_life": 180,
+  "metrics": {
+    "n_matches": 58,
+    "n_draws": 15,
+    "draw_rate": 0.25862068965517243,
+    "dc_brier_mean": 0.54109,
+    "sequential_brier_mean": 0.546713,
+    "dc_direction_accuracy": 0.568966,
+    "sequential_direction_accuracy": 0.603448,
+    "n_training_pairs": 58,
+    "n_calibration_records": 58,
+    "total_dc_fit_time_s": 885.7,
+    "group_stage": {
+      "n": 55,
+      "brier": 0.536966,
+      "direction": 0.618182
+    },
+    "knockout": {
+      "n": 3,
+      "brier": 0.725409,
+      "direction": 0.333333
+    }
+  },
+  "cv_validation": {
+    "trained": true,
+    "n_folds": 5,
+    "cv_stacking_brier_mean": 0.542974,
+    "cv_sequential_brier_mean": 0.485221,
+    "cv_stacking_direction_mean": 0.5714,
+    "cv_sequential_direction_mean": 0.7143,
+    "stacking_better": false,
+    "brier_delta": 0.057752,
+    "fold_details": [
+      {
+        "fold": 3,
+        "train_size": 23,
+        "val_size": 7,
+        "stacking_brier": 0.6271734945621351,
+        "sequential_brier": 0.5141395542857142,
+        "stacking_direction": 0.42857142857142855,
+        "sequential_direction": 0.7142857142857143
+      },
+      {
+        "fold": 4,
+        "train_size": 30,
+        "val_size": 7,
+        "stacking_brier": 0.5529696710707809,
+        "sequential_brier": 0.44326377,
+        "stacking_direction": 0.5714285714285714,
+        "sequential_direction": 0.7142857142857143
+      },
+      {
+        "fold": 5,
+        "train_size": 37,
+        "val_size": 7,
+        "stacking_brier": 0.4633344057758581,
+        "sequential_brier": 0.37451177857142853,
+        "stacking_direction": 0.5714285714285714,
+        "sequential_direction": 1.0
+      },
+      {
+        "fold": 6,
+        "train_size": 44,
+        "val_size": 7,
+        "stacking_brier": 0.4817093844962355,
+        "sequential_brier": 0.48273667285714283,
+        "stacking_direction": 0.7142857142857143,
+        "sequential_direction": 0.7142857142857143
+      },
+      {
+        "fold": 7,
+        "train_size": 51,
+        "val_size": 7,
+        "stacking_brier": 0.5896818258370357,
+        "sequential_brier": 0.6114547757142857,
+        "stacking_direction": 0.5714285714285714,
+        "sequential_direction": 0.42857142857142855
+      }
+    ]
+  }
+}

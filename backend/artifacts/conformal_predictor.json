@@ -1,0 +1,414 @@
+{
+  "alpha": 0.1,
+  "halflife_days": 30.0,
+  "is_fitted": true,
+  "fitted_at": "2026-07-01T07:06:30.969481+00:00",
+  "calibration_records": [
+    {
+      "home_win_prob": 0.5198613181686998,
+      "draw_prob": 0.2947932708956579,
+      "away_win_prob": 0.18534541093564227,
+      "actual_result": "H",
+      "match_date": "2026-06-11"
+    },
+    {
+      "home_win_prob": 0.5538959038174921,
+      "draw_prob": 0.24647968821301056,
+      "away_win_prob": 0.1996244079694974,
+      "actual_result": "H",
+      "match_date": "2026-06-12"
+    },
+    {
+      "home_win_prob": 0.5500426626107829,
+      "draw_prob": 0.3007517485574752,
+      "away_win_prob": 0.1492055888317418,
+      "actual_result": "D",
+      "match_date": "2026-06-12"
+    },
+    {
+      "home_win_prob": 0.26683804145812606,
+      "draw_prob": 0.26226573589589963,
+      "away_win_prob": 0.4708962226459743,
+      "actual_result": "H",
+      "match_date": "2026-06-13"
+    },
+    {
+      "home_win_prob": 0.3580360114897003,
+      "draw_prob": 0.31148709662201873,
+      "away_win_prob": 0.33047689188828094,
+      "actual_result": "H",
+      "match_date": "2026-06-13"
+    },
+    {
+      "home_win_prob": 0.08362297930414025,
+      "draw_prob": 0.1313657871688635,
+      "away_win_prob": 0.7850112335269962,
+      "actual_result": "D",
+      "match_date": "2026-06-13"
+    },
+    {
+      "home_win_prob": 0.24514905905003606,
+      "draw_prob": 0.3138840046058446,
+      "away_win_prob": 0.4409669363441193,
+      "actual_result": "D",
+      "match_date": "2026-06-13"
+    },
+    {
+      "home_win_prob": 0.3367785915502274,
+      "draw_prob": 0.2503215103740058,
+      "away_win_prob": 0.4128998980757668,
+      "actual_result": "A",
+      "match_date": "2026-06-14"
+    },
+    {
+      "home_win_prob": 0.704616128578656,
+      "draw_prob": 0.16214745443103828,
+      "away_win_prob": 0.13323641699030575,
+      "actual_result": "H",
+      "match_date": "2026-06-14"
+    },
+    {
+      "home_win_prob": 0.24237258082466653,
+      "draw_prob": 0.2776908788363795,
+      "away_win_prob": 0.479936540338954,
+      "actual_result": "D",
+      "match_date": "2026-06-14"
+    },
+    {
+      "home_win_prob": 0.2828601401590921,
+      "draw_prob": 0.3830746429985944,
+      "away_win_prob": 0.3340652168423135,
+      "actual_result": "H",
+      "match_date": "2026-06-14"
+    },
+    {
+      "home_win_prob": 0.4546678319528856,
+      "draw_prob": 0.26771258751790045,
+      "away_win_prob": 0.2776195805292139,
+      "actual_result": "A",
+      "match_date": "2026-06-15"
+    },
+    {
+      "home_win_prob": 0.71367672574945,
+      "draw_prob": 0.1826791715300756,
+      "away_win_prob": 0.10364410272047453,
+      "actual_result": "D",
+      "match_date": "2026-06-15"
+    },
+    {
+      "home_win_prob": 0.38190506012745,
+      "draw_prob": 0.322836097747899,
+      "away_win_prob": 0.2952588421246509,
+      "actual_result": "D",
+      "match_date": "2026-06-15"
+    },
+    {
+      "home_win_prob": 0.1805963347408526,
+      "draw_prob": 0.32697377369310066,
+      "away_win_prob": 0.4924298915660467,
+      "actual_result": "D",
+      "match_date": "2026-06-15"
+    },
+    {
+      "home_win_prob": 0.4437583911416786,
+      "draw_prob": 0.304723918389847,
+      "away_win_prob": 0.25151769046847433,
+      "actual_result": "D",
+      "match_date": "2026-06-16"
+    },
+    {
+      "home_win_prob": 0.45465447041677126,
+      "draw_prob": 0.2782306788652334,
+      "away_win_prob": 0.26711485071799534,
+      "actual_result": "H",
+      "match_date": "2026-06-16"
+    },
+    {
+      "home_win_prob": 0.18669610042470075,
+      "draw_prob": 0.2821367719783651,
+      "away_win_prob": 0.5311671275969341,
+      "actual_result": "A",
+      "match_date": "2026-06-16"
+    },
+    {
+      "home_win_prob": 0.5286821796365577,
+      "draw_prob": 0.29619994642062286,
+      "away_win_prob": 0.17511787394281939,
+      "actual_result": "H",
+      "match_date": "2026-06-17"
+    },
+    {
+      "home_win_prob": 0.5141125093261764,
+      "draw_prob": 0.2526483071595398,
+      "away_win_prob": 0.2332391835142838,
+      "actual_result": "H",
+      "match_date": "2026-06-17"
+    },
+    {
+      "home_win_prob": 0.45590100512441045,
+      "draw_prob": 0.32555567128149515,
+      "away_win_prob": 0.2185433235940944,
+      "actual_result": "D",
+      "match_date": "2026-06-17"
+    },
+    {
+      "home_win_prob": 0.48629933320183777,
+      "draw_prob": 0.30192879718507515,
+      "away_win_prob": 0.21177186961308714,
+      "actual_result": "H",
+      "match_date": "2026-06-17"
+    },
+    {
+      "home_win_prob": 0.30209565597957666,
+      "draw_prob": 0.2818892453946124,
+      "away_win_prob": 0.4160150986258108,
+      "actual_result": "H",
+      "match_date": "2026-06-17"
+    },
+    {
+      "home_win_prob": 0.2505682344659315,
+      "draw_prob": 0.3119025790855195,
+      "away_win_prob": 0.437529186448549,
+      "actual_result": "A",
+      "match_date": "2026-06-18"
+    },
+    {
+      "home_win_prob": 0.40588397384952146,
+      "draw_prob": 0.27267212036447236,
+      "away_win_prob": 0.3214439057860063,
+      "actual_result": "D",
+      "match_date": "2026-06-18"
+    },
+    {
+      "home_win_prob": 0.5915300065615466,
+      "draw_prob": 0.2555754561485989,
+      "away_win_prob": 0.15289453728985442,
+      "actual_result": "H",
+      "match_date": "2026-06-18"
+    },
+    {
+      "home_win_prob": 0.5684801968250183,
+      "draw_prob": 0.2726730152812715,
+      "away_win_prob": 0.15884678789371018,
+      "actual_result": "H",
+      "match_date": "2026-06-18"
+    },
+    {
+      "home_win_prob": 0.4173740610979864,
+      "draw_prob": 0.3330457546364028,
+      "away_win_prob": 0.24958018426561082,
+      "actual_result": "H",
+      "match_date": "2026-06-19"
+    },
+    {
+      "home_win_prob": 0.2261113889338489,
+      "draw_prob": 0.2722977939604829,
+      "away_win_prob": 0.5015908171056681,
+      "actual_result": "H",
+      "match_date": "2026-06-19"
+    },
+    {
+      "home_win_prob": 0.15206447913818416,
+      "draw_prob": 0.31902708962848103,
+      "away_win_prob": 0.5289084312333349,
+      "actual_result": "A",
+      "match_date": "2026-06-19"
+    },
+    {
+      "home_win_prob": 0.6495413429039432,
+      "draw_prob": 0.21180273238990927,
+      "away_win_prob": 0.13865592470614763,
+      "actual_result": "H",
+      "match_date": "2026-06-20"
+    },
+    {
+      "home_win_prob": 0.4252005207835906,
+      "draw_prob": 0.2819960857244162,
+      "away_win_prob": 0.2928033934919932,
+      "actual_result": "A",
+      "match_date": "2026-06-20"
+    },
+    {
+      "home_win_prob": 0.5284168851176954,
+      "draw_prob": 0.20656068916615758,
+      "away_win_prob": 0.26502242571614715,
+      "actual_result": "H",
+      "match_date": "2026-06-20"
+    },
+    {
+      "home_win_prob": 0.4525030578190551,
+      "draw_prob": 0.26946474727317604,
+      "away_win_prob": 0.278032194907769,
+      "actual_result": "H",
+      "match_date": "2026-06-20"
+    },
+    {
+      "home_win_prob": 0.668095470554399,
+      "draw_prob": 0.22236481794388205,
+      "away_win_prob": 0.10953971150171894,
+      "actual_result": "D",
+      "match_date": "2026-06-21"
+    },
+    {
+      "home_win_prob": 0.12956712137010856,
+      "draw_prob": 0.21935925736006845,
+      "away_win_prob": 0.651073621269823,
+      "actual_result": "A",
+      "match_date": "2026-06-21"
+    },
+    {
+      "home_win_prob": 0.7233966764933131,
+      "draw_prob": 0.19321508605965568,
+      "away_win_prob": 0.08338823744703126,
+      "actual_result": "H",
+      "match_date": "2026-06-21"
+    },
+    {
+      "home_win_prob": 0.48167489186001994,
+      "draw_prob": 0.2455755288208876,
+      "away_win_prob": 0.2727495793190926,
+      "actual_result": "H",
+      "match_date": "2026-06-21"
+    },
+    {
+      "home_win_prob": 0.36834600016488395,
+      "draw_prob": 0.37032372655767215,
+      "away_win_prob": 0.261330273277444,
+      "actual_result": "D",
+      "match_date": "2026-06-21"
+    },
+    {
+      "home_win_prob": 0.2669594295198391,
+      "draw_prob": 0.33340853628645617,
+      "away_win_prob": 0.39963203419370474,
+      "actual_result": "A",
+      "match_date": "2026-06-22"
+    },
+    {
+      "home_win_prob": 0.6017527206542109,
+      "draw_prob": 0.272712391366618,
+      "away_win_prob": 0.12553488797917106,
+      "actual_result": "H",
+      "match_date": "2026-06-22"
+    },
+    {
+      "home_win_prob": 0.7635352759316105,
+      "draw_prob": 0.15827946209114904,
+      "away_win_prob": 0.07818526197724049,
+      "actual_result": "H",
+      "match_date": "2026-06-22"
+    },
+    {
+      "home_win_prob": 0.47496721219910376,
+      "draw_prob": 0.23808848010878642,
+      "away_win_prob": 0.2869443076921099,
+      "actual_result": "H",
+      "match_date": "2026-06-23"
+    },
+    {
+      "home_win_prob": 0.23126233147008027,
+      "draw_prob": 0.23381303433538767,
+      "away_win_prob": 0.5349246341945321,
+      "actual_result": "A",
+      "match_date": "2026-06-23"
+    },
+    {
+      "home_win_prob": 0.6119984136454576,
+      "draw_prob": 0.2270017124197981,
+      "away_win_prob": 0.1609998739347443,
+      "actual_result": "H",
+      "match_date": "2026-06-23"
+    },
+    {
+      "home_win_prob": 0.5953722847261415,
+      "draw_prob": 0.252239620577983,
+      "away_win_prob": 0.1523880946958755,
+      "actual_result": "D",
+      "match_date": "2026-06-23"
+    },
+    {
+      "home_win_prob": 0.26363887121535157,
+      "draw_prob": 0.25331376921496745,
+      "away_win_prob": 0.483047359569681,
+      "actual_result": "A",
+      "match_date": "2026-06-23"
+    },
+    {
+      "home_win_prob": 0.3923533640022864,
+      "draw_prob": 0.334721664498997,
+      "away_win_prob": 0.27292497149871664,
+      "actual_result": "H",
+      "match_date": "2026-06-24"
+    },
+    {
+      "home_win_prob": 0.34026095241109794,
+      "draw_prob": 0.31048983953128106,
+      "away_win_prob": 0.349249208057621,
+      "actual_result": "H",
+      "match_date": "2026-06-24"
+    },
+    {
+      "home_win_prob": 0.5500086460935947,
+      "draw_prob": 0.21043153162639439,
+      "away_win_prob": 0.23955982228001088,
+      "actual_result": "H",
+      "match_date": "2026-06-24"
+    },
+    {
+      "home_win_prob": 0.19193239296921494,
+      "draw_prob": 0.25375432189488,
+      "away_win_prob": 0.5543132851359052,
+      "actual_result": "A",
+      "match_date": "2026-06-24"
+    },
+    {
+      "home_win_prob": 0.6663828983178826,
+      "draw_prob": 0.2296950157674315,
+      "away_win_prob": 0.10392208591468599,
+      "actual_result": "H",
+      "match_date": "2026-06-24"
+    },
+    {
+      "home_win_prob": 0.1437818789013569,
+      "draw_prob": 0.2547928758598295,
+      "away_win_prob": 0.6014252452388137,
+      "actual_result": "A",
+      "match_date": "2026-06-25"
+    },
+    {
+      "home_win_prob": 0.20828960020048465,
+      "draw_prob": 0.25559411709274993,
+      "away_win_prob": 0.5361162827067655,
+      "actual_result": "H",
+      "match_date": "2026-06-25"
+    },
+    {
+      "home_win_prob": 0.2045907107582453,
+      "draw_prob": 0.2667332059672014,
+      "away_win_prob": 0.5286760832745533,
+      "actual_result": "A",
+      "match_date": "2026-06-28"
+    },
+    {
+      "home_win_prob": 0.34820712277521554,
+      "draw_prob": 0.2780767832556115,
+      "away_win_prob": 0.373716093969173,
+      "actual_result": "D",
+      "match_date": "2026-06-29"
+    },
+    {
+      "home_win_prob": 0.6317238593673512,
+      "draw_prob": 0.20431753316122667,
+      "away_win_prob": 0.16395860747142219,
+      "actual_result": "D",
+      "match_date": "2026-06-29"
+    },
+    {
+      "home_win_prob": 0.31662365999168157,
+      "draw_prob": 0.29362831203627193,
+      "away_win_prob": 0.3897480279720465,
+      "actual_result": "H",
+      "match_date": "2026-06-29"
+    }
+  ]
+}

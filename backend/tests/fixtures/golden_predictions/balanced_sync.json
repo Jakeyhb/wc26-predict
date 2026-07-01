@@ -5,15 +5,16 @@
     "away_team": "France",
     "competition": "International Friendly",
     "is_neutral": true,
-    "match_date": "2026-06-24T02:00:00+00:00",
+    "match_date": "2026-06-25T01:00:00+00:00",
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T08:03:10Z",
-    "generated_at": "2026-06-27T08:03:10Z",
+    "as_of": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
+      "weibull",
       "elo",
       "pi_rating",
       "calibration"
@@ -42,15 +43,15 @@
     "top_scores": [
       {
         "score": "0:1",
-        "prob": 0.16279237322105422
+        "prob": 0.2619
       },
       {
         "score": "0:0",
-        "prob": 0.1579382539024942
+        "prob": 0.1838
       },
       {
-        "score": "1:0",
-        "prob": 0.14010671496968033
+        "score": "1:1",
+        "prob": 0.1507
       }
     ],
     "score_matrix": [],
@@ -58,7 +59,7 @@
     "market_applied": false,
     "market_weight_used": 0.0,
     "divergence": 0.0,
-    "weibull_applied": false,
+    "weibull_applied": true,
     "negbin_applied": true
   },
   "component_probs": {
@@ -87,7 +88,11 @@
       "draw": 0.19398840742709264,
       "away": 0.5864588511975937
     },
-    "weibull": null,
+    "weibull": {
+      "home": 0.04605626759644508,
+      "draw": 0.21676636994687412,
+      "away": 0.7371773624566809
+    },
     "market": null
   },
   "elo": {
@@ -111,9 +116,9 @@
       "expected_calibration_error": 0.12791184850008377
     },
     "pre_calibration_probs": {
-      "home_win_prob": 0.16471420238681456,
-      "draw_prob": 0.2753367573342156,
-      "away_win_prob": 0.5599490402789699
+      "home_win_prob": 0.1542266282071278,
+      "draw_prob": 0.26765248933540947,
+      "away_win_prob": 0.5781208824574628
     }
   },
   "calibration_applied": true,
@@ -122,18 +127,117 @@
     "enhancer_rows": 11016,
     "elo_matches": 0,
     "config_label": "FRIENDLY_ADJUSTED_V2 (DC28%+Enh72%+Elo2%+Pi16%)",
-    "training_rows": 16737,
+    "training_rows": 16743,
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
-    "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
-    "training_df_max_date": "2026-06-24 02:00:00+00:00",
+    "training_df_fingerprint": "70f7fbe13e3950a5fba2aa532aca9333",
+    "training_df_max_date": "2026-06-25 01:00:00+00:00",
     "require_full_context": false,
     "pre_market_probs": {
-      "home_win_prob": 0.16471420238681456,
-      "draw_prob": 0.2753367573342156,
-      "away_win_prob": 0.5599490402789699
+      "home_win_prob": 0.1542266282071278,
+      "draw_prob": 0.26765248933540947,
+      "away_win_prob": 0.5781208824574628
     },
     "market_weight_used": 0.0,
-    "calibration_applied": true
+    "calibration_applied": true,
+    "score_matrix_calibration": {
+      "calibrated_matrix": [
+        [
+          0.1838239998657346,
+          0.2619108473302984,
+          0.1252911294772621,
+          0.0409599769151324,
+          0.010042927914497636,
+          0.001969930819146214
+        ],
+        [
+          0.009394537703905768,
+          0.1507443173408647,
+          0.10532649685420956,
+          0.03443317094913034,
+          0.008442628139810622,
+          0.0016560303438199022
+        ],
+        [
+          0.0038364604052233547,
+          0.0037626286143973074,
+          0.03202730591065163,
+          0.014473192502874736,
+          0.003548664817370022,
+          0.0006960743171785238
+        ],
+        [
+          0.0010750453403683565,
+          0.0010543563420952282,
+          0.0005170327493980505,
+          0.002933971207865112,
+          0.000994399830439711,
+          0.0001950525672607044
+        ],
+        [
+          0.0002259353078962176,
+          0.0002215872352899944,
+          0.00010866142016638135,
+          3.5523418777928817e-05,
+          0.00015118677881728032,
+          4.0992933214235336e-05
+        ],
+        [
+          3.798668683995626e-05,
+          3.7255641860807345e-05,
+          1.8269332836376665e-05,
+          5.97258125419535e-06,
+          1.4644100782489407e-06,
+          4.985994033560248e-06
+        ]
+      ],
+      "top3_scores": [
+        {
+          "score": "0:1",
+          "prob": 0.2619
+        },
+        {
+          "score": "0:0",
+          "prob": 0.1838
+        },
+        {
+          "score": "1:1",
+          "prob": 0.1507
+        }
+      ],
+      "before_outcome_probs": {
+        "home": 0.303235,
+        "draw": 0.317627,
+        "away": 0.379138
+      },
+      "after_outcome_probs": {
+        "home": 0.020333,
+        "draw": 0.369686,
+        "away": 0.609982
+      },
+      "target_outcome_probs": {
+        "home": 0.020333,
+        "draw": 0.369686,
+        "away": 0.609982
+      },
+      "outcome_consistency_error": 0.0,
+      "max_cell_change_ratio": 1.6089,
+      "calibration_applied": true
+    },
+    "ko_draw_guard": {
+      "checked": true,
+      "triggered": false,
+      "reason": "not a knockout match",
+      "risk_factors": [],
+      "action": "none"
+    },
+    "effective_weights": {
+      "dc_effective": 0.202836,
+      "enhancer_effective": 0.52158,
+      "weibull_effective": 0.098784,
+      "elo_effective": 0.0168,
+      "pi_effective": 0.16,
+      "_sum_to_1": true
+    }
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -149,8 +253,8 @@
     },
     "injuries": {
       "status": "unavailable",
-      "reason": "empty_dataset",
-      "detail": "",
+      "reason": "no_relevant_records",
+      "detail": "loaded_records=19",
       "attempted": true,
       "required": false
     },
@@ -183,12 +287,25 @@
       "required": false
     }
   },
-  "degraded_reasons": [],
+  "degraded_reasons": [
+    {
+      "source": "postflight_gate:all_components_run",
+      "reason": "Only 6/7 components ran.  Missing components must be declared in the report with explicit reason.",
+      "severity": "warning",
+      "detail": ""
+    },
+    {
+      "source": "postflight_gate:market_applied",
+      "reason": "market_applied=False.  If market data was available but not applied, this may be a bug.  If market data was unavailable, this must be declared in report.",
+      "severity": "warning",
+      "detail": ""
+    }
+  ],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T08:03:10Z",
-    "generated_at": "2026-06-27T08:03:10Z",
+    "as_of_time": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {
@@ -203,9 +320,9 @@
         "away": 0.609981515711645
       },
       "snapshot_baseline": {
-        "home": 0.16471420238681456,
-        "draw": 0.2753367573342156,
-        "away": 0.5599490402789699
+        "home": 0.1542266282071278,
+        "draw": 0.26765248933540947,
+        "away": 0.5781208824574628
       },
       "dc_only": {
         "home": 0.3032347414783881,
@@ -226,6 +343,11 @@
         "home": 0.21955274137531378,
         "draw": 0.19398840742709264,
         "away": 0.5864588511975937
+      },
+      "weibull_only": {
+        "home": 0.04605626759644508,
+        "draw": 0.21676636994687412,
+        "away": 0.7371773624566809
       },
       "uniform_baseline": {
         "home": 0.3333333333333333,
@@ -263,8 +385,8 @@
         "reason": ""
       },
       "weibull_only": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "market_only": {
         "status": "missing",

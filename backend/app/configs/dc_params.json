@@ -1,0 +1,40 @@
+{
+  "_description": "DC model time-decay half-life — learned via walk-forward grid search on WC26 matches",
+  "_generated_at": "2026-07-01T03:27:44.036078+00:00",
+  "_phase": "fine",
+  "half_life_days": 180,
+  "brier_score": 0.5410733216755669,
+  "log_loss": 0.9023999777676152,
+  "direction_accuracy": 0.5689655172413793,
+  "previous_default": 180,
+  "ranking": [
+    {
+      "rank": 1,
+      "half_life_days": 180,
+      "brier_score": 0.5410733216755669,
+      "log_loss": 0.9023999777676152,
+      "direction_accuracy": 0.5689655172413793
+    },
+    {
+      "rank": 2,
+      "half_life_days": 60,
+      "brier_score": 0.5541272941633949,
+      "log_loss": 0.9283869880429173,
+      "direction_accuracy": 0.5517241379310345
+    },
+    {
+      "rank": 3,
+      "half_life_days": 90,
+      "brier_score": 0.5591099530693657,
+      "log_loss": 0.9348373170135579,
+      "direction_accuracy": 0.5689655172413793
+    },
+    {
+      "rank": 4,
+      "half_life_days": 30,
+      "brier_score": 0.5884803381079086,
+      "log_loss": 0.975843415178839,
+      "direction_accuracy": 0.5344827586206896
+    }
+  ]
+}

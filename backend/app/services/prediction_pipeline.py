@@ -31,7 +31,13 @@ from app.services.model_cache_disk import (
 )
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.prediction_result import DegradedReason, PredictionResult, SourceStatus
+from app.services.score_matrix_calibrator import (
+    SCORE_MATRIX_CALIBRATION_ENABLED,
+    calibrate_score_matrix,
+)
 from app.services.signal_adjuster import SignalAdjuster
+from app.core.ko_draw_guard import check_ko_draw_guard
+from app.core.verification_gates import postflight_check
 from app.services.tabular_match_model import TabularMatchEnhancer
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.weights import get_weight_config
@@ -133,6 +139,48 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
     except Exception as exc:
         logger.warning("Failed to load calibrator artifact: %s", exc)
     return calibrator
+
+
+def _run_postflight_gate(result: PredictionResult, *, is_knockout: bool = False) -> None:
+    """Run post-flight verification gate on a completed prediction.
+
+    Logs failures but does NOT block — the caller (CLI layer) decides
+    whether to abort the DB write.  Library callers can inspect
+    ``result.degraded_reasons`` for gate failures.
+    """
+    try:
+        failures = postflight_check(
+            probs={
+                "home_win_prob": result.home_win_prob,
+                "draw_prob": result.draw_prob,
+                "away_win_prob": result.away_win_prob,
+            },
+            all_components_run=len(result.components_used),
+            market_applied=result.market_applied,
+            calibration_applied=result.calibration_applied,
+            is_knockout=is_knockout,
+            elo_gap=result.elo_gap,
+        )
+        if failures:
+            for f in failures:
+                logger.warning(
+                    "Post-flight gate [%s] %s: %s",
+                    f.severity, f.gate, f.message,
+                )
+                if f.severity == "error":
+                    result.degraded_reasons.append(DegradedReason(
+                        source=f"postflight_gate:{f.gate}",
+                        reason=f.message,
+                        severity="error",
+                    ))
+                else:
+                    result.degraded_reasons.append(DegradedReason(
+                        source=f"postflight_gate:{f.gate}",
+                        reason=f.message,
+                        severity="warning",
+                    ))
+    except Exception as exc:
+        logger.warning("Post-flight gate check failed: %s", exc)
 
 
 class PredictionPipeline:
@@ -741,6 +789,69 @@ class PredictionPipeline:
                 "baseline_probs": dict(clean),
             }
 
+        # ── 13.6 Score matrix calibration (P0-1) ──
+        # Rescale DC raw score matrix so its H/D/A aggregates match the
+        # final fused probabilities.  Fixes structural inconsistency where
+        # top_scores and score_matrix reflect raw DC instead of final probs.
+        score_matrix_diag: dict[str, Any] = {"calibration_applied": False}
+        calibrated_top_scores: list[dict[str, Any]] | None = None
+        calibrated_score_matrix: list[list[float]] | None = None
+
+        raw_score_matrix = dc_pred.get("score_matrix")
+        if SCORE_MATRIX_CALIBRATION_ENABLED and raw_score_matrix:
+            try:
+                cal_result = calibrate_score_matrix(
+                    raw_matrix=raw_score_matrix,
+                    final_probs={
+                        "home_win_prob": clean["home_win_prob"],
+                        "draw_prob": clean["draw_prob"],
+                        "away_win_prob": clean["away_win_prob"],
+                    },
+                )
+                calibrated_top_scores = cal_result["top3_scores"]
+                calibrated_score_matrix = cal_result["calibrated_matrix"]
+                score_matrix_diag = cal_result
+                logger.debug(
+                    "Score matrix calibrated: consistency_error=%.2e, "
+                    "max_cell_change=%.3f",
+                    cal_result["outcome_consistency_error"],
+                    cal_result["max_cell_change_ratio"],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Score matrix calibration failed — using raw DC: %s", exc
+                )
+                score_matrix_diag = {
+                    "calibration_applied": False,
+                    "error": str(exc),
+                }
+
+        # ── 13.7 KO draw guard (P0-2) ──
+        # Check for implausibly low draw probability in knockout matches
+        # after isotonic calibration.  Phase 1: warn-only, no prob changes.
+        ko_draw_guard_result: dict[str, Any] = {"checked": False, "triggered": False}
+        try:
+            ko_draw_guard_result = check_ko_draw_guard(
+                draw_prob=float(clean["draw_prob"]),
+                stage=stage,
+                elo_gap=float(elo_pred.rating_gap),
+                total_xg=float(dc_pred.get("home_xg", 0)) + float(dc_pred.get("away_xg", 0)),
+                market_draw_prob=(
+                    float(market_probs["draw_prob"])
+                    if market_probs and "draw_prob" in market_probs
+                    else None
+                ),
+            )
+            if ko_draw_guard_result.get("triggered"):
+                logger.warning(
+                    "KO draw guard triggered: %s", ko_draw_guard_result.get("reason")
+                )
+                risk_tags.append("KO draw underestimation risk")
+                confidence_penalty_val = float(dc_pred.get("confidence_penalty", 0.0))
+                dc_pred["confidence_penalty"] = confidence_penalty_val + 0.05
+        except Exception as exc:
+            logger.warning("KO draw guard check failed — continuing: %s", exc)
+
         # ── 14. Build result ──
         components_used = ["dc", "enhancer", "elo"]
         if pi_pred:
@@ -751,6 +862,67 @@ class PredictionPipeline:
             components_used.append("market")
         if calibration_applied:
             components_used.append("calibration")
+
+        # ── 10.8 A3: Stacking Meta-Learner (feature-flagged, V4.5) ──
+        stacking_result: dict[str, Any] | None = None
+        from app.core.stacking_features import STACKING_META_LEARNER_ENABLED as _sml_enabled
+        if _sml_enabled:
+            try:
+                from app.services.stacking_meta_learner import StackingMetaLearner
+                _artifact_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "stacking_meta_learner.json"
+                )
+                _learner = StackingMetaLearner()
+                _learner.load(_artifact_path)
+                if _learner.is_fitted:
+                    _stacked = _learner.predict_proba(component_probs, market_probs)
+                    stacking_result = {
+                        "applied": True,
+                        "pre_stacking_probs": dict(fused),
+                        "stacked_probs": _stacked,
+                        "training_samples": _learner.training_sample_count,
+                    }
+                    fused["home_win_prob"] = _stacked["home_win_prob"]
+                    fused["draw_prob"] = _stacked["draw_prob"]
+                    fused["away_win_prob"] = _stacked["away_win_prob"]
+                    components_used.append("stacking")
+                    logger.info("A3 stacking applied (%d training samples)", _learner.training_sample_count)
+                else:
+                    stacking_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("A3 stacking skipped: %s", exc)
+                stacking_result = {"applied": False, "reason": str(exc)}
+
+        # ── 10.9 B1: Weighted Conformal Prediction (feature-flagged, V4.5) ──
+        conformal_result: dict[str, Any] | None = None
+        from app.core.conformal_core import WEIGHTED_CONFORMAL_PREDICTION_ENABLED as _wcp_enabled
+        if _wcp_enabled:
+            try:
+                from app.services.conformal_predictor import WeightedConformalPredictor
+                _cp_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "conformal_predictor.json"
+                )
+                _predictor = WeightedConformalPredictor()
+                _predictor.load(_cp_path)
+                if _predictor.is_fitted:
+                    conformal_result = _predictor.predict(
+                        probs=fused,
+                        as_of=kickoff_at or now_utc,
+                    )
+                    _cp_probs = conformal_result["adjusted_probs"]
+                    fused["home_win_prob"] = _cp_probs[0]
+                    fused["draw_prob"] = _cp_probs[1]
+                    fused["away_win_prob"] = _cp_probs[2]
+                    components_used.append("conformal")
+                    logger.info(
+                        "B1 conformal applied (set_size=%d, threshold=%.4f)",
+                        conformal_result["set_size"], conformal_result["threshold"],
+                    )
+                else:
+                    conformal_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("B1 conformal skipped: %s", exc)
+                conformal_result = {"applied": False, "reason": str(exc)}
 
         # Build dc_provenance for pipeline_params (V4.0.3-fix: was undefined)
         dc_provenance: dict[str, object] = {}
@@ -822,8 +994,10 @@ class PredictionPipeline:
             home_elo=float(elo_pred.home_elo),
             away_elo=float(elo_pred.away_elo),
             elo_gap=float(elo_pred.rating_gap),
-            top_scores=list(dc_pred.get("top3_scores", [])),
-            score_matrix=list(dc_pred.get("score_matrix", [])),
+            top_scores=calibrated_top_scores if calibrated_top_scores is not None
+                       else list(dc_pred.get("top3_scores", [])),
+            score_matrix=calibrated_score_matrix if calibrated_score_matrix is not None
+                         else list(dc_pred.get("score_matrix", [])),
             weight_config=wc,
             mode=mode,
             as_of=as_of.isoformat() if as_of else now_utc,
@@ -858,6 +1032,18 @@ class PredictionPipeline:
                 "pre_market_probs": pre_market_probs,
                 "market_weight_used": market_weight_used,
                 "calibration_applied": calibration_applied,
+                "score_matrix_calibration": score_matrix_diag,
+                "ko_draw_guard": ko_draw_guard_result,
+                "stacking_result": stacking_result,
+                "conformal_result": conformal_result,
+                "effective_weights": {
+                    "dc_effective": round(wc.dc * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "enhancer_effective": round(wc.enhancer * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "weibull_effective": round(wc.weibull * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "elo_effective": round(wc.elo * (1 - wc.pi), 6),
+                    "pi_effective": round(wc.pi, 6),
+                    "_sum_to_1": True,
+                },
             },
             active_events=active_events,
             context_adjustments=ctx_adjustments,
@@ -879,7 +1065,15 @@ class PredictionPipeline:
             },
             calibration_monitor=cal_monitor,
             calibration_applied=calibration_applied,
+            stacking_result=stacking_result,
+            conformal_result=conformal_result,
         )
+
+        # ── Post-flight gate (P0-4) ──
+        _run_postflight_gate(result, is_knockout=bool(stage and stage in (
+            "Round of 32", "Round of 16", "Quarter-finals",
+            "Semi-finals", "Final", "Third Place",
+        )))
 
         return result
 
@@ -1612,6 +1806,55 @@ class PredictionPipeline:
                 "reason": f"calibration exception: {exc}",
             }
 
+        # ── 10.6 Score matrix calibration (P0-1) ──
+        score_matrix_diag: dict[str, Any] = {"calibration_applied": False}
+        calibrated_top_scores: list[dict[str, Any]] | None = None
+        calibrated_score_matrix: list[list[float]] | None = None
+
+        raw_score_matrix = dc_pred.get("score_matrix")
+        if SCORE_MATRIX_CALIBRATION_ENABLED and raw_score_matrix:
+            try:
+                cal_result = calibrate_score_matrix(
+                    raw_matrix=raw_score_matrix,
+                    final_probs={
+                        "home_win_prob": fused["home_win_prob"],
+                        "draw_prob": fused["draw_prob"],
+                        "away_win_prob": fused["away_win_prob"],
+                    },
+                )
+                calibrated_top_scores = cal_result["top3_scores"]
+                calibrated_score_matrix = cal_result["calibrated_matrix"]
+                score_matrix_diag = cal_result
+            except Exception as exc:
+                logger.warning(
+                    "Score matrix calibration failed (sync) — using raw DC: %s", exc
+                )
+                score_matrix_diag = {
+                    "calibration_applied": False,
+                    "error": str(exc),
+                }
+
+        # ── 10.7 KO draw guard (P0-2) ──
+        ko_draw_guard_result: dict[str, Any] = {"checked": False, "triggered": False}
+        try:
+            ko_draw_guard_result = check_ko_draw_guard(
+                draw_prob=float(fused["draw_prob"]),
+                stage=stage,
+                total_xg=float(dc_pred.get("home_xg", 0)) + float(dc_pred.get("away_xg", 0)),
+                market_draw_prob=(
+                    float(market_probs_data["draw_prob"])
+                    if market_probs_data and "draw_prob" in market_probs_data
+                    else None
+                ),
+            )
+            if ko_draw_guard_result.get("triggered"):
+                logger.warning(
+                    "KO draw guard triggered (sync): %s", ko_draw_guard_result.get("reason")
+                )
+                risk_tags.append("KO draw underestimation risk")
+        except Exception as exc:
+            logger.warning("KO draw guard check failed (sync) — continuing: %s", exc)
+
         # ── 11. Pipeline status ──
         used_components = [
             c for c, s in quality.model_components.items()
@@ -1654,6 +1897,71 @@ class PredictionPipeline:
             components_used.append("market")
         if calibration_applied:
             components_used.append("calibration")
+
+        # ── 10.8 A3: Stacking Meta-Learner (feature-flagged, V4.5) ──
+        stacking_result: dict[str, Any] | None = None
+        from app.core.stacking_features import STACKING_META_LEARNER_ENABLED
+        if STACKING_META_LEARNER_ENABLED:
+            try:
+                from app.services.stacking_meta_learner import StackingMetaLearner
+                _artifact_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "stacking_meta_learner.json"
+                )
+                _learner = StackingMetaLearner()
+                _learner.load(_artifact_path)
+                if _learner.is_fitted:
+                    _stacked = _learner.predict_proba(component_probs, market_probs)
+                    stacking_result = {
+                        "applied": True,
+                        "pre_stacking_probs": dict(fused),
+                        "stacked_probs": _stacked,
+                        "training_samples": _learner.training_sample_count,
+                    }
+                    fused["home_win_prob"] = _stacked["home_win_prob"]
+                    fused["draw_prob"] = _stacked["draw_prob"]
+                    fused["away_win_prob"] = _stacked["away_win_prob"]
+                    components_used.append("stacking")
+                    logger.info(
+                        "A3 stacking applied (%d training samples)",
+                        _learner.training_sample_count,
+                    )
+                else:
+                    stacking_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("A3 stacking skipped: %s", exc)
+                stacking_result = {"applied": False, "reason": str(exc)}
+
+        # ── 10.9 B1: Weighted Conformal Prediction (feature-flagged, V4.5) ──
+        conformal_result: dict[str, Any] | None = None
+        from app.core.conformal_core import WEIGHTED_CONFORMAL_PREDICTION_ENABLED
+        if WEIGHTED_CONFORMAL_PREDICTION_ENABLED:
+            try:
+                from app.services.conformal_predictor import WeightedConformalPredictor
+                _cp_path = str(
+                    Path(__file__).resolve().parents[2] / "artifacts" / "conformal_predictor.json"
+                )
+                _predictor = WeightedConformalPredictor()
+                _predictor.load(_cp_path)
+                if _predictor.is_fitted:
+                    conformal_result = _predictor.predict(
+                        probs=fused,
+                        as_of=kickoff_at or now_utc,
+                    )
+                    # Apply conformal-calibrated probabilities
+                    _cp_probs = conformal_result["adjusted_probs"]
+                    fused["home_win_prob"] = _cp_probs[0]
+                    fused["draw_prob"] = _cp_probs[1]
+                    fused["away_win_prob"] = _cp_probs[2]
+                    components_used.append("conformal")
+                    logger.info(
+                        "B1 conformal prediction applied (set_size=%d, threshold=%.4f)",
+                        conformal_result["set_size"], conformal_result["threshold"],
+                    )
+                else:
+                    conformal_result = {"applied": False, "reason": "not_fitted"}
+            except Exception as exc:
+                logger.warning("B1 conformal prediction skipped: %s", exc)
+                conformal_result = {"applied": False, "reason": str(exc)}
 
         # Parameter provenance — traceable fingerprint of model state
         dc_provenance: dict[str, object] = {}
@@ -1721,7 +2029,8 @@ class PredictionPipeline:
             home_elo=float(elo_detail.get("home_elo", 1500.0)),
             away_elo=float(elo_detail.get("away_elo", 1500.0)),
             elo_gap=float(elo_detail.get("rating_gap", 0.0)),
-            top_scores=list(dc_pred.get("top3_scores", [])),
+            top_scores=calibrated_top_scores if calibrated_top_scores is not None
+                       else list(dc_pred.get("top3_scores", [])),
             weight_config=wc,
             mode="internal_research",
             as_of=now_utc,
@@ -1745,6 +2054,18 @@ class PredictionPipeline:
                 "pre_market_probs": pre_market_probs,
                 "market_weight_used": market_weight_used,
                 "calibration_applied": calibration_applied,
+                "score_matrix_calibration": score_matrix_diag,
+                "ko_draw_guard": ko_draw_guard_result,
+                "stacking_result": stacking_result,
+                "conformal_result": conformal_result,
+                "effective_weights": {
+                    "dc_effective": round(wc.dc * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "enhancer_effective": round(wc.enhancer * (1 - wc.weibull) * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "weibull_effective": round(wc.weibull * (1 - wc.elo) * (1 - wc.pi), 6),
+                    "elo_effective": round(wc.elo * (1 - wc.pi), 6),
+                    "pi_effective": round(wc.pi, 6),
+                    "_sum_to_1": True,
+                },
             },
             source_status=source_status,
             market_applied=market_applied,
@@ -1756,6 +2077,8 @@ class PredictionPipeline:
             elo_detail=elo_detail,
             calibration_monitor=calibration_monitor,
             calibration_applied=calibration_applied,
+            stacking_result=stacking_result,
+            conformal_result=conformal_result,
         )
 
         # ── 15. Save pre-match snapshot (best-effort) ──
@@ -1775,6 +2098,12 @@ class PredictionPipeline:
                 odds_available=market_available,
                 odds_data=market_probs,
             )
+
+        # ── Post-flight gate (P0-4) ──
+        _run_postflight_gate(result, is_knockout=bool(stage and stage in (
+            "Round of 32", "Round of 16", "Quarter-finals",
+            "Semi-finals", "Final", "Third Place",
+        )))
 
         return result
 

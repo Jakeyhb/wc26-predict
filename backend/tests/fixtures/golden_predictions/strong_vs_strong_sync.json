@@ -5,15 +5,16 @@
     "away_team": "Spain",
     "competition": "International Friendly",
     "is_neutral": true,
-    "match_date": "2026-06-24T02:00:00+00:00",
+    "match_date": "2026-06-25T01:00:00+00:00",
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T08:03:09Z",
-    "generated_at": "2026-06-27T08:03:09Z",
+    "as_of": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
+      "weibull",
       "elo",
       "pi_rating",
       "calibration"
@@ -31,26 +32,28 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.02033271719038817,
-    "draw_prob": 0.36968576709796674,
-    "away_win_prob": 0.609981515711645,
+    "home_win_prob": 0.3429465707879398,
+    "draw_prob": 0.3741235317686616,
+    "away_win_prob": 0.2829298974433985,
     "home_xg": 0.9710901153258072,
     "away_xg": 1.2028129857104342,
     "confidence": "fitted",
     "confidence_penalty": 0.0,
-    "risk_tags": [],
+    "risk_tags": [
+      "high_model_disagreement_0.35"
+    ],
     "top_scores": [
       {
-        "score": "0:1",
-        "prob": 0.14050310589135914
+        "score": "1:1",
+        "prob": 0.1708
       },
       {
-        "score": "1:1",
-        "prob": 0.12898489736574953
+        "score": "0:0",
+        "prob": 0.1441
       },
       {
         "score": "1:0",
-        "prob": 0.11378939917425729
+        "prob": 0.1303
       }
     ],
     "score_matrix": [],
@@ -58,7 +61,7 @@
     "market_applied": false,
     "market_weight_used": 0.0,
     "divergence": 0.0,
-    "weibull_applied": false,
+    "weibull_applied": true,
     "negbin_applied": true
   },
   "component_probs": {
@@ -87,7 +90,11 @@
       "draw": 0.20037309037198747,
       "away": 0.5305767345106762
     },
-    "weibull": null,
+    "weibull": {
+      "home": 0.5026199073245663,
+      "draw": 0.43657716161452476,
+      "away": 0.06080293106090891
+    },
     "market": null
   },
   "elo": {
@@ -111,9 +118,9 @@
       "expected_calibration_error": 0.12791184850008377
     },
     "pre_calibration_probs": {
-      "home_win_prob": 0.21354311543941157,
-      "draw_prob": 0.26520159839395496,
-      "away_win_prob": 0.5212552861666335
+      "home_win_prob": 0.2436219521811478,
+      "draw_prob": 0.28059332822987204,
+      "away_win_prob": 0.47578471958898017
     }
   },
   "calibration_applied": true,
@@ -122,18 +129,117 @@
     "enhancer_rows": 11016,
     "elo_matches": 0,
     "config_label": "FRIENDLY_ADJUSTED_V2 (DC28%+Enh72%+Elo2%+Pi16%)",
-    "training_rows": 16737,
+    "training_rows": 16743,
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
-    "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
-    "training_df_max_date": "2026-06-24 02:00:00+00:00",
+    "training_df_fingerprint": "70f7fbe13e3950a5fba2aa532aca9333",
+    "training_df_max_date": "2026-06-25 01:00:00+00:00",
     "require_full_context": false,
     "pre_market_probs": {
-      "home_win_prob": 0.21354311543941157,
-      "draw_prob": 0.26520159839395496,
-      "away_win_prob": 0.5212552861666335
+      "home_win_prob": 0.2436219521811478,
+      "draw_prob": 0.28059332822987204,
+      "away_win_prob": 0.47578471958898017
     },
     "market_weight_used": 0.0,
-    "calibration_applied": true
+    "calibration_applied": true,
+    "score_matrix_calibration": {
+      "calibrated_matrix": [
+        [
+          0.1440958318746975,
+          0.09510475503291094,
+          0.055942856605117164,
+          0.02257562959334957,
+          0.006832763141686371,
+          0.0016544088644736099
+        ],
+        [
+          0.13029370306953764,
+          0.17081405155639937,
+          0.0544757428158468,
+          0.02198357871343735,
+          0.0066535724168589735,
+          0.0016110216260404138
+        ],
+        [
+          0.061225737615307106,
+          0.07412257745824608,
+          0.05189196445958684,
+          0.010703527249407511,
+          0.003239540504213964,
+          0.0007843861137662857
+        ],
+        [
+          0.019873359700982838,
+          0.024059565489389933,
+          0.014563785395320331,
+          0.0067972401036803295,
+          0.0010515276126302079,
+          0.000254605138141058
+        ],
+        [
+          0.004838044111687922,
+          0.005857149515587758,
+          0.0035454617254389786,
+          0.001430764095868265,
+          0.0005008268881008074,
+          6.198201551838854e-05
+        ],
+        [
+          0.0009422330669325368,
+          0.0011407088947829472,
+          0.0006904962414835841,
+          0.00027864839819258654,
+          8.433600918138382e-05,
+          2.361688619675435e-05
+        ]
+      ],
+      "top3_scores": [
+        {
+          "score": "1:1",
+          "prob": 0.1708
+        },
+        {
+          "score": "0:0",
+          "prob": 0.1441
+        },
+        {
+          "score": "1:0",
+          "prob": 0.1303
+        }
+      ],
+      "before_outcome_probs": {
+        "home": 0.299506,
+        "draw": 0.282508,
+        "away": 0.417987
+      },
+      "after_outcome_probs": {
+        "home": 0.342947,
+        "draw": 0.374124,
+        "away": 0.28293
+      },
+      "target_outcome_probs": {
+        "home": 0.342947,
+        "draw": 0.374124,
+        "away": 0.28293
+      },
+      "outcome_consistency_error": 0.0,
+      "max_cell_change_ratio": 1.3243,
+      "calibration_applied": true
+    },
+    "ko_draw_guard": {
+      "checked": true,
+      "triggered": false,
+      "reason": "not a knockout match",
+      "risk_factors": [],
+      "action": "none"
+    },
+    "effective_weights": {
+      "dc_effective": 0.202836,
+      "enhancer_effective": 0.52158,
+      "weibull_effective": 0.098784,
+      "elo_effective": 0.0168,
+      "pi_effective": 0.16,
+      "_sum_to_1": true
+    }
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -149,8 +255,8 @@
     },
     "injuries": {
       "status": "unavailable",
-      "reason": "empty_dataset",
-      "detail": "",
+      "reason": "no_relevant_records",
+      "detail": "loaded_records=19",
       "attempted": true,
       "required": false
     },
@@ -183,29 +289,42 @@
       "required": false
     }
   },
-  "degraded_reasons": [],
+  "degraded_reasons": [
+    {
+      "source": "postflight_gate:all_components_run",
+      "reason": "Only 6/7 components ran.  Missing components must be declared in the report with explicit reason.",
+      "severity": "warning",
+      "detail": ""
+    },
+    {
+      "source": "postflight_gate:market_applied",
+      "reason": "market_applied=False.  If market data was available but not applied, this may be a bug.  If market data was unavailable, this must be declared in report.",
+      "severity": "warning",
+      "detail": ""
+    }
+  ],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T08:03:09Z",
-    "generated_at": "2026-06-27T08:03:09Z",
+    "as_of_time": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.02033271719038817,
-        "draw": 0.36968576709796674,
-        "away": 0.609981515711645
+        "home": 0.34294657078793983,
+        "draw": 0.37412353176866164,
+        "away": 0.2829298974433986
       },
       "snapshot_adjusted": {
-        "home": 0.02033271719038817,
-        "draw": 0.36968576709796674,
-        "away": 0.609981515711645
+        "home": 0.34294657078793983,
+        "draw": 0.37412353176866164,
+        "away": 0.2829298974433986
       },
       "snapshot_baseline": {
-        "home": 0.21354311543941157,
-        "draw": 0.26520159839395496,
-        "away": 0.5212552861666335
+        "home": 0.2436219521811478,
+        "draw": 0.28059332822987204,
+        "away": 0.47578471958898017
       },
       "dc_only": {
         "home": 0.29950552727789664,
@@ -226,6 +345,11 @@
         "home": 0.26905017511733637,
         "draw": 0.20037309037198747,
         "away": 0.5305767345106762
+      },
+      "weibull_only": {
+        "home": 0.5026199073245663,
+        "draw": 0.43657716161452476,
+        "away": 0.06080293106090891
       },
       "uniform_baseline": {
         "home": 0.3333333333333333,
@@ -263,8 +387,8 @@
         "reason": ""
       },
       "weibull_only": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "market_only": {
         "status": "missing",

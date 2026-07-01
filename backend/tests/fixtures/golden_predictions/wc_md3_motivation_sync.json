@@ -5,17 +5,19 @@
     "away_team": "Brazil",
     "competition": "FIFA World Cup 2026",
     "is_neutral": true,
-    "match_date": "2026-06-24T02:00:00+00:00",
+    "match_date": "2026-06-25T01:00:00+00:00",
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-06-27T08:03:10Z",
-    "generated_at": "2026-06-27T08:03:10Z",
+    "as_of": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
+      "weibull",
       "elo",
       "pi_rating",
+      "injury_data",
       "calibration"
     ],
     "weight_config": {
@@ -31,9 +33,9 @@
     }
   },
   "prediction": {
-    "home_win_prob": 0.021333955871579612,
-    "draw_prob": 0.21299704638752456,
-    "away_win_prob": 0.7656689977408958,
+    "home_win_prob": 0.08270830305670752,
+    "draw_prob": 0.23987796758046992,
+    "away_win_prob": 0.6774137293628226,
     "home_xg": 0.7160647166781222,
     "away_xg": 1.540403292839824,
     "confidence": "fitted",
@@ -42,15 +44,15 @@
     "top_scores": [
       {
         "score": "0:1",
-        "prob": 0.16407576140456698
+        "prob": 0.1922
       },
       {
         "score": "0:2",
-        "prob": 0.12579944325450415
+        "prob": 0.1473
       },
       {
         "score": "1:1",
-        "prob": 0.11168044361098052
+        "prob": 0.1083
       }
     ],
     "score_matrix": [],
@@ -58,7 +60,7 @@
     "market_applied": false,
     "market_weight_used": 0.0,
     "divergence": 0.0,
-    "weibull_applied": false,
+    "weibull_applied": true,
     "negbin_applied": true
   },
   "component_probs": {
@@ -68,9 +70,9 @@
       "away": 0.5784364498266017
     },
     "enhancer": {
-      "home": 0.05900158720368863,
-      "draw": 0.23490691497180477,
-      "away": 0.7060914978245066
+      "home": 0.057562269691424466,
+      "draw": 0.1863797354685608,
+      "away": 0.7560579948400147
     },
     "negbin": {
       "home": 0.20235318194367735,
@@ -87,7 +89,11 @@
       "draw": 0.18535129779727935,
       "away": 0.6390063134182232
     },
-    "weibull": null,
+    "weibull": {
+      "home": 0.022415418986244655,
+      "draw": 0.1570557925660011,
+      "away": 0.8205287884477543
+    },
     "market": null
   },
   "elo": {
@@ -111,9 +117,9 @@
       "expected_calibration_error": 0.052319
     },
     "pre_calibration_probs": {
-      "home_win_prob": 0.14390603655476186,
-      "draw_prob": 0.2843587418437237,
-      "away_win_prob": 0.5717352216015145
+      "home_win_prob": 0.1659006209237933,
+      "draw_prob": 0.2931548807429797,
+      "away_win_prob": 0.5409444983332271
     }
   },
   "calibration_applied": true,
@@ -122,18 +128,117 @@
     "enhancer_rows": 11016,
     "elo_matches": 0,
     "config_label": "WORLD_CUP_V4.3.1 (DC90%+Enh10%+Elo12%+Pi17%)",
-    "training_rows": 16737,
+    "training_rows": 16743,
     "dc_params_hash": "345ceb9e55d89277a63da8ddf00af58a",
-    "training_df_fingerprint": "3d0d4fad8fef307217becfdc039e4012",
-    "training_df_max_date": "2026-06-24 02:00:00+00:00",
+    "training_df_fingerprint": "70f7fbe13e3950a5fba2aa532aca9333",
+    "training_df_max_date": "2026-06-25 01:00:00+00:00",
     "require_full_context": false,
     "pre_market_probs": {
-      "home_win_prob": 0.14390603655476186,
-      "draw_prob": 0.2843587418437237,
-      "away_win_prob": 0.5717352216015145
+      "home_win_prob": 0.1659006209237933,
+      "draw_prob": 0.2931548807429797,
+      "away_win_prob": 0.5409444983332271
     },
     "market_weight_used": 0.0,
-    "calibration_applied": true
+    "calibration_applied": true,
+    "score_matrix_calibration": {
+      "calibrated_matrix": [
+        [
+          0.09610097812455219,
+          0.19215105387018933,
+          0.14732520751820946,
+          0.07691523639092558,
+          0.030116809380740617,
+          0.009433992533452075
+        ],
+        [
+          0.03654274995343162,
+          0.10827032099440546,
+          0.10557559807747804,
+          0.0551186875622686,
+          0.02158218689197565,
+          0.006760549811915655
+        ],
+        [
+          0.012508733032160047,
+          0.01959159958421885,
+          0.031315113858707805,
+          0.019749466173033903,
+          0.0077330700133533044,
+          0.0024223590169976743
+        ],
+        [
+          0.002987985996667893,
+          0.004679884450284861,
+          0.003664896437339684,
+          0.0039053013077472243,
+          0.0018472138506550237,
+          0.0005786337275791536
+        ],
+        [
+          0.0005353096288806371,
+          0.0008384199963051897,
+          0.0006565808387141281,
+          0.0003427863518414349,
+          0.000273953987038716,
+          0.00010366454404861256
+        ],
+        [
+          7.672228694294654e-05,
+          0.00012016503358951204,
+          9.410326433769104e-05,
+          4.9129235543731645e-05,
+          1.923696644929818e-05,
+          1.2299308018548056e-05
+        ]
+      ],
+      "top3_scores": [
+        {
+          "score": "0:1",
+          "prob": 0.1922
+        },
+        {
+          "score": "0:2",
+          "prob": 0.1473
+        },
+        {
+          "score": "1:1",
+          "prob": 0.1083
+        }
+      ],
+      "before_outcome_probs": {
+        "home": 0.17413,
+        "draw": 0.247433,
+        "away": 0.578436
+      },
+      "after_outcome_probs": {
+        "home": 0.082708,
+        "draw": 0.239878,
+        "away": 0.677414
+      },
+      "target_outcome_probs": {
+        "home": 0.082708,
+        "draw": 0.239878,
+        "away": 0.677414
+      },
+      "outcome_consistency_error": 0.0,
+      "max_cell_change_ratio": 1.1711,
+      "calibration_applied": true
+    },
+    "ko_draw_guard": {
+      "checked": true,
+      "triggered": false,
+      "reason": "not a knockout match",
+      "risk_factors": [],
+      "action": "none"
+    },
+    "effective_weights": {
+      "dc_effective": 0.591624,
+      "enhancer_effective": 0.065736,
+      "weibull_effective": 0.07304,
+      "elo_effective": 0.0996,
+      "pi_effective": 0.17,
+      "_sum_to_1": true
+    }
   },
   "missing_inputs": [],
   "active_event_ids": [],
@@ -148,9 +253,9 @@
       "required": false
     },
     "injuries": {
-      "status": "unavailable",
-      "reason": "empty_dataset",
-      "detail": "",
+      "status": "used",
+      "reason": "relevant_records_applied",
+      "detail": "records=1",
       "attempted": true,
       "required": false
     },
@@ -183,29 +288,36 @@
       "required": false
     }
   },
-  "degraded_reasons": [],
+  "degraded_reasons": [
+    {
+      "source": "postflight_gate:market_applied",
+      "reason": "market_applied=False.  If market data was available but not applied, this may be a bug.  If market data was unavailable, this must be declared in report.",
+      "severity": "warning",
+      "detail": ""
+    }
+  ],
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-06-27T08:03:10Z",
-    "generated_at": "2026-06-27T08:03:10Z",
+    "as_of_time": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "model_version": "4.3.0-beta",
     "weight_label": "WORLD_CUP_V4.3.1",
     "candidate_probs": {
       "current_fusion": {
-        "home": 0.021333955871579612,
-        "draw": 0.21299704638752456,
-        "away": 0.7656689977408958
+        "home": 0.08270830305670752,
+        "draw": 0.23987796758046992,
+        "away": 0.6774137293628226
       },
       "snapshot_adjusted": {
-        "home": 0.021333955871579612,
-        "draw": 0.21299704638752456,
-        "away": 0.7656689977408958
+        "home": 0.08270830305670752,
+        "draw": 0.23987796758046992,
+        "away": 0.6774137293628226
       },
       "snapshot_baseline": {
-        "home": 0.14390603655476186,
-        "draw": 0.2843587418437237,
-        "away": 0.5717352216015145
+        "home": 0.1659006209237933,
+        "draw": 0.2931548807429797,
+        "away": 0.5409444983332271
       },
       "dc_only": {
         "home": 0.1741302962046441,
@@ -213,9 +325,9 @@
         "away": 0.5784364498266016
       },
       "tabular_only": {
-        "home": 0.05900158720368863,
-        "draw": 0.23490691497180477,
-        "away": 0.7060914978245066
+        "home": 0.057562269691424466,
+        "draw": 0.1863797354685608,
+        "away": 0.7560579948400147
       },
       "elo_only": {
         "home": 0.20759043323232212,
@@ -226,6 +338,11 @@
         "home": 0.17564238878449745,
         "draw": 0.18535129779727935,
         "away": 0.6390063134182232
+      },
+      "weibull_only": {
+        "home": 0.022415418986244655,
+        "draw": 0.1570557925660011,
+        "away": 0.8205287884477543
       },
       "uniform_baseline": {
         "home": 0.3333333333333333,
@@ -263,8 +380,8 @@
         "reason": ""
       },
       "weibull_only": {
-        "status": "missing",
-        "reason": "missing_or_invalid_probs"
+        "status": "available",
+        "reason": ""
       },
       "market_only": {
         "status": "missing",
