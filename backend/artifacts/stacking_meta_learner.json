@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-07-01T07:06:03.210725+00:00",
-  "description": "A3 Stacking Meta-Learner trained on 54 WC26 matches (walk-forward)",
+  "description": "A3 Stacking Meta-Learner trained on 58 WC26 matches (walk-forward)",
   "coef": [
     [
       0.6766051283564586,

@@ -864,7 +864,7 @@ def save_stacking_model(cv_result: dict[str, Any]) -> None:
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "description": "A3 Stacking Meta-Learner trained on 54 WC26 matches (walk-forward)",
+        "description": "A3 Stacking Meta-Learner trained on 58 WC26 matches (walk-forward)",
         "coef": cv_result["coefficients"],
         "intercept": cv_result["intercept"],
         "classes": cv_result["classes"],
