@@ -118,14 +118,26 @@ def _default_knockout_prob() -> dict[str, float]:
 # ── Core simulator ────────────────────────────────────────────────────
 
 
+# ── Feature flag ──
+# UNVERIFIED_SOURCE: The polynomial below is attributed to "Csató & Gyimesi
+# (2025) EJOR — 40,000+ matches", but the known Csató & Gyimesi (2025) EJOR
+# paper covers 48-team World Cup format and competitive imbalance, NOT a
+# win-probability → expected-goals polynomial.  Until the true source is
+# confirmed, this MUST NOT be enabled in the main prediction pipeline.
+# It only affects the tournament simulator (Monte Carlo scoreline sampling),
+# not live match predictions.
+USE_CG_LAMBDA_POLYNOMIAL = False
+
+
 def _win_prob_to_xg(w: float) -> float:
-    """Convert a win probability to expected goals via Csató & Gyimesi (2025).
+    """Convert a win probability to expected goals.
 
-    Polynomial fit on 40,000+ matches (EJOR 2025):
+    UNVERIFIED_SOURCE: Polynomial attributed to Csató & Gyimesi (2025) EJOR
+    but the known publication does not contain this formula.  Source pending
+    verification.
+
+    Polynomial (40,000+ matches):
       λ = 3.904·W⁴ − 0.585·W³ − 2.983·W² + 3.132·W + 0.332
-
-    Replaces the heuristic λ = 1.0 + 0.8×(hw−aw) which lacked theoretical
-    grounding and conflated home/away probabilities into a difference term.
     """
     return (
         3.904 * w ** 4
@@ -134,6 +146,15 @@ def _win_prob_to_xg(w: float) -> float:
         + 3.132 * w
         + 0.332
     )
+
+
+def _heuristic_xg_from_win_prob(w: float) -> float:
+    """Simple heuristic: expected goals ≈ 0.8 + 0.6 * win_prob.
+
+    This is a conservative fallback when the unverified Csató-Gyimesi
+    polynomial is disabled.
+    """
+    return 0.8 + 0.6 * w
 
 
 class TournamentSimulator:
@@ -381,12 +402,15 @@ class TournamentSimulator:
         # Simplified: map win probs to relative scoring rates.
         hw, dr, aw = probs["home_win"], probs["draw"], probs["away_win"]
 
-        # Base rates from win probability via Csató & Gyimesi (2025) polynomial.
-        # λ = 3.904W⁴ − 0.585W³ − 2.983W² + 3.132W + 0.332
-        # Fitted on 40,000+ matches (EJOR). Replaces the heuristic
-        # λ = 1.0 + 0.8×(hw−aw) which had no theoretical grounding.
-        base_lam = _win_prob_to_xg(hw)
-        base_mu = _win_prob_to_xg(aw)
+        # Base rates from win probability.
+        # UNVERIFIED_SOURCE: see _win_prob_to_xg docstring.
+        # Feature-gated: USE_CG_LAMBDA_POLYNOMIAL (default False).
+        if USE_CG_LAMBDA_POLYNOMIAL:
+            base_lam = _win_prob_to_xg(hw)
+            base_mu = _win_prob_to_xg(aw)
+        else:
+            base_lam = _heuristic_xg_from_win_prob(hw)
+            base_mu = _heuristic_xg_from_win_prob(aw)
 
         # Clamp
         lam = max(0.3, min(2.5, base_lam))

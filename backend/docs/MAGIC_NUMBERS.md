@@ -160,6 +160,8 @@
 
 | 常量 | 值 | 位置 | 设定依据 |
 |:---|:---|:---|:---|
+| **`half_life_days`** | **180** | L172 `__init__` → L239 `_time_weight` → L366 `fit()` 向量化 + L619 `save()`/L633 `load()` 持久化 | **Walk-forward CV 确认** — 58场WC26逐日前向回测：180d Brier=0.5411 > 60d Brier=0.5541 > 30d Brier=0.5885。粗搜索（coarse）有数据泄露导致30d虚高（0.3896），walk-forward才是真正的out-of-sample评估 |
+| 粗搜索最优（有数据泄露） | 30 | — | Coarse single-fit Brier=0.3896但不可信（WC26比赛同时用于训练和评估） |
 | 默认主队进攻力 | 1.0 | L225 | 未知球队默认值 |
 | 默认客队防守力 | 1.0 | L227 | 未知球队默认值 |
 | 未知球队攻防 modifier | 1.0 | L225-227 | 全局回退值 |
@@ -209,7 +211,7 @@
 
 ### 十一-C、MC λ 多项式系数 (`services/tournament_simulator.py`)
 
-**来源**: Csató & Gyimesi (2025) EJOR — 40,000+ 场比赛拟合。替换启发式 λ = 1.0 + 0.8×(hw−aw)。
+**来源**: ~~Csató & Gyimesi (2025) EJOR~~ **⚠️ UNVERIFIED_SOURCE** — 标注为"40,000+ 场比赛拟合"，但已知 Csató & Gyimesi (2025) EJOR 论文主题是 48 队世界杯赛制与竞争不平衡，并非 win-prob→xG 多项式。真实出处待确认。已通过 feature flag `USE_CG_LAMBDA_POLYNOMIAL=False` 默认关闭，仅影响 tournament simulator 不影口向单场预测。替换启发式 λ = 1.0 + 0.8×(hw−aw)。
 
 | 系数 | 值 | 设定依据 |
 |:---|:---|:---|
@@ -278,3 +280,5 @@
 | 2026-06-18 | MIN_PROB | — | 0.02 | V4.3.1: 安全裁剪防 0% 极端输出 |
 | 2026-06-30 | MC λ 公式 | 1.0+0.8×(hw−aw) | Csató-Gyimesi 4次多项式 | B2: 40,000场拟合替换启发式 |
 | 2026-06-30 | De-vig 方法 | 纯 proportional | 域驱动修正 (Karimov et al. 2025) | B3: 359,035场分析，修正平局/客胜系统性高估 |
+| **2026-07-01** | **DC `half_life_days`** | **180** | **180（不变）** | **P1-2: Walk-forward CV确认180d最优（Brier=0.541），短半衰期在粗搜索中因数据泄露虚高** |
+| 2026-07-01 | CG λ polynomial | 4次多项式 | **feature-flag 关闭** | **P0-3: 文献归属验证失败，标注 UNVERIFIED_SOURCE** |

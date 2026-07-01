@@ -169,7 +169,8 @@ class FitSummary:
 
 
 class DixonColesModel:
-    def __init__(self) -> None:
+    def __init__(self, half_life_days: int = 180) -> None:
+        self.half_life_days = half_life_days
         self.attack_params: dict[str, float] = {}
         self.defense_params: dict[str, float] = {}
         self.home_advantage = 0.0
@@ -235,9 +236,9 @@ class DixonColesModel:
         }
         return float(attack), float(defense), meta
 
-    def _time_weight(self, match_date: date, reference_date: date, half_life_days: int = 180) -> float:
+    def _time_weight(self, match_date: date, reference_date: date) -> float:
         days = max(0, (reference_date - match_date).days)
-        return math.exp(-math.log(2) * days / half_life_days)
+        return math.exp(-math.log(2) * days / self.half_life_days)
 
     def _tau(self, x: int, y: int, lambda_: float, mu_: float, rho: float) -> float:
         if x == 0 and y == 0:
@@ -362,7 +363,7 @@ class DixonColesModel:
         # Use .normalize() so day-diff matches (date - date).days behaviour
         ref_date = df["match_date"].max().normalize()
         days = (ref_date - df["match_date"].dt.normalize()).dt.days.clip(lower=0).to_numpy(dtype=np.float64)
-        time_w = np.exp(-np.log(2) * days / 180.0)
+        time_w = np.exp(-np.log(2) * days / self.half_life_days)
         w_arr = time_w * df["competition_weight"].to_numpy(dtype=np.float64)
 
         # Compute per-team match counts for prior shrinkage
@@ -383,21 +384,36 @@ class DixonColesModel:
         bounds = [(math.log(0.2), math.log(5.0))] * (team_count * 2) + [(-1.0, 1.0), (-3.0, 3.0)]
 
         # ── Use vectorized likelihood (30-100× faster than row-wise loop) ──
+        # Compute initial NLL to gauge improvement even on non-convergence
+        initial_nll = float(_neg_log_likelihood_vectorized(
+            initial, home_idx, away_idx, h_arr, a_arr, w_arr, neutral_arr, team_count, team_counts
+        ))
+
         result = minimize(
             fun=_neg_log_likelihood_vectorized,
             x0=initial,
             args=(home_idx, away_idx, h_arr, a_arr, w_arr, neutral_arr, team_count, team_counts),
             method="L-BFGS-B",
             bounds=bounds,
-            options={"maxiter": 2000, "maxfun": 10000},
+            options={"maxiter": 5000, "maxfun": 50000},
         )
-        if result.success:
+
+        improved = result.fun < initial_nll * 0.999  # any meaningful improvement
+        params_valid = not (np.any(np.isnan(result.x)) or np.any(np.isinf(result.x)))
+
+        if result.success or (improved and params_valid):
+            if not result.success:
+                logger.warning(
+                    "Dixon-Coles optimizer did not converge (%s) but improved NLL "
+                    "from %.1f to %.1f — accepting best parameters found.",
+                    result.message, initial_nll, result.fun,
+                )
             self.attack_params, self.defense_params, self.home_advantage, self.rho = self._unpack_params(result.x)
         else:
-            logger.warning(
-                "Dixon-Coles optimizer did not converge (%s). "
+            logger.error(
+                "Dixon-Coles optimizer failed (NLL %.1f -> %.1f, valid=%s). "
                 "Keeping existing parameters to avoid corruption.",
-                result.message,
+                initial_nll, result.fun, params_valid,
             )
 
         self.trained_at = datetime.now(UTC)
@@ -606,6 +622,7 @@ class DixonColesModel:
             "defense_params": self.defense_params,
             "home_advantage": self.home_advantage,
             "rho": self.rho,
+            "half_life_days": self.half_life_days,
             "trained_at": self.trained_at.isoformat() if self.trained_at else None,
             "conf_attack_avg": self.conf_attack_avg,
             "conf_defense_avg": self.conf_defense_avg,
@@ -619,6 +636,7 @@ class DixonColesModel:
         self.defense_params = {key: float(value) for key, value in payload["defense_params"].items()}
         self.home_advantage = float(payload["home_advantage"])
         self.rho = float(payload["rho"])
+        self.half_life_days = int(payload.get("half_life_days", 180))
         self.trained_at = datetime.fromisoformat(payload["trained_at"]) if payload["trained_at"] else None
         self._team_order = sorted(self.attack_params)
         self.conf_attack_avg = {key: float(value) for key, value in payload.get("conf_attack_avg", {}).items()}

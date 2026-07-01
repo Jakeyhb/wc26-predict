@@ -31,7 +31,13 @@ from app.services.model_cache_disk import (
 )
 from app.services.pi_ratings import PiRatingWrapper, fuse_pi_probabilities
 from app.services.prediction_result import DegradedReason, PredictionResult, SourceStatus
+from app.services.score_matrix_calibrator import (
+    SCORE_MATRIX_CALIBRATION_ENABLED,
+    calibrate_score_matrix,
+)
 from app.services.signal_adjuster import SignalAdjuster
+from app.core.ko_draw_guard import check_ko_draw_guard
+from app.core.verification_gates import postflight_check
 from app.services.tabular_match_model import TabularMatchEnhancer
 from app.services.weibull_model import WeibullWrapper, fuse_weibull_probs
 from app.services.weights import get_weight_config
@@ -92,6 +98,48 @@ def _load_isotonic_calibrator(competition: str = "") -> IsotonicCalibrator:
     except Exception as exc:
         logger.warning("Failed to load calibrator artifact: %s", exc)
     return calibrator
+
+
+def _run_postflight_gate(result: PredictionResult, *, is_knockout: bool = False) -> None:
+    """Run post-flight verification gate on a completed prediction.
+
+    Logs failures but does NOT block — the caller (CLI layer) decides
+    whether to abort the DB write.  Library callers can inspect
+    ``result.degraded_reasons`` for gate failures.
+    """
+    try:
+        failures = postflight_check(
+            probs={
+                "home_win_prob": result.home_win_prob,
+                "draw_prob": result.draw_prob,
+                "away_win_prob": result.away_win_prob,
+            },
+            all_components_run=len(result.components_used),
+            market_applied=result.market_applied,
+            calibration_applied=result.calibration_applied,
+            is_knockout=is_knockout,
+            elo_gap=result.elo_gap,
+        )
+        if failures:
+            for f in failures:
+                logger.warning(
+                    "Post-flight gate [%s] %s: %s",
+                    f.severity, f.gate, f.message,
+                )
+                if f.severity == "error":
+                    result.degraded_reasons.append(DegradedReason(
+                        source=f"postflight_gate:{f.gate}",
+                        reason=f.message,
+                        severity="error",
+                    ))
+                else:
+                    result.degraded_reasons.append(DegradedReason(
+                        source=f"postflight_gate:{f.gate}",
+                        reason=f.message,
+                        severity="warning",
+                    ))
+    except Exception as exc:
+        logger.warning("Post-flight gate check failed: %s", exc)
 
 
 class PredictionPipeline:
@@ -696,6 +744,69 @@ class PredictionPipeline:
                 "baseline_probs": dict(clean),
             }
 
+        # ── 13.6 Score matrix calibration (P0-1) ──
+        # Rescale DC raw score matrix so its H/D/A aggregates match the
+        # final fused probabilities.  Fixes structural inconsistency where
+        # top_scores and score_matrix reflect raw DC instead of final probs.
+        score_matrix_diag: dict[str, Any] = {"calibration_applied": False}
+        calibrated_top_scores: list[dict[str, Any]] | None = None
+        calibrated_score_matrix: list[list[float]] | None = None
+
+        raw_score_matrix = dc_pred.get("score_matrix")
+        if SCORE_MATRIX_CALIBRATION_ENABLED and raw_score_matrix:
+            try:
+                cal_result = calibrate_score_matrix(
+                    raw_matrix=raw_score_matrix,
+                    final_probs={
+                        "home_win_prob": clean["home_win_prob"],
+                        "draw_prob": clean["draw_prob"],
+                        "away_win_prob": clean["away_win_prob"],
+                    },
+                )
+                calibrated_top_scores = cal_result["top3_scores"]
+                calibrated_score_matrix = cal_result["calibrated_matrix"]
+                score_matrix_diag = cal_result
+                logger.debug(
+                    "Score matrix calibrated: consistency_error=%.2e, "
+                    "max_cell_change=%.3f",
+                    cal_result["outcome_consistency_error"],
+                    cal_result["max_cell_change_ratio"],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Score matrix calibration failed — using raw DC: %s", exc
+                )
+                score_matrix_diag = {
+                    "calibration_applied": False,
+                    "error": str(exc),
+                }
+
+        # ── 13.7 KO draw guard (P0-2) ──
+        # Check for implausibly low draw probability in knockout matches
+        # after isotonic calibration.  Phase 1: warn-only, no prob changes.
+        ko_draw_guard_result: dict[str, Any] = {"checked": False, "triggered": False}
+        try:
+            ko_draw_guard_result = check_ko_draw_guard(
+                draw_prob=float(clean["draw_prob"]),
+                stage=stage,
+                elo_gap=float(elo_pred.rating_gap),
+                total_xg=float(dc_pred.get("home_xg", 0)) + float(dc_pred.get("away_xg", 0)),
+                market_draw_prob=(
+                    float(market_probs["draw_prob"])
+                    if market_probs and "draw_prob" in market_probs
+                    else None
+                ),
+            )
+            if ko_draw_guard_result.get("triggered"):
+                logger.warning(
+                    "KO draw guard triggered: %s", ko_draw_guard_result.get("reason")
+                )
+                risk_tags.append("KO draw underestimation risk")
+                confidence_penalty_val = float(dc_pred.get("confidence_penalty", 0.0))
+                dc_pred["confidence_penalty"] = confidence_penalty_val + 0.05
+        except Exception as exc:
+            logger.warning("KO draw guard check failed — continuing: %s", exc)
+
         # ── 14. Build result ──
         components_used = ["dc", "enhancer", "elo"]
         if pi_pred:
@@ -777,8 +888,10 @@ class PredictionPipeline:
             home_elo=float(elo_pred.home_elo),
             away_elo=float(elo_pred.away_elo),
             elo_gap=float(elo_pred.rating_gap),
-            top_scores=list(dc_pred.get("top3_scores", [])),
-            score_matrix=list(dc_pred.get("score_matrix", [])),
+            top_scores=calibrated_top_scores if calibrated_top_scores is not None
+                       else list(dc_pred.get("top3_scores", [])),
+            score_matrix=calibrated_score_matrix if calibrated_score_matrix is not None
+                         else list(dc_pred.get("score_matrix", [])),
             weight_config=wc,
             mode=mode,
             as_of=as_of.isoformat() if as_of else now_utc,
@@ -813,6 +926,8 @@ class PredictionPipeline:
                 "pre_market_probs": pre_market_probs,
                 "market_weight_used": market_weight_used,
                 "calibration_applied": calibration_applied,
+                "score_matrix_calibration": score_matrix_diag,
+                "ko_draw_guard": ko_draw_guard_result,
             },
             active_events=active_events,
             context_adjustments=ctx_adjustments,
@@ -835,6 +950,12 @@ class PredictionPipeline:
             calibration_monitor=cal_monitor,
             calibration_applied=calibration_applied,
         )
+
+        # ── Post-flight gate (P0-4) ──
+        _run_postflight_gate(result, is_knockout=bool(stage and stage in (
+            "Round of 32", "Round of 16", "Quarter-finals",
+            "Semi-finals", "Final", "Third Place",
+        )))
 
         return result
 
@@ -1563,6 +1684,55 @@ class PredictionPipeline:
                 "reason": f"calibration exception: {exc}",
             }
 
+        # ── 10.6 Score matrix calibration (P0-1) ──
+        score_matrix_diag: dict[str, Any] = {"calibration_applied": False}
+        calibrated_top_scores: list[dict[str, Any]] | None = None
+        calibrated_score_matrix: list[list[float]] | None = None
+
+        raw_score_matrix = dc_pred.get("score_matrix")
+        if SCORE_MATRIX_CALIBRATION_ENABLED and raw_score_matrix:
+            try:
+                cal_result = calibrate_score_matrix(
+                    raw_matrix=raw_score_matrix,
+                    final_probs={
+                        "home_win_prob": fused["home_win_prob"],
+                        "draw_prob": fused["draw_prob"],
+                        "away_win_prob": fused["away_win_prob"],
+                    },
+                )
+                calibrated_top_scores = cal_result["top3_scores"]
+                calibrated_score_matrix = cal_result["calibrated_matrix"]
+                score_matrix_diag = cal_result
+            except Exception as exc:
+                logger.warning(
+                    "Score matrix calibration failed (sync) — using raw DC: %s", exc
+                )
+                score_matrix_diag = {
+                    "calibration_applied": False,
+                    "error": str(exc),
+                }
+
+        # ── 10.7 KO draw guard (P0-2) ──
+        ko_draw_guard_result: dict[str, Any] = {"checked": False, "triggered": False}
+        try:
+            ko_draw_guard_result = check_ko_draw_guard(
+                draw_prob=float(fused["draw_prob"]),
+                stage=stage,
+                total_xg=float(dc_pred.get("home_xg", 0)) + float(dc_pred.get("away_xg", 0)),
+                market_draw_prob=(
+                    float(market_probs_data["draw_prob"])
+                    if market_probs_data and "draw_prob" in market_probs_data
+                    else None
+                ),
+            )
+            if ko_draw_guard_result.get("triggered"):
+                logger.warning(
+                    "KO draw guard triggered (sync): %s", ko_draw_guard_result.get("reason")
+                )
+                risk_tags.append("KO draw underestimation risk")
+        except Exception as exc:
+            logger.warning("KO draw guard check failed (sync) — continuing: %s", exc)
+
         # ── 11. Pipeline status ──
         used_components = [
             c for c, s in quality.model_components.items()
@@ -1672,7 +1842,8 @@ class PredictionPipeline:
             home_elo=float(elo_detail.get("home_elo", 1500.0)),
             away_elo=float(elo_detail.get("away_elo", 1500.0)),
             elo_gap=float(elo_detail.get("rating_gap", 0.0)),
-            top_scores=list(dc_pred.get("top3_scores", [])),
+            top_scores=calibrated_top_scores if calibrated_top_scores is not None
+                       else list(dc_pred.get("top3_scores", [])),
             weight_config=wc,
             mode="internal_research",
             as_of=now_utc,
@@ -1696,6 +1867,8 @@ class PredictionPipeline:
                 "pre_market_probs": pre_market_probs,
                 "market_weight_used": market_weight_used,
                 "calibration_applied": calibration_applied,
+                "score_matrix_calibration": score_matrix_diag,
+                "ko_draw_guard": ko_draw_guard_result,
             },
             source_status=source_status,
             market_applied=market_applied,
@@ -1726,6 +1899,12 @@ class PredictionPipeline:
                 odds_available=market_available,
                 odds_data=market_probs,
             )
+
+        # ── Post-flight gate (P0-4) ──
+        _run_postflight_gate(result, is_knockout=bool(stage and stage in (
+            "Round of 32", "Round of 16", "Quarter-finals",
+            "Semi-finals", "Final", "Third Place",
+        )))
 
         return result
 
