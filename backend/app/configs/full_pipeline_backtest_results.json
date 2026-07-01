@@ -1,0 +1,6226 @@
+{
+  "generated_at": "2026-07-01T05:20:10.131837+00:00",
+  "description": "Full-pipeline walk-forward backtest: DC → Elo → Pi → DrawFloor",
+  "half_lives_tested": [
+    30,
+    60,
+    90,
+    180
+  ],
+  "weights_used": {
+    "dc": 0.9,
+    "elo": 0.12,
+    "pi": 0.17,
+    "note": "Enhancer and Weibull skipped (independent of DC half-life)"
+  },
+  "results": [
+    {
+      "half_life_days": 30,
+      "metrics": {
+        "n_matches": 58,
+        "dc_brier": 0.5884802586206896,
+        "fused_brier": 0.574042775862069,
+        "dc_logloss": 0.9758434482758621,
+        "fused_logloss": 0.9591861034482758,
+        "rps": 0.19087762068965516,
+        "ece": 0.585934,
+        "draw_brier": 0.850792,
+        "draw_match_count": 15,
+        "scoreline_logloss": 3.9532089827586208,
+        "dc_direction_accuracy": 0.5344827586206896,
+        "fused_direction_accuracy": 0.603448275862069,
+        "dc_direction_counts": {
+          "correct": 31,
+          "wrong": 27
+        },
+        "fused_direction_counts": {
+          "correct": 35,
+          "wrong": 23
+        },
+        "group_stage": {
+          "n": 55,
+          "dc_brier": 0.5699831636363636,
+          "fused_brier": 0.557343,
+          "fused_direction": 0.6181818181818182
+        },
+        "knockout": {
+          "n": 3,
+          "dc_brier": 0.9275936666666666,
+          "fused_brier": 0.8802053333333334,
+          "draw_brier": 1.1664245,
+          "fused_direction": 0.3333333333333333
+        }
+      },
+      "n_matches_evaluated": 58,
+      "walk_forward_windows": 17,
+      "total_time_s": 664.3,
+      "dc_fit_time_s": 664.1,
+      "details": [
+        {
+          "match": "Mexico vs South Africa",
+          "date": "2026-06-11",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.617081,
+          "fused_brier": 0.506594,
+          "dc_logloss": 0.863745,
+          "fused_logloss": 0.803546,
+          "rps": 0.159629,
+          "draw_brier": null,
+          "scoreline_logloss": 2.400364,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4216,
+            "draw": 0.5292,
+            "away": 0.0492
+          },
+          "fused_probs": {
+            "home": 0.4477,
+            "draw": 0.4328,
+            "away": 0.1194
+          },
+          "half_life": 30
+        },
+        {
+          "match": "South Korea vs Czech Republic",
+          "date": "2026-06-12",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-1",
+          "dc_brier": 0.352713,
+          "fused_brier": 0.346291,
+          "dc_logloss": 0.663414,
+          "fused_logloss": 0.654235,
+          "rps": 0.14785,
+          "draw_brier": null,
+          "scoreline_logloss": 2.325314,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5151,
+            "draw": 0.2443,
+            "away": 0.2406
+          },
+          "fused_probs": {
+            "home": 0.5198,
+            "draw": 0.2249,
+            "away": 0.2552
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Canada vs Bosnia and Herzegovina",
+          "date": "2026-06-12",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.528997,
+          "fused_brier": 0.664723,
+          "dc_logloss": 0.900974,
+          "fused_logloss": 1.083093,
+          "rps": 0.113601,
+          "draw_brier": 0.664723,
+          "scoreline_logloss": 2.162533,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.302,
+            "draw": 0.4062,
+            "away": 0.2918
+          },
+          "fused_probs": {
+            "home": 0.3957,
+            "draw": 0.3385,
+            "away": 0.2658
+          },
+          "half_life": 30
+        },
+        {
+          "match": "United States vs Paraguay",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "4-1",
+          "dc_brier": 0.746823,
+          "fused_brier": 0.648716,
+          "dc_logloss": 1.203532,
+          "fused_logloss": 1.052609,
+          "rps": 0.294428,
+          "draw_brier": null,
+          "scoreline_logloss": 4.281519,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3001,
+            "draw": 0.2721,
+            "away": 0.4277
+          },
+          "fused_probs": {
+            "home": 0.349,
+            "draw": 0.2447,
+            "away": 0.4063
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Australia vs Turkey",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.872966,
+          "fused_brier": 0.744854,
+          "dc_logloss": 1.399815,
+          "fused_logloss": 1.212968,
+          "rps": 0.293552,
+          "draw_brier": null,
+          "scoreline_logloss": 3.059644,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2466,
+            "draw": 0.4807,
+            "away": 0.2726
+          },
+          "fused_probs": {
+            "home": 0.2973,
+            "draw": 0.3972,
+            "away": 0.3055
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Qatar vs Switzerland",
+          "date": "2026-06-13",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.843827,
+          "fused_brier": 0.92275,
+          "dc_logloss": 1.200571,
+          "fused_logloss": 1.341306,
+          "rps": 0.188687,
+          "draw_brier": 0.92275,
+          "scoreline_logloss": 2.056799,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1139,
+            "draw": 0.301,
+            "away": 0.585
+          },
+          "fused_probs": {
+            "home": 0.1405,
+            "draw": 0.2615,
+            "away": 0.598
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Brazil vs Morocco",
+          "date": "2026-06-13",
+          "stage": "Group C - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 1.287415,
+          "fused_brier": 1.191498,
+          "dc_logloss": 1.856251,
+          "fused_logloss": 1.818691,
+          "rps": 0.244826,
+          "draw_brier": 1.191498,
+          "scoreline_logloss": 2.778921,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.0905,
+            "draw": 0.1563,
+            "away": 0.7532
+          },
+          "fused_probs": {
+            "home": 0.1555,
+            "draw": 0.1622,
+            "away": 0.6823
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Haiti vs Scotland",
+          "date": "2026-06-14",
+          "stage": "Group C - Matchday 1",
+          "actual": "0-1",
+          "dc_brier": 0.387393,
+          "fused_brier": 0.427343,
+          "dc_logloss": 0.697308,
+          "fused_logloss": 0.762574,
+          "rps": 0.174456,
+          "draw_brier": null,
+          "scoreline_logloss": 1.819989,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1829,
+            "draw": 0.3191,
+            "away": 0.4979
+          },
+          "fused_probs": {
+            "home": 0.2535,
+            "draw": 0.2801,
+            "away": 0.4665
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Germany vs Curacao",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "7-1",
+          "dc_brier": 0.001509,
+          "fused_brier": 0.044859,
+          "dc_logloss": 0.030542,
+          "fused_logloss": 0.18373,
+          "rps": 0.015229,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.9699,
+            "draw": 0.0238,
+            "away": 0.0063
+          },
+          "fused_probs": {
+            "home": 0.8322,
+            "draw": 0.12,
+            "away": 0.0478
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Netherlands vs Japan",
+          "date": "2026-06-14",
+          "stage": "Group F - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.489558,
+          "fused_brier": 0.613272,
+          "dc_logloss": 0.813368,
+          "fused_logloss": 0.993319,
+          "rps": 0.108404,
+          "draw_brier": 0.613272,
+          "scoreline_logloss": 4.954147,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.167,
+            "draw": 0.4434,
+            "away": 0.3897
+          },
+          "fused_probs": {
+            "home": 0.2185,
+            "draw": 0.3703,
+            "away": 0.4112
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Ivory Coast vs Ecuador",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.4677,
+          "fused_brier": 0.469087,
+          "dc_logloss": 0.806723,
+          "fused_logloss": 0.818571,
+          "rps": 0.191097,
+          "draw_brier": null,
+          "scoreline_logloss": 1.833544,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4463,
+            "draw": 0.3395,
+            "away": 0.2142
+          },
+          "fused_probs": {
+            "home": 0.4411,
+            "draw": 0.2948,
+            "away": 0.2642
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Tunisia vs Sweden",
+          "date": "2026-06-15",
+          "stage": "Group F - Matchday 1",
+          "actual": "1-5",
+          "dc_brier": 0.611084,
+          "fused_brier": 0.637125,
+          "dc_logloss": 1.015148,
+          "fused_logloss": 1.052171,
+          "rps": 0.274862,
+          "draw_brier": null,
+          "scoreline_logloss": 6.252323,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2945,
+            "draw": 0.3432,
+            "away": 0.3623
+          },
+          "fused_probs": {
+            "home": 0.3552,
+            "draw": 0.2956,
+            "away": 0.3492
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Spain vs Cape Verde",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "0-0",
+          "dc_brier": 0.638356,
+          "fused_brier": 0.742219,
+          "dc_logloss": 1.043687,
+          "fused_logloss": 1.21459,
+          "rps": 0.123887,
+          "draw_brier": 0.742219,
+          "scoreline_logloss": 1.84953,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2576,
+            "draw": 0.3522,
+            "away": 0.3903
+          },
+          "fused_probs": {
+            "home": 0.3682,
+            "draw": 0.2968,
+            "away": 0.335
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Belgium vs Egypt",
+          "date": "2026-06-15",
+          "stage": "Group G - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.58828,
+          "fused_brier": 0.691603,
+          "dc_logloss": 0.966494,
+          "fused_logloss": 1.12703,
+          "rps": 0.117309,
+          "draw_brier": 0.691603,
+          "scoreline_logloss": 1.883151,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3887,
+            "draw": 0.3804,
+            "away": 0.2309
+          },
+          "fused_probs": {
+            "home": 0.3934,
+            "draw": 0.324,
+            "away": 0.2827
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Saudi Arabia vs Uruguay",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.780192,
+          "fused_brier": 0.849259,
+          "dc_logloss": 1.174306,
+          "fused_logloss": 1.305884,
+          "rps": 0.15886,
+          "draw_brier": 0.849259,
+          "scoreline_logloss": 1.957176,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1665,
+            "draw": 0.309,
+            "away": 0.5244
+          },
+          "fused_probs": {
+            "home": 0.2034,
+            "draw": 0.2709,
+            "away": 0.5257
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Iran vs New Zealand",
+          "date": "2026-06-16",
+          "stage": "Group G - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.833029,
+          "fused_brier": 0.90163,
+          "dc_logloss": 1.278142,
+          "fused_logloss": 1.395621,
+          "rps": 0.167822,
+          "draw_brier": 0.90163,
+          "scoreline_logloss": 3.11087,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5224,
+            "draw": 0.2786,
+            "away": 0.199
+          },
+          "fused_probs": {
+            "home": 0.5384,
+            "draw": 0.2477,
+            "away": 0.2139
+          },
+          "half_life": 30
+        },
+        {
+          "match": "France vs Senegal",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.645326,
+          "fused_brier": 0.580148,
+          "dc_logloss": 1.065854,
+          "fused_logloss": 0.968517,
+          "rps": 0.253033,
+          "draw_brier": null,
+          "scoreline_logloss": 3.446979,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3444,
+            "draw": 0.3094,
+            "away": 0.3462
+          },
+          "fused_probs": {
+            "home": 0.3796,
+            "draw": 0.2722,
+            "away": 0.3482
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Iraq vs Norway",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "1-4",
+          "dc_brier": 0.933935,
+          "fused_brier": 0.775435,
+          "dc_logloss": 1.556143,
+          "fused_logloss": 1.266877,
+          "rps": 0.33276,
+          "draw_brier": null,
+          "scoreline_logloss": 6.884486,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3985,
+            "draw": 0.3906,
+            "away": 0.2109
+          },
+          "fused_probs": {
+            "home": 0.3868,
+            "draw": 0.3315,
+            "away": 0.2817
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Argentina vs Algeria",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-0",
+          "dc_brier": 0.74053,
+          "fused_brier": 0.633303,
+          "dc_logloss": 1.21277,
+          "fused_logloss": 1.047555,
+          "rps": 0.271308,
+          "draw_brier": null,
+          "scoreline_logloss": 3.902384,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2974,
+            "draw": 0.3503,
+            "away": 0.3523
+          },
+          "fused_probs": {
+            "home": 0.3508,
+            "draw": 0.3011,
+            "away": 0.3481
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Austria vs Jordan",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.252454,
+          "fused_brier": 0.298119,
+          "dc_logloss": 0.520128,
+          "fused_logloss": 0.58989,
+          "rps": 0.121609,
+          "draw_brier": null,
+          "scoreline_logloss": 2.733994,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5944,
+            "draw": 0.2564,
+            "away": 0.1492
+          },
+          "fused_probs": {
+            "home": 0.5544,
+            "draw": 0.2343,
+            "away": 0.2113
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Portugal vs DR Congo",
+          "date": "2026-06-17",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.503277,
+          "fused_brier": 0.630265,
+          "dc_logloss": 0.86569,
+          "fused_logloss": 1.042819,
+          "rps": 0.105478,
+          "draw_brier": 0.630265,
+          "scoreline_logloss": 1.91832,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2898,
+            "draw": 0.4208,
+            "away": 0.2895
+          },
+          "fused_probs": {
+            "home": 0.3493,
+            "draw": 0.3525,
+            "away": 0.2983
+          },
+          "half_life": 30
+        },
+        {
+          "match": "England vs Croatia",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "4-2",
+          "dc_brier": 0.577203,
+          "fused_brier": 0.518323,
+          "dc_logloss": 0.953055,
+          "fused_logloss": 0.883775,
+          "rps": 0.206717,
+          "draw_brier": null,
+          "scoreline_logloss": 6.225809,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3856,
+            "draw": 0.381,
+            "away": 0.2334
+          },
+          "fused_probs": {
+            "home": 0.4132,
+            "draw": 0.3239,
+            "away": 0.2629
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Ghana vs Panama",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.515347,
+          "fused_brier": 0.582625,
+          "dc_logloss": 0.881382,
+          "fused_logloss": 0.964682,
+          "rps": 0.261079,
+          "draw_brier": null,
+          "scoreline_logloss": 2.961154,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4142,
+            "draw": 0.2753,
+            "away": 0.3105
+          },
+          "fused_probs": {
+            "home": 0.3811,
+            "draw": 0.2459,
+            "away": 0.373
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Uzbekistan vs Colombia",
+          "date": "2026-06-18",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-3",
+          "dc_brier": 0.832468,
+          "fused_brier": 0.727325,
+          "dc_logloss": 1.365926,
+          "fused_logloss": 1.18744,
+          "rps": 0.315567,
+          "draw_brier": null,
+          "scoreline_logloss": 4.265458,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3837,
+            "draw": 0.3612,
+            "away": 0.2551
+          },
+          "fused_probs": {
+            "home": 0.3849,
+            "draw": 0.3101,
+            "away": 0.305
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Czech Republic vs South Africa",
+          "date": "2026-06-18",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-1",
+          "dc_brier": 0.819768,
+          "fused_brier": 0.853643,
+          "dc_logloss": 1.205035,
+          "fused_logloss": 1.324228,
+          "rps": 0.15745,
+          "draw_brier": 0.853643,
+          "scoreline_logloss": 2.029312,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5552,
+            "draw": 0.2997,
+            "away": 0.1451
+          },
+          "fused_probs": {
+            "home": 0.5179,
+            "draw": 0.266,
+            "away": 0.2161
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Switzerland vs Bosnia and Herzegovina",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "4-1",
+          "dc_brier": 0.522623,
+          "fused_brier": 0.407402,
+          "dc_logloss": 0.883435,
+          "fused_logloss": 0.732915,
+          "rps": 0.159969,
+          "draw_brier": null,
+          "scoreline_logloss": 4.859757,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4134,
+            "draw": 0.3499,
+            "away": 0.2367
+          },
+          "fused_probs": {
+            "home": 0.4805,
+            "draw": 0.2957,
+            "away": 0.2238
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Canada vs Qatar",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "6-0",
+          "dc_brier": 0.788587,
+          "fused_brier": 0.608215,
+          "dc_logloss": 1.285951,
+          "fused_logloss": 1.011804,
+          "rps": 0.247642,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2764,
+            "draw": 0.4016,
+            "away": 0.322
+          },
+          "fused_probs": {
+            "home": 0.3636,
+            "draw": 0.3361,
+            "away": 0.3004
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Mexico vs South Korea",
+          "date": "2026-06-19",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.467529,
+          "fused_brier": 0.48039,
+          "dc_logloss": 0.801332,
+          "fused_logloss": 0.83334,
+          "rps": 0.194134,
+          "draw_brier": null,
+          "scoreline_logloss": 1.849428,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4487,
+            "draw": 0.3521,
+            "away": 0.1992
+          },
+          "fused_probs": {
+            "home": 0.4346,
+            "draw": 0.3035,
+            "away": 0.2619
+          },
+          "half_life": 30
+        },
+        {
+          "match": "United States vs Australia",
+          "date": "2026-06-19",
+          "stage": "Group D - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 0.921825,
+          "fused_brier": 0.854976,
+          "dc_logloss": 1.480801,
+          "fused_logloss": 1.349948,
+          "rps": 0.39771,
+          "draw_brier": null,
+          "scoreline_logloss": 3.35291,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2275,
+            "draw": 0.271,
+            "away": 0.5016
+          },
+          "fused_probs": {
+            "home": 0.2593,
+            "draw": 0.244,
+            "away": 0.4967
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Scotland vs Morocco",
+          "date": "2026-06-19",
+          "stage": "Group C - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.712348,
+          "fused_brier": 0.528315,
+          "dc_logloss": 1.152123,
+          "fused_logloss": 0.893928,
+          "rps": 0.205409,
+          "draw_brier": null,
+          "scoreline_logloss": 1.856516,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2696,
+            "draw": 0.4145,
+            "away": 0.316
+          },
+          "fused_probs": {
+            "home": 0.2482,
+            "draw": 0.3428,
+            "away": 0.409
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Brazil vs Haiti",
+          "date": "2026-06-20",
+          "stage": "Group C - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.177191,
+          "fused_brier": 0.193577,
+          "dc_logloss": 0.404388,
+          "fused_logloss": 0.439714,
+          "rps": 0.072379,
+          "draw_brier": null,
+          "scoreline_logloss": 2.340954,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6674,
+            "draw": 0.2413,
+            "away": 0.0913
+          },
+          "fused_probs": {
+            "home": 0.6442,
+            "draw": 0.2209,
+            "away": 0.1348
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Turkey vs Paraguay",
+          "date": "2026-06-20",
+          "stage": "Group D - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.668596,
+          "fused_brier": 0.693731,
+          "dc_logloss": 1.100967,
+          "fused_logloss": 1.128795,
+          "rps": 0.308022,
+          "draw_brier": null,
+          "scoreline_logloss": 2.514657,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3472,
+            "draw": 0.3203,
+            "away": 0.3325
+          },
+          "fused_probs": {
+            "home": 0.3979,
+            "draw": 0.2787,
+            "away": 0.3234
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Netherlands vs Sweden",
+          "date": "2026-06-20",
+          "stage": "Group F - Matchday 2",
+          "actual": "5-1",
+          "dc_brier": 1.211263,
+          "fused_brier": 0.899711,
+          "dc_logloss": 1.908448,
+          "fused_logloss": 1.35166,
+          "rps": 0.434352,
+          "draw_brier": null,
+          "scoreline_logloss": 6.255215,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1483,
+            "draw": 0.1777,
+            "away": 0.674
+          },
+          "fused_probs": {
+            "home": 0.2588,
+            "draw": 0.1761,
+            "away": 0.5651
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Germany vs Ivory Coast",
+          "date": "2026-06-20",
+          "stage": "Group E - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.432268,
+          "fused_brier": 0.442226,
+          "dc_logloss": 0.764055,
+          "fused_logloss": 0.782977,
+          "rps": 0.18334,
+          "draw_brier": null,
+          "scoreline_logloss": 2.399159,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4658,
+            "draw": 0.3128,
+            "away": 0.2214
+          },
+          "fused_probs": {
+            "home": 0.457,
+            "draw": 0.2749,
+            "away": 0.2681
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Ecuador vs Curacao",
+          "date": "2026-06-21",
+          "stage": "Group E - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.90249,
+          "fused_brier": 0.952848,
+          "dc_logloss": 1.325656,
+          "fused_logloss": 1.435659,
+          "rps": 0.18607,
+          "draw_brier": 0.952848,
+          "scoreline_logloss": 2.436607,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5834,
+            "draw": 0.2656,
+            "away": 0.1509
+          },
+          "fused_probs": {
+            "home": 0.5832,
+            "draw": 0.238,
+            "away": 0.1788
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Tunisia vs Japan",
+          "date": "2026-06-21",
+          "stage": "Group F - Matchday 2",
+          "actual": "0-4",
+          "dc_brier": 0.058681,
+          "fused_brier": 0.103124,
+          "dc_logloss": 0.211919,
+          "fused_logloss": 0.302854,
+          "rps": 0.040382,
+          "draw_brier": null,
+          "scoreline_logloss": 2.381261,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0509,
+            "draw": 0.1401,
+            "away": 0.809
+          },
+          "fused_probs": {
+            "home": 0.1118,
+            "draw": 0.1495,
+            "away": 0.7387
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Spain vs Saudi Arabia",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "4-0",
+          "dc_brier": 0.597845,
+          "fused_brier": 0.438503,
+          "dc_logloss": 0.953239,
+          "fused_logloss": 0.75694,
+          "rps": 0.156555,
+          "draw_brier": null,
+          "scoreline_logloss": 5.296229,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3855,
+            "draw": 0.4326,
+            "away": 0.1819
+          },
+          "fused_probs": {
+            "home": 0.4691,
+            "draw": 0.3541,
+            "away": 0.1768
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Belgium vs Iran",
+          "date": "2026-06-21",
+          "stage": "Group G - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.474929,
+          "fused_brier": 0.501969,
+          "dc_logloss": 0.826888,
+          "fused_logloss": 0.858876,
+          "rps": 0.220901,
+          "draw_brier": null,
+          "scoreline_logloss": 2.377702,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4374,
+            "draw": 0.2722,
+            "away": 0.2904
+          },
+          "fused_probs": {
+            "home": 0.4236,
+            "draw": 0.2453,
+            "away": 0.3311
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Uruguay vs Cape Verde",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "2-2",
+          "dc_brier": 0.481175,
+          "fused_brier": 0.601444,
+          "dc_logloss": 0.814653,
+          "fused_logloss": 0.996158,
+          "rps": 0.101828,
+          "draw_brier": 0.601444,
+          "scoreline_logloss": 4.614317,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1907,
+            "draw": 0.4428,
+            "away": 0.3665
+          },
+          "fused_probs": {
+            "home": 0.2666,
+            "draw": 0.3693,
+            "away": 0.3641
+          },
+          "half_life": 30
+        },
+        {
+          "match": "New Zealand vs Egypt",
+          "date": "2026-06-22",
+          "stage": "Group G - Matchday 2",
+          "actual": "1-3",
+          "dc_brier": 0.332702,
+          "fused_brier": 0.316231,
+          "dc_logloss": 0.615561,
+          "fused_logloss": 0.607836,
+          "rps": 0.119479,
+          "draw_brier": null,
+          "scoreline_logloss": 3.455315,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.141,
+            "draw": 0.3186,
+            "away": 0.5403
+          },
+          "fused_probs": {
+            "home": 0.1775,
+            "draw": 0.278,
+            "away": 0.5445
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Argentina vs Austria",
+          "date": "2026-06-22",
+          "stage": "Group J - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 0.162783,
+          "fused_brier": 0.18375,
+          "dc_logloss": 0.387441,
+          "fused_logloss": 0.427184,
+          "rps": 0.070067,
+          "draw_brier": null,
+          "scoreline_logloss": 1.909768,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6788,
+            "draw": 0.2239,
+            "away": 0.0973
+          },
+          "fused_probs": {
+            "home": 0.6523,
+            "draw": 0.2088,
+            "away": 0.1388
+          },
+          "half_life": 30
+        },
+        {
+          "match": "France vs Iraq",
+          "date": "2026-06-22",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.018674,
+          "fused_brier": 0.055814,
+          "dc_logloss": 0.114262,
+          "fused_logloss": 0.211701,
+          "rps": 0.020707,
+          "draw_brier": null,
+          "scoreline_logloss": 2.143691,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.892,
+            "draw": 0.0783,
+            "away": 0.0296
+          },
+          "fused_probs": {
+            "home": 0.8092,
+            "draw": 0.12,
+            "away": 0.0708
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Norway vs Senegal",
+          "date": "2026-06-23",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-2",
+          "dc_brier": 0.156208,
+          "fused_brier": 0.253009,
+          "dc_logloss": 0.387144,
+          "fused_logloss": 0.527804,
+          "rps": 0.109229,
+          "draw_brier": null,
+          "scoreline_logloss": 2.905278,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.679,
+            "draw": 0.1891,
+            "away": 0.1319
+          },
+          "fused_probs": {
+            "home": 0.5899,
+            "draw": 0.1859,
+            "away": 0.2242
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Jordan vs Algeria",
+          "date": "2026-06-23",
+          "stage": "Group J - Matchday 2",
+          "actual": "1-2",
+          "dc_brier": 0.655001,
+          "fused_brier": 0.551412,
+          "dc_logloss": 1.077557,
+          "fused_logloss": 0.927169,
+          "rps": 0.241964,
+          "draw_brier": null,
+          "scoreline_logloss": 2.487119,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3648,
+            "draw": 0.2948,
+            "away": 0.3404
+          },
+          "fused_probs": {
+            "home": 0.3446,
+            "draw": 0.2598,
+            "away": 0.3957
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Portugal vs Uzbekistan",
+          "date": "2026-06-23",
+          "stage": "Group K - Matchday 2",
+          "actual": "5-0",
+          "dc_brier": 0.31509,
+          "fused_brier": 0.328405,
+          "dc_logloss": 0.601476,
+          "fused_logloss": 0.629193,
+          "rps": 0.130662,
+          "draw_brier": null,
+          "scoreline_logloss": 4.67732,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.548,
+            "draw": 0.2917,
+            "away": 0.1603
+          },
+          "fused_probs": {
+            "home": 0.533,
+            "draw": 0.259,
+            "away": 0.208
+          },
+          "half_life": 30
+        },
+        {
+          "match": "England vs Ghana",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.697048,
+          "fused_brier": 0.813876,
+          "dc_logloss": 1.124275,
+          "fused_logloss": 1.283151,
+          "rps": 0.145691,
+          "draw_brier": 0.813876,
+          "scoreline_logloss": 2.173635,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4194,
+            "draw": 0.3249,
+            "away": 0.2558
+          },
+          "fused_probs": {
+            "home": 0.4842,
+            "draw": 0.2772,
+            "away": 0.2387
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Panama vs Croatia",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.400329,
+          "fused_brier": 0.404066,
+          "dc_logloss": 0.72651,
+          "fused_logloss": 0.731279,
+          "rps": 0.172301,
+          "draw_brier": null,
+          "scoreline_logloss": 2.92838,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2456,
+            "draw": 0.2708,
+            "away": 0.4836
+          },
+          "fused_probs": {
+            "home": 0.2749,
+            "draw": 0.2439,
+            "away": 0.4813
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Colombia vs DR Congo",
+          "date": "2026-06-24",
+          "stage": "Group K - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.549988,
+          "fused_brier": 0.504177,
+          "dc_logloss": 0.926787,
+          "fused_logloss": 0.866916,
+          "rps": 0.209654,
+          "draw_brier": null,
+          "scoreline_logloss": 2.413514,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3958,
+            "draw": 0.337,
+            "away": 0.2671
+          },
+          "fused_probs": {
+            "home": 0.4202,
+            "draw": 0.2913,
+            "away": 0.2884
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Switzerland vs Canada",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "2-1",
+          "dc_brier": 1.024453,
+          "fused_brier": 0.861274,
+          "dc_logloss": 1.663347,
+          "fused_logloss": 1.356804,
+          "rps": 0.401753,
+          "draw_brier": null,
+          "scoreline_logloss": 2.8655,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1895,
+            "draw": 0.2654,
+            "away": 0.5451
+          },
+          "fused_probs": {
+            "home": 0.2575,
+            "draw": 0.2403,
+            "away": 0.5022
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Bosnia and Herzegovina vs Qatar",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "3-1",
+          "dc_brier": 0.385322,
+          "fused_brier": 0.431488,
+          "dc_logloss": 0.698804,
+          "fused_logloss": 0.768593,
+          "rps": 0.179345,
+          "draw_brier": null,
+          "scoreline_logloss": 2.949362,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4972,
+            "draw": 0.3065,
+            "away": 0.1963
+          },
+          "fused_probs": {
+            "home": 0.4637,
+            "draw": 0.2698,
+            "away": 0.2665
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Scotland vs Brazil",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.395031,
+          "fused_brier": 0.341347,
+          "dc_logloss": 0.691928,
+          "fused_logloss": 0.637327,
+          "rps": 0.125809,
+          "draw_brier": null,
+          "scoreline_logloss": 2.932173,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1474,
+            "draw": 0.352,
+            "away": 0.5006
+          },
+          "fused_probs": {
+            "home": 0.1717,
+            "draw": 0.2995,
+            "away": 0.5287
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Morocco vs Haiti",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "4-2",
+          "dc_brier": 0.040111,
+          "fused_brier": 0.062578,
+          "dc_logloss": 0.161093,
+          "fused_logloss": 0.221627,
+          "rps": 0.021483,
+          "draw_brier": null,
+          "scoreline_logloss": 5.530658,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8512,
+            "draw": 0.1332,
+            "away": 0.0156
+          },
+          "fused_probs": {
+            "home": 0.8012,
+            "draw": 0.14,
+            "away": 0.0587
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Czech Republic vs Mexico",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.08901,
+          "fused_brier": 0.128364,
+          "dc_logloss": 0.259507,
+          "fused_logloss": 0.341178,
+          "rps": 0.047362,
+          "draw_brier": null,
+          "scoreline_logloss": 2.003963,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0413,
+            "draw": 0.1872,
+            "away": 0.7714
+          },
+          "fused_probs": {
+            "home": 0.1057,
+            "draw": 0.1834,
+            "away": 0.7109
+          },
+          "half_life": 30
+        },
+        {
+          "match": "South Africa vs South Korea",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "1-0",
+          "dc_brier": 1.289209,
+          "fused_brier": 1.153768,
+          "dc_logloss": 2.408061,
+          "fused_logloss": 1.942338,
+          "rps": 0.541648,
+          "draw_brier": null,
+          "scoreline_logloss": 3.137992,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.09,
+            "draw": 0.3017,
+            "away": 0.6084
+          },
+          "fused_probs": {
+            "home": 0.1434,
+            "draw": 0.2655,
+            "away": 0.5912
+          },
+          "half_life": 30
+        },
+        {
+          "match": "South Africa vs Canada",
+          "date": "2026-06-28",
+          "stage": "Round of 32",
+          "actual": "0-1",
+          "dc_brier": 0.289191,
+          "fused_brier": 0.307767,
+          "dc_logloss": 0.55241,
+          "fused_logloss": 0.597086,
+          "rps": 0.116722,
+          "draw_brier": null,
+          "scoreline_logloss": 1.684845,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1148,
+            "draw": 0.3096,
+            "away": 0.5756
+          },
+          "fused_probs": {
+            "home": 0.177,
+            "draw": 0.2726,
+            "away": 0.5504
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Netherlands vs Morocco",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 0.919544,
+          "fused_brier": 0.930578,
+          "dc_logloss": 1.449432,
+          "fused_logloss": 1.524642,
+          "rps": 0.159291,
+          "draw_brier": 0.930578,
+          "scoreline_logloss": 2.359238,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5259,
+            "draw": 0.2347,
+            "away": 0.2394
+          },
+          "fused_probs": {
+            "home": 0.4705,
+            "draw": 0.2177,
+            "away": 0.3118
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Germany vs Paraguay",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 1.574046,
+          "fused_brier": 1.402271,
+          "dc_logloss": 2.367656,
+          "fused_logloss": 2.120264,
+          "rps": 0.313935,
+          "draw_brier": 1.402271,
+          "scoreline_logloss": 3.32703,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.8667,
+            "draw": 0.0937,
+            "away": 0.0396
+          },
+          "fused_probs": {
+            "home": 0.7869,
+            "draw": 0.12,
+            "away": 0.0931
+          },
+          "half_life": 30
+        },
+        {
+          "match": "Brazil vs Japan",
+          "date": "2026-06-29",
+          "stage": "Round of 32 - 1st Group C vs 2nd Group F",
+          "actual": "2-1",
+          "dc_brier": 0.553534,
+          "fused_brier": 0.556866,
+          "dc_logloss": 0.931811,
+          "fused_logloss": 0.939413,
+          "rps": 0.235607,
+          "draw_brier": null,
+          "scoreline_logloss": 2.510866,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3938,
+            "draw": 0.3376,
+            "away": 0.2685
+          },
+          "fused_probs": {
+            "home": 0.3909,
+            "draw": 0.2927,
+            "away": 0.3165
+          },
+          "half_life": 30
+        }
+      ]
+    },
+    {
+      "half_life_days": 60,
+      "metrics": {
+        "n_matches": 58,
+        "dc_brier": 0.5541273448275862,
+        "fused_brier": 0.5487926379310345,
+        "dc_logloss": 0.928387,
+        "fused_logloss": 0.9228823275862069,
+        "rps": 0.18380265517241381,
+        "ece": 0.562498,
+        "draw_brier": 0.837066,
+        "draw_match_count": 15,
+        "scoreline_logloss": 3.850337034482759,
+        "dc_direction_accuracy": 0.5517241379310345,
+        "fused_direction_accuracy": 0.6206896551724138,
+        "dc_direction_counts": {
+          "correct": 32,
+          "wrong": 26
+        },
+        "fused_direction_counts": {
+          "correct": 36,
+          "wrong": 22
+        },
+        "group_stage": {
+          "n": 55,
+          "dc_brier": 0.5342973272727274,
+          "fused_brier": 0.5312636181818181,
+          "fused_direction": 0.6363636363636364
+        },
+        "knockout": {
+          "n": 3,
+          "dc_brier": 0.9176776666666667,
+          "fused_brier": 0.870158,
+          "draw_brier": 1.1742474999999999,
+          "fused_direction": 0.3333333333333333
+        }
+      },
+      "n_matches_evaluated": 58,
+      "walk_forward_windows": 17,
+      "total_time_s": 672.1,
+      "dc_fit_time_s": 671.9,
+      "details": [
+        {
+          "match": "Mexico vs South Africa",
+          "date": "2026-06-11",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.091372,
+          "fused_brier": 0.137446,
+          "dc_logloss": 0.260022,
+          "fused_logloss": 0.355349,
+          "rps": 0.050666,
+          "draw_brier": null,
+          "scoreline_logloss": 1.520048,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.771,
+            "draw": 0.1943,
+            "away": 0.0347
+          },
+          "fused_probs": {
+            "home": 0.7009,
+            "draw": 0.19,
+            "away": 0.109
+          },
+          "half_life": 60
+        },
+        {
+          "match": "South Korea vs Czech Republic",
+          "date": "2026-06-12",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-1",
+          "dc_brier": 0.689511,
+          "fused_brier": 0.577704,
+          "dc_logloss": 1.133025,
+          "fused_logloss": 0.967734,
+          "rps": 0.24747,
+          "draw_brier": null,
+          "scoreline_logloss": 2.695699,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3221,
+            "draw": 0.3319,
+            "away": 0.3461
+          },
+          "fused_probs": {
+            "home": 0.3799,
+            "draw": 0.2877,
+            "away": 0.3324
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Canada vs Bosnia and Herzegovina",
+          "date": "2026-06-12",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.428279,
+          "fused_brier": 0.577773,
+          "dc_logloss": 0.763174,
+          "fused_logloss": 0.963213,
+          "rps": 0.097717,
+          "draw_brier": 0.577773,
+          "scoreline_logloss": 2.225083,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2464,
+            "draw": 0.4662,
+            "away": 0.2874
+          },
+          "fused_probs": {
+            "home": 0.3553,
+            "draw": 0.3817,
+            "away": 0.263
+          },
+          "half_life": 60
+        },
+        {
+          "match": "United States vs Paraguay",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "4-1",
+          "dc_brier": 0.542189,
+          "fused_brier": 0.505283,
+          "dc_logloss": 0.919241,
+          "fused_logloss": 0.867452,
+          "rps": 0.215913,
+          "draw_brier": null,
+          "scoreline_logloss": 4.893991,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3988,
+            "draw": 0.3063,
+            "away": 0.2949
+          },
+          "fused_probs": {
+            "home": 0.42,
+            "draw": 0.271,
+            "away": 0.3089
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Australia vs Turkey",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.643535,
+          "fused_brier": 0.601596,
+          "dc_logloss": 1.063252,
+          "fused_logloss": 0.998149,
+          "rps": 0.26333,
+          "draw_brier": null,
+          "scoreline_logloss": 2.69198,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3453,
+            "draw": 0.3093,
+            "away": 0.3453
+          },
+          "fused_probs": {
+            "home": 0.3686,
+            "draw": 0.2737,
+            "away": 0.3577
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Qatar vs Switzerland",
+          "date": "2026-06-13",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.727217,
+          "fused_brier": 0.825622,
+          "dc_logloss": 1.183166,
+          "fused_logloss": 1.323372,
+          "rps": 0.143606,
+          "draw_brier": 0.825622,
+          "scoreline_logloss": 2.008678,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2949,
+            "draw": 0.3063,
+            "away": 0.3988
+          },
+          "fused_probs": {
+            "home": 0.272,
+            "draw": 0.2662,
+            "away": 0.4618
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Brazil vs Morocco",
+          "date": "2026-06-13",
+          "stage": "Group C - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.723458,
+          "fused_brier": 0.79497,
+          "dc_logloss": 1.177206,
+          "fused_logloss": 1.301228,
+          "rps": 0.132637,
+          "draw_brier": 0.79497,
+          "scoreline_logloss": 2.008996,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3981,
+            "draw": 0.3081,
+            "away": 0.2937
+          },
+          "fused_probs": {
+            "home": 0.3785,
+            "draw": 0.2722,
+            "away": 0.3493
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Haiti vs Scotland",
+          "date": "2026-06-14",
+          "stage": "Group C - Matchday 1",
+          "actual": "0-1",
+          "dc_brier": 0.3987,
+          "fused_brier": 0.431422,
+          "dc_logloss": 0.702658,
+          "fused_logloss": 0.766134,
+          "rps": 0.171493,
+          "draw_brier": null,
+          "scoreline_logloss": 1.731101,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1614,
+            "draw": 0.3434,
+            "away": 0.4953
+          },
+          "fused_probs": {
+            "home": 0.2378,
+            "draw": 0.2974,
+            "away": 0.4648
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Germany vs Curacao",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "7-1",
+          "dc_brier": 0.004098,
+          "fused_brier": 0.047905,
+          "dc_logloss": 0.051038,
+          "fused_logloss": 0.19199,
+          "rps": 0.016753,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.9502,
+            "draw": 0.0387,
+            "away": 0.011
+          },
+          "fused_probs": {
+            "home": 0.8253,
+            "draw": 0.12,
+            "away": 0.0547
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Netherlands vs Japan",
+          "date": "2026-06-14",
+          "stage": "Group F - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.436779,
+          "fused_brier": 0.573666,
+          "dc_logloss": 0.771921,
+          "fused_logloss": 0.958393,
+          "rps": 0.096802,
+          "draw_brier": 0.573666,
+          "scoreline_logloss": 4.739338,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2314,
+            "draw": 0.4621,
+            "away": 0.3064
+          },
+          "fused_probs": {
+            "home": 0.266,
+            "draw": 0.3835,
+            "away": 0.3505
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Ivory Coast vs Ecuador",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.321082,
+          "fused_brier": 0.351912,
+          "dc_logloss": 0.594235,
+          "fused_logloss": 0.657483,
+          "rps": 0.135732,
+          "draw_brier": null,
+          "scoreline_logloss": 1.642333,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.552,
+            "draw": 0.324,
+            "away": 0.124
+          },
+          "fused_probs": {
+            "home": 0.5182,
+            "draw": 0.2836,
+            "away": 0.1982
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Tunisia vs Sweden",
+          "date": "2026-06-15",
+          "stage": "Group F - Matchday 1",
+          "actual": "1-5",
+          "dc_brier": 1.040841,
+          "fused_brier": 0.961451,
+          "dc_logloss": 1.673571,
+          "fused_logloss": 1.506365,
+          "rps": 0.455058,
+          "draw_brier": null,
+          "scoreline_logloss": 6.813627,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5656,
+            "draw": 0.2469,
+            "away": 0.1876
+          },
+          "fused_probs": {
+            "home": 0.5517,
+            "draw": 0.2266,
+            "away": 0.2217
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Spain vs Cape Verde",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "0-0",
+          "dc_brier": 0.867397,
+          "fused_brier": 0.950365,
+          "dc_logloss": 1.261639,
+          "fused_logloss": 1.395523,
+          "rps": 0.192207,
+          "draw_brier": 0.950365,
+          "scoreline_logloss": 2.086546,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5783,
+            "draw": 0.2832,
+            "away": 0.1386
+          },
+          "fused_probs": {
+            "home": 0.6014,
+            "draw": 0.2477,
+            "away": 0.1509
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Belgium vs Egypt",
+          "date": "2026-06-15",
+          "stage": "Group G - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.594092,
+          "fused_brier": 0.693187,
+          "dc_logloss": 0.964158,
+          "fused_logloss": 1.123574,
+          "rps": 0.118859,
+          "draw_brier": 0.693187,
+          "scoreline_logloss": 1.971275,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4091,
+            "draw": 0.3813,
+            "away": 0.2096
+          },
+          "fused_probs": {
+            "home": 0.4081,
+            "draw": 0.3251,
+            "away": 0.2668
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Saudi Arabia vs Uruguay",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.805632,
+          "fused_brier": 0.861176,
+          "dc_logloss": 1.138918,
+          "fused_logloss": 1.273625,
+          "rps": 0.171255,
+          "draw_brier": 0.861176,
+          "scoreline_logloss": 2.213358,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1029,
+            "draw": 0.3202,
+            "away": 0.5769
+          },
+          "fused_probs": {
+            "home": 0.1562,
+            "draw": 0.2798,
+            "away": 0.564
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Iran vs New Zealand",
+          "date": "2026-06-16",
+          "stage": "Group G - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 1.141177,
+          "fused_brier": 1.11792,
+          "dc_logloss": 1.58601,
+          "fused_logloss": 1.634224,
+          "rps": 0.235031,
+          "draw_brier": 1.11792,
+          "scoreline_logloss": 3.520249,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.7079,
+            "draw": 0.2047,
+            "away": 0.0874
+          },
+          "fused_probs": {
+            "home": 0.6728,
+            "draw": 0.1951,
+            "away": 0.1321
+          },
+          "half_life": 60
+        },
+        {
+          "match": "France vs Senegal",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.262189,
+          "fused_brier": 0.29884,
+          "dc_logloss": 0.537295,
+          "fused_logloss": 0.591174,
+          "rps": 0.123603,
+          "draw_brier": null,
+          "scoreline_logloss": 2.735511,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5843,
+            "draw": 0.2467,
+            "away": 0.169
+          },
+          "fused_probs": {
+            "home": 0.5537,
+            "draw": 0.2272,
+            "away": 0.2191
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Iraq vs Norway",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "1-4",
+          "dc_brier": 0.696282,
+          "fused_brier": 0.605411,
+          "dc_logloss": 1.118426,
+          "fused_logloss": 1.003718,
+          "rps": 0.238515,
+          "draw_brier": null,
+          "scoreline_logloss": 6.344121,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2459,
+            "draw": 0.4274,
+            "away": 0.3268
+          },
+          "fused_probs": {
+            "home": 0.2752,
+            "draw": 0.3583,
+            "away": 0.3665
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Argentina vs Algeria",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-0",
+          "dc_brier": 0.864777,
+          "fused_brier": 0.719834,
+          "dc_logloss": 1.412098,
+          "fused_logloss": 1.16722,
+          "rps": 0.32065,
+          "draw_brier": null,
+          "scoreline_logloss": 4.315266,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2436,
+            "draw": 0.3206,
+            "away": 0.4358
+          },
+          "fused_probs": {
+            "home": 0.3112,
+            "draw": 0.2802,
+            "away": 0.4085
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Austria vs Jordan",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.12363,
+          "fused_brier": 0.191068,
+          "dc_logloss": 0.331744,
+          "fused_logloss": 0.441346,
+          "rps": 0.078499,
+          "draw_brier": null,
+          "scoreline_logloss": 2.538046,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7177,
+            "draw": 0.1863,
+            "away": 0.0961
+          },
+          "fused_probs": {
+            "home": 0.6432,
+            "draw": 0.1846,
+            "away": 0.1723
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Portugal vs DR Congo",
+          "date": "2026-06-17",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.446637,
+          "fused_brier": 0.581929,
+          "dc_logloss": 0.788879,
+          "fused_logloss": 0.973758,
+          "rps": 0.097312,
+          "draw_brier": 0.581929,
+          "scoreline_logloss": 2.140524,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2682,
+            "draw": 0.4544,
+            "away": 0.2774
+          },
+          "fused_probs": {
+            "home": 0.3332,
+            "draw": 0.3777,
+            "away": 0.2891
+          },
+          "half_life": 60
+        },
+        {
+          "match": "England vs Croatia",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "4-2",
+          "dc_brier": 0.621081,
+          "fused_brier": 0.551058,
+          "dc_logloss": 1.021527,
+          "fused_logloss": 0.930628,
+          "rps": 0.223578,
+          "draw_brier": null,
+          "scoreline_logloss": 6.546923,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.36,
+            "draw": 0.3781,
+            "away": 0.2618
+          },
+          "fused_probs": {
+            "home": 0.3943,
+            "draw": 0.3223,
+            "away": 0.2834
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Ghana vs Panama",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.750473,
+          "fused_brier": 0.764475,
+          "dc_logloss": 1.210086,
+          "fused_logloss": 1.215295,
+          "rps": 0.351995,
+          "draw_brier": null,
+          "scoreline_logloss": 2.835491,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2982,
+            "draw": 0.2747,
+            "away": 0.4272
+          },
+          "fused_probs": {
+            "home": 0.2966,
+            "draw": 0.2459,
+            "away": 0.4574
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Uzbekistan vs Colombia",
+          "date": "2026-06-18",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-3",
+          "dc_brier": 0.44928,
+          "fused_brier": 0.455561,
+          "dc_logloss": 0.790681,
+          "fused_logloss": 0.800725,
+          "rps": 0.192294,
+          "draw_brier": null,
+          "scoreline_logloss": 3.453173,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2473,
+            "draw": 0.2992,
+            "away": 0.4535
+          },
+          "fused_probs": {
+            "home": 0.2846,
+            "draw": 0.2664,
+            "away": 0.449
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Czech Republic vs South Africa",
+          "date": "2026-06-18",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-1",
+          "dc_brier": 0.718936,
+          "fused_brier": 0.793552,
+          "dc_logloss": 1.176533,
+          "fused_logloss": 1.298166,
+          "rps": 0.132535,
+          "draw_brier": 0.793552,
+          "scoreline_logloss": 2.001284,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3719,
+            "draw": 0.3083,
+            "away": 0.3198
+          },
+          "fused_probs": {
+            "home": 0.3838,
+            "draw": 0.273,
+            "away": 0.3431
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Switzerland vs Bosnia and Herzegovina",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "4-1",
+          "dc_brier": 0.591866,
+          "fused_brier": 0.454607,
+          "dc_logloss": 0.989182,
+          "fused_logloss": 0.799468,
+          "rps": 0.19173,
+          "draw_brier": null,
+          "scoreline_logloss": 5.032967,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3719,
+            "draw": 0.3083,
+            "away": 0.3198
+          },
+          "fused_probs": {
+            "home": 0.4496,
+            "draw": 0.2667,
+            "away": 0.2837
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Canada vs Qatar",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "6-0",
+          "dc_brier": 0.542189,
+          "fused_brier": 0.450195,
+          "dc_logloss": 0.919241,
+          "fused_logloss": 0.793626,
+          "rps": 0.189195,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3988,
+            "draw": 0.3063,
+            "away": 0.2949
+          },
+          "fused_probs": {
+            "home": 0.4522,
+            "draw": 0.268,
+            "away": 0.2798
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Mexico vs South Korea",
+          "date": "2026-06-19",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.346042,
+          "fused_brier": 0.37254,
+          "dc_logloss": 0.596716,
+          "fused_logloss": 0.675506,
+          "rps": 0.135411,
+          "draw_brier": null,
+          "scoreline_logloss": 1.265833,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5506,
+            "draw": 0.3715,
+            "away": 0.0779
+          },
+          "fused_probs": {
+            "home": 0.5089,
+            "draw": 0.3189,
+            "away": 0.1722
+          },
+          "half_life": 60
+        },
+        {
+          "match": "United States vs Australia",
+          "date": "2026-06-19",
+          "stage": "Group D - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 1.356317,
+          "fused_brier": 1.155127,
+          "dc_logloss": 2.374644,
+          "fused_logloss": 1.829312,
+          "rps": 0.557897,
+          "draw_brier": null,
+          "scoreline_logloss": 4.310742,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.093,
+            "draw": 0.206,
+            "away": 0.7009
+          },
+          "fused_probs": {
+            "home": 0.1605,
+            "draw": 0.1983,
+            "away": 0.6412
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Scotland vs Morocco",
+          "date": "2026-06-19",
+          "stage": "Group C - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.685841,
+          "fused_brier": 0.505482,
+          "dc_logloss": 1.039445,
+          "fused_logloss": 0.828951,
+          "rps": 0.171711,
+          "draw_brier": null,
+          "scoreline_logloss": 1.453871,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1511,
+            "draw": 0.4952,
+            "away": 0.3537
+          },
+          "fused_probs": {
+            "home": 0.1609,
+            "draw": 0.4026,
+            "away": 0.4365
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Brazil vs Haiti",
+          "date": "2026-06-20",
+          "stage": "Group C - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.108051,
+          "fused_brier": 0.13754,
+          "dc_logloss": 0.29223,
+          "fused_logloss": 0.35424,
+          "rps": 0.0499,
+          "draw_brier": null,
+          "scoreline_logloss": 2.082308,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7466,
+            "draw": 0.2033,
+            "away": 0.0501
+          },
+          "fused_probs": {
+            "home": 0.7017,
+            "draw": 0.1943,
+            "away": 0.104
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Turkey vs Paraguay",
+          "date": "2026-06-20",
+          "stage": "Group D - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.720823,
+          "fused_brier": 0.731804,
+          "dc_logloss": 1.181417,
+          "fused_logloss": 1.189297,
+          "rps": 0.323092,
+          "draw_brier": null,
+          "scoreline_logloss": 2.206622,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3545,
+            "draw": 0.3387,
+            "away": 0.3068
+          },
+          "fused_probs": {
+            "home": 0.403,
+            "draw": 0.2926,
+            "away": 0.3044
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Netherlands vs Sweden",
+          "date": "2026-06-20",
+          "stage": "Group F - Matchday 2",
+          "actual": "5-1",
+          "dc_brier": 0.804087,
+          "fused_brier": 0.642595,
+          "dc_logloss": 1.231733,
+          "fused_logloss": 1.012198,
+          "rps": 0.303909,
+          "draw_brier": null,
+          "scoreline_logloss": 4.634861,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2918,
+            "draw": 0.1933,
+            "away": 0.5149
+          },
+          "fused_probs": {
+            "home": 0.3634,
+            "draw": 0.1865,
+            "away": 0.4501
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Germany vs Ivory Coast",
+          "date": "2026-06-20",
+          "stage": "Group E - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.839254,
+          "fused_brier": 0.739086,
+          "dc_logloss": 1.356372,
+          "fused_logloss": 1.186452,
+          "rps": 0.335683,
+          "draw_brier": null,
+          "scoreline_logloss": 2.713663,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2576,
+            "draw": 0.2921,
+            "away": 0.4503
+          },
+          "fused_probs": {
+            "home": 0.3053,
+            "draw": 0.2602,
+            "away": 0.4345
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Ecuador vs Curacao",
+          "date": "2026-06-21",
+          "stage": "Group E - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.870384,
+          "fused_brier": 0.927369,
+          "dc_logloss": 1.253286,
+          "fused_logloss": 1.375578,
+          "rps": 0.184451,
+          "draw_brier": 0.927369,
+          "scoreline_logloss": 2.057879,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5861,
+            "draw": 0.2856,
+            "away": 0.1284
+          },
+          "fused_probs": {
+            "home": 0.5854,
+            "draw": 0.2527,
+            "away": 0.1619
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Tunisia vs Japan",
+          "date": "2026-06-21",
+          "stage": "Group F - Matchday 2",
+          "actual": "0-4",
+          "dc_brier": 0.100347,
+          "fused_brier": 0.138628,
+          "dc_logloss": 0.284398,
+          "fused_logloss": 0.358831,
+          "rps": 0.052307,
+          "draw_brier": null,
+          "scoreline_logloss": 2.669029,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0588,
+            "draw": 0.1887,
+            "away": 0.7525
+          },
+          "fused_probs": {
+            "home": 0.1171,
+            "draw": 0.1844,
+            "away": 0.6985
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Spain vs Saudi Arabia",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "4-0",
+          "dc_brier": 0.194776,
+          "fused_brier": 0.175291,
+          "dc_logloss": 0.412438,
+          "fused_logloss": 0.40042,
+          "rps": 0.058273,
+          "draw_brier": null,
+          "scoreline_logloss": 3.380511,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.662,
+            "draw": 0.2773,
+            "away": 0.0607
+          },
+          "fused_probs": {
+            "home": 0.67,
+            "draw": 0.2424,
+            "away": 0.0876
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Belgium vs Iran",
+          "date": "2026-06-21",
+          "stage": "Group G - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.127671,
+          "fused_brier": 0.214687,
+          "dc_logloss": 0.340153,
+          "fused_logloss": 0.475175,
+          "rps": 0.090816,
+          "draw_brier": null,
+          "scoreline_logloss": 2.350376,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7117,
+            "draw": 0.1827,
+            "away": 0.1057
+          },
+          "fused_probs": {
+            "home": 0.6218,
+            "draw": 0.1818,
+            "away": 0.1964
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Uruguay vs Cape Verde",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "2-2",
+          "dc_brier": 0.427716,
+          "fused_brier": 0.554602,
+          "dc_logloss": 0.738019,
+          "fused_logloss": 0.927865,
+          "rps": 0.094528,
+          "draw_brier": 0.554602,
+          "scoreline_logloss": 5.24464,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1633,
+            "draw": 0.4781,
+            "away": 0.3587
+          },
+          "fused_probs": {
+            "home": 0.2462,
+            "draw": 0.3954,
+            "away": 0.3584
+          },
+          "half_life": 60
+        },
+        {
+          "match": "New Zealand vs Egypt",
+          "date": "2026-06-22",
+          "stage": "Group G - Matchday 2",
+          "actual": "1-3",
+          "dc_brier": 0.237237,
+          "fused_brier": 0.245468,
+          "dc_logloss": 0.483245,
+          "fused_logloss": 0.510685,
+          "rps": 0.090798,
+          "draw_brier": null,
+          "scoreline_logloss": 3.258414,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0996,
+            "draw": 0.2837,
+            "away": 0.6168
+          },
+          "fused_probs": {
+            "home": 0.1472,
+            "draw": 0.2527,
+            "away": 0.6001
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Argentina vs Austria",
+          "date": "2026-06-22",
+          "stage": "Group J - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 0.150982,
+          "fused_brier": 0.172439,
+          "dc_logloss": 0.362182,
+          "fused_logloss": 0.40761,
+          "rps": 0.063328,
+          "draw_brier": null,
+          "scoreline_logloss": 1.767422,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6962,
+            "draw": 0.231,
+            "away": 0.0729
+          },
+          "fused_probs": {
+            "home": 0.6652,
+            "draw": 0.214,
+            "away": 0.1208
+          },
+          "half_life": 60
+        },
+        {
+          "match": "France vs Iraq",
+          "date": "2026-06-22",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.012465,
+          "fused_brier": 0.049403,
+          "dc_logloss": 0.08938,
+          "fused_logloss": 0.1959,
+          "rps": 0.017502,
+          "draw_brier": null,
+          "scoreline_logloss": 1.838592,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.9145,
+            "draw": 0.0701,
+            "away": 0.0154
+          },
+          "fused_probs": {
+            "home": 0.8221,
+            "draw": 0.12,
+            "away": 0.0579
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Norway vs Senegal",
+          "date": "2026-06-23",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-2",
+          "dc_brier": 0.540136,
+          "fused_brier": 0.568437,
+          "dc_logloss": 0.911946,
+          "fused_logloss": 0.942397,
+          "rps": 0.256506,
+          "draw_brier": null,
+          "scoreline_logloss": 3.154429,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4017,
+            "draw": 0.2587,
+            "away": 0.3395
+          },
+          "fused_probs": {
+            "home": 0.3897,
+            "draw": 0.2354,
+            "away": 0.3749
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Jordan vs Algeria",
+          "date": "2026-06-23",
+          "stage": "Group J - Matchday 2",
+          "actual": "1-2",
+          "dc_brier": 0.179569,
+          "fused_brier": 0.211571,
+          "dc_logloss": 0.419953,
+          "fused_logloss": 0.470422,
+          "rps": 0.085654,
+          "draw_brier": null,
+          "scoreline_logloss": 2.302773,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1316,
+            "draw": 0.2113,
+            "away": 0.6571
+          },
+          "fused_probs": {
+            "home": 0.1746,
+            "draw": 0.2007,
+            "away": 0.6247
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Portugal vs Uzbekistan",
+          "date": "2026-06-23",
+          "stage": "Group K - Matchday 2",
+          "actual": "5-0",
+          "dc_brier": 0.017161,
+          "fused_brier": 0.072293,
+          "dc_logloss": 0.10517,
+          "fused_logloss": 0.247443,
+          "rps": 0.028946,
+          "draw_brier": null,
+          "scoreline_logloss": 2.298857,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.9002,
+            "draw": 0.0832,
+            "away": 0.0167
+          },
+          "fused_probs": {
+            "home": 0.7808,
+            "draw": 0.12,
+            "away": 0.0992
+          },
+          "half_life": 60
+        },
+        {
+          "match": "England vs Ghana",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.878124,
+          "fused_brier": 0.955364,
+          "dc_logloss": 1.246525,
+          "fused_logloss": 1.381067,
+          "rps": 0.197414,
+          "draw_brier": 0.955364,
+          "scoreline_logloss": 1.961321,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5977,
+            "draw": 0.2875,
+            "away": 0.1147
+          },
+          "fused_probs": {
+            "home": 0.6137,
+            "draw": 0.2513,
+            "away": 0.135
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Panama vs Croatia",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.188966,
+          "fused_brier": 0.238744,
+          "dc_logloss": 0.431767,
+          "fused_logloss": 0.508748,
+          "rps": 0.097255,
+          "draw_brier": null,
+          "scoreline_logloss": 2.427158,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1277,
+            "draw": 0.223,
+            "away": 0.6494
+          },
+          "fused_probs": {
+            "home": 0.1884,
+            "draw": 0.2103,
+            "away": 0.6012
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Colombia vs DR Congo",
+          "date": "2026-06-24",
+          "stage": "Group K - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 1.183757,
+          "fused_brier": 0.935691,
+          "dc_logloss": 2.095583,
+          "fused_logloss": 1.50953,
+          "rps": 0.429575,
+          "draw_brier": null,
+          "scoreline_logloss": 3.093631,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.123,
+            "draw": 0.3159,
+            "away": 0.5611
+          },
+          "fused_probs": {
+            "home": 0.221,
+            "draw": 0.2767,
+            "away": 0.5023
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Switzerland vs Canada",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "2-1",
+          "dc_brier": 1.029544,
+          "fused_brier": 0.864517,
+          "dc_logloss": 1.711809,
+          "fused_logloss": 1.382985,
+          "rps": 0.39629,
+          "draw_brier": null,
+          "scoreline_logloss": 2.920464,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1805,
+            "draw": 0.3042,
+            "away": 0.5153
+          },
+          "fused_probs": {
+            "home": 0.2508,
+            "draw": 0.2682,
+            "away": 0.481
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Bosnia and Herzegovina vs Qatar",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "3-1",
+          "dc_brier": 0.218629,
+          "fused_brier": 0.288618,
+          "dc_logloss": 0.456621,
+          "fused_logloss": 0.575047,
+          "rps": 0.113513,
+          "draw_brier": null,
+          "scoreline_logloss": 2.988029,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6334,
+            "draw": 0.2756,
+            "away": 0.0909
+          },
+          "fused_probs": {
+            "home": 0.5627,
+            "draw": 0.2482,
+            "away": 0.1891
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Scotland vs Brazil",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.42544,
+          "fused_brier": 0.361817,
+          "dc_logloss": 0.73139,
+          "fused_logloss": 0.664212,
+          "rps": 0.133507,
+          "draw_brier": null,
+          "scoreline_logloss": 3.014345,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.155,
+            "draw": 0.3637,
+            "away": 0.4812
+          },
+          "fused_probs": {
+            "home": 0.1774,
+            "draw": 0.3079,
+            "away": 0.5147
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Morocco vs Haiti",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "4-2",
+          "dc_brier": 0.071867,
+          "fused_brier": 0.088029,
+          "dc_logloss": 0.2177,
+          "fused_logloss": 0.264225,
+          "rps": 0.028543,
+          "draw_brier": null,
+          "scoreline_logloss": 7.296653,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8044,
+            "draw": 0.1828,
+            "away": 0.0128
+          },
+          "fused_probs": {
+            "home": 0.7678,
+            "draw": 0.1759,
+            "away": 0.0563
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Czech Republic vs Mexico",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.075413,
+          "fused_brier": 0.115603,
+          "dc_logloss": 0.23286,
+          "fused_logloss": 0.320014,
+          "rps": 0.042257,
+          "draw_brier": null,
+          "scoreline_logloss": 1.92402,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0308,
+            "draw": 0.177,
+            "away": 0.7923
+          },
+          "fused_probs": {
+            "home": 0.0975,
+            "draw": 0.1763,
+            "away": 0.7261
+          },
+          "half_life": 60
+        },
+        {
+          "match": "South Africa vs South Korea",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "1-0",
+          "dc_brier": 1.180312,
+          "fused_brier": 1.075589,
+          "dc_logloss": 2.108733,
+          "fused_logloss": 1.794118,
+          "rps": 0.496171,
+          "draw_brier": null,
+          "scoreline_logloss": 2.769385,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1214,
+            "draw": 0.3335,
+            "away": 0.5451
+          },
+          "fused_probs": {
+            "home": 0.1663,
+            "draw": 0.2885,
+            "away": 0.5452
+          },
+          "half_life": 60
+        },
+        {
+          "match": "South Africa vs Canada",
+          "date": "2026-06-28",
+          "stage": "Round of 32",
+          "actual": "0-1",
+          "dc_brier": 0.226891,
+          "fused_brier": 0.261979,
+          "dc_logloss": 0.474038,
+          "fused_logloss": 0.537538,
+          "rps": 0.101187,
+          "draw_brier": null,
+          "scoreline_logloss": 1.750031,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1078,
+            "draw": 0.2697,
+            "away": 0.6225
+          },
+          "fused_probs": {
+            "home": 0.1717,
+            "draw": 0.2441,
+            "away": 0.5842
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Netherlands vs Morocco",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 1.056289,
+          "fused_brier": 1.001725,
+          "dc_logloss": 1.531592,
+          "fused_logloss": 1.584304,
+          "rps": 0.184922,
+          "draw_brier": 1.001725,
+          "scoreline_logloss": 2.282677,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.6515,
+            "draw": 0.2162,
+            "away": 0.1323
+          },
+          "fused_probs": {
+            "home": 0.5616,
+            "draw": 0.2051,
+            "away": 0.2333
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Germany vs Paraguay",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 1.469853,
+          "fused_brier": 1.34677,
+          "dc_logloss": 2.12431,
+          "fused_logloss": 2.011509,
+          "rps": 0.298222,
+          "draw_brier": 1.34677,
+          "scoreline_logloss": 2.907734,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.832,
+            "draw": 0.1195,
+            "away": 0.0485
+          },
+          "fused_probs": {
+            "home": 0.7657,
+            "draw": 0.1338,
+            "away": 0.1005
+          },
+          "half_life": 60
+        },
+        {
+          "match": "Brazil vs Japan",
+          "date": "2026-06-29",
+          "stage": "Round of 32 - 1st Group C vs 2nd Group F",
+          "actual": "2-1",
+          "dc_brier": 0.892743,
+          "fused_brier": 0.805237,
+          "dc_logloss": 1.471865,
+          "fused_logloss": 1.306664,
+          "rps": 0.356551,
+          "draw_brier": null,
+          "scoreline_logloss": 3.025628,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2295,
+            "draw": 0.3519,
+            "away": 0.4186
+          },
+          "fused_probs": {
+            "home": 0.2707,
+            "draw": 0.3035,
+            "away": 0.4257
+          },
+          "half_life": 60
+        }
+      ]
+    },
+    {
+      "half_life_days": 90,
+      "metrics": {
+        "n_matches": 58,
+        "dc_brier": 0.5591099482758621,
+        "fused_brier": 0.5547730862068966,
+        "dc_logloss": 0.9348373448275863,
+        "fused_logloss": 0.9290543620689654,
+        "rps": 0.1845110172413793,
+        "ece": 0.56474,
+        "draw_brier": 0.882811,
+        "draw_match_count": 15,
+        "scoreline_logloss": 3.8918062931034485,
+        "dc_direction_accuracy": 0.5689655172413793,
+        "fused_direction_accuracy": 0.5517241379310345,
+        "dc_direction_counts": {
+          "correct": 33,
+          "wrong": 25
+        },
+        "fused_direction_counts": {
+          "correct": 32,
+          "wrong": 26
+        },
+        "group_stage": {
+          "n": 55,
+          "dc_brier": 0.5531181454545454,
+          "fused_brier": 0.5460479818181819,
+          "fused_direction": 0.5636363636363636
+        },
+        "knockout": {
+          "n": 3,
+          "dc_brier": 0.6689596666666667,
+          "fused_brier": 0.7147333333333332,
+          "draw_brier": 0.9076744999999999,
+          "fused_direction": 0.3333333333333333
+        }
+      },
+      "n_matches_evaluated": 58,
+      "walk_forward_windows": 17,
+      "total_time_s": 759.0,
+      "dc_fit_time_s": 758.9,
+      "details": [
+        {
+          "match": "Mexico vs South Africa",
+          "date": "2026-06-11",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.2207,
+          "fused_brier": 0.245113,
+          "dc_logloss": 0.458819,
+          "fused_logloss": 0.510843,
+          "rps": 0.09118,
+          "draw_brier": null,
+          "scoreline_logloss": 1.766743,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.632,
+            "draw": 0.2778,
+            "away": 0.0902
+          },
+          "fused_probs": {
+            "home": 0.6,
+            "draw": 0.2505,
+            "away": 0.1495
+          },
+          "half_life": 90
+        },
+        {
+          "match": "South Korea vs Czech Republic",
+          "date": "2026-06-12",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-1",
+          "dc_brier": 0.479518,
+          "fused_brier": 0.426604,
+          "dc_logloss": 0.807778,
+          "fused_logloss": 0.754244,
+          "rps": 0.162473,
+          "draw_brier": null,
+          "scoreline_logloss": 2.874006,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4458,
+            "draw": 0.3743,
+            "away": 0.1799
+          },
+          "fused_probs": {
+            "home": 0.4704,
+            "draw": 0.3188,
+            "away": 0.2108
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Canada vs Bosnia and Herzegovina",
+          "date": "2026-06-12",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.437117,
+          "fused_brier": 0.597183,
+          "dc_logloss": 0.768065,
+          "fused_logloss": 0.967576,
+          "rps": 0.106393,
+          "draw_brier": 0.597183,
+          "scoreline_logloss": 2.239665,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3229,
+            "draw": 0.4639,
+            "away": 0.2131
+          },
+          "fused_probs": {
+            "home": 0.4115,
+            "draw": 0.38,
+            "away": 0.2085
+          },
+          "half_life": 90
+        },
+        {
+          "match": "United States vs Paraguay",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "4-1",
+          "dc_brier": 0.93222,
+          "fused_brier": 0.773613,
+          "dc_logloss": 1.502664,
+          "fused_logloss": 1.229624,
+          "rps": 0.356162,
+          "draw_brier": null,
+          "scoreline_logloss": 5.034207,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2225,
+            "draw": 0.2757,
+            "away": 0.5017
+          },
+          "fused_probs": {
+            "home": 0.2924,
+            "draw": 0.2476,
+            "away": 0.46
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Australia vs Turkey",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.935072,
+          "fused_brier": 0.800872,
+          "dc_logloss": 1.557174,
+          "fused_logloss": 1.305599,
+          "rps": 0.34882,
+          "draw_brier": null,
+          "scoreline_logloss": 3.201651,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2107,
+            "draw": 0.3766,
+            "away": 0.4127
+          },
+          "fused_probs": {
+            "home": 0.271,
+            "draw": 0.3213,
+            "away": 0.4077
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Qatar vs Switzerland",
+          "date": "2026-06-13",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 1.684691,
+          "fused_brier": 1.45053,
+          "dc_logloss": 2.576885,
+          "fused_logloss": 2.120264,
+          "rps": 0.338065,
+          "draw_brier": 1.45053,
+          "scoreline_logloss": 3.335313,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.0125,
+            "draw": 0.076,
+            "away": 0.9115
+          },
+          "fused_probs": {
+            "home": 0.0599,
+            "draw": 0.12,
+            "away": 0.8201
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Brazil vs Morocco",
+          "date": "2026-06-13",
+          "stage": "Group C - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.973556,
+          "fused_brier": 0.978592,
+          "dc_logloss": 1.39262,
+          "fused_logloss": 1.47748,
+          "rps": 0.191468,
+          "draw_brier": 0.978592,
+          "scoreline_logloss": 2.132516,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1245,
+            "draw": 0.2484,
+            "away": 0.627
+          },
+          "fused_probs": {
+            "home": 0.1796,
+            "draw": 0.2282,
+            "away": 0.5922
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Haiti vs Scotland",
+          "date": "2026-06-14",
+          "stage": "Group C - Matchday 1",
+          "actual": "0-1",
+          "dc_brier": 0.369115,
+          "fused_brier": 0.413277,
+          "dc_logloss": 0.673438,
+          "fused_logloss": 0.743841,
+          "rps": 0.169002,
+          "draw_brier": null,
+          "scoreline_logloss": 1.954388,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1783,
+            "draw": 0.3117,
+            "away": 0.51
+          },
+          "fused_probs": {
+            "home": 0.2504,
+            "draw": 0.2744,
+            "away": 0.4753
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Germany vs Curacao",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "7-1",
+          "dc_brier": 0.026937,
+          "fused_brier": 0.063016,
+          "dc_logloss": 0.138515,
+          "fused_logloss": 0.228034,
+          "rps": 0.024308,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8707,
+            "draw": 0.095,
+            "away": 0.0343
+          },
+          "fused_probs": {
+            "home": 0.7961,
+            "draw": 0.12,
+            "away": 0.0839
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Netherlands vs Japan",
+          "date": "2026-06-14",
+          "stage": "Group F - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.560114,
+          "fused_brier": 0.6673,
+          "dc_logloss": 0.882153,
+          "fused_logloss": 1.053639,
+          "rps": 0.121533,
+          "draw_brier": 0.6673,
+          "scoreline_logloss": 4.734828,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1433,
+            "draw": 0.4139,
+            "away": 0.4428
+          },
+          "fused_probs": {
+            "home": 0.2013,
+            "draw": 0.3487,
+            "away": 0.4501
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Ivory Coast vs Ecuador",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.78506,
+          "fused_brier": 0.692979,
+          "dc_logloss": 1.269235,
+          "fused_logloss": 1.137254,
+          "rps": 0.281799,
+          "draw_brier": null,
+          "scoreline_logloss": 1.873672,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.281,
+            "draw": 0.4292,
+            "away": 0.2898
+          },
+          "fused_probs": {
+            "home": 0.3207,
+            "draw": 0.3597,
+            "away": 0.3196
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Tunisia vs Sweden",
+          "date": "2026-06-15",
+          "stage": "Group F - Matchday 1",
+          "actual": "1-5",
+          "dc_brier": 0.999976,
+          "fused_brier": 0.933873,
+          "dc_logloss": 1.561965,
+          "fused_logloss": 1.438305,
+          "rps": 0.445686,
+          "draw_brier": null,
+          "scoreline_logloss": 6.718178,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5729,
+            "draw": 0.2174,
+            "away": 0.2097
+          },
+          "fused_probs": {
+            "home": 0.5565,
+            "draw": 0.2062,
+            "away": 0.2373
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Spain vs Cape Verde",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "0-0",
+          "dc_brier": 1.204919,
+          "fused_brier": 1.194253,
+          "dc_logloss": 1.71786,
+          "fused_logloss": 1.749066,
+          "rps": 0.255936,
+          "draw_brier": 1.194253,
+          "scoreline_logloss": 2.798343,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.7225,
+            "draw": 0.1794,
+            "away": 0.0981
+          },
+          "fused_probs": {
+            "home": 0.7052,
+            "draw": 0.1739,
+            "away": 0.1209
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Belgium vs Egypt",
+          "date": "2026-06-15",
+          "stage": "Group G - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.738101,
+          "fused_brier": 0.79786,
+          "dc_logloss": 1.148586,
+          "fused_logloss": 1.273985,
+          "rps": 0.139524,
+          "draw_brier": 0.79786,
+          "scoreline_logloss": 2.120435,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4803,
+            "draw": 0.3171,
+            "away": 0.2026
+          },
+          "fused_probs": {
+            "home": 0.4592,
+            "draw": 0.2797,
+            "away": 0.261
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Saudi Arabia vs Uruguay",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.700348,
+          "fused_brier": 0.786713,
+          "dc_logloss": 1.082921,
+          "fused_logloss": 1.224467,
+          "rps": 0.144078,
+          "draw_brier": 0.786713,
+          "scoreline_logloss": 2.19251,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1821,
+            "draw": 0.3386,
+            "away": 0.4793
+          },
+          "fused_probs": {
+            "home": 0.2136,
+            "draw": 0.2939,
+            "away": 0.4925
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Iran vs New Zealand",
+          "date": "2026-06-16",
+          "stage": "Group G - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 1.112992,
+          "fused_brier": 1.097737,
+          "dc_logloss": 1.533923,
+          "fused_logloss": 1.594664,
+          "rps": 0.231245,
+          "draw_brier": 1.097737,
+          "scoreline_logloss": 3.660847,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.7006,
+            "draw": 0.2157,
+            "away": 0.0837
+          },
+          "fused_probs": {
+            "home": 0.6676,
+            "draw": 0.203,
+            "away": 0.1294
+          },
+          "half_life": 90
+        },
+        {
+          "match": "France vs Senegal",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.354789,
+          "fused_brier": 0.368195,
+          "dc_logloss": 0.660921,
+          "fused_logloss": 0.683904,
+          "rps": 0.151417,
+          "draw_brier": null,
+          "scoreline_logloss": 2.998435,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5164,
+            "draw": 0.2863,
+            "away": 0.1974
+          },
+          "fused_probs": {
+            "home": 0.5046,
+            "draw": 0.2557,
+            "away": 0.2397
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Iraq vs Norway",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "1-4",
+          "dc_brier": 0.473088,
+          "fused_brier": 0.442405,
+          "dc_logloss": 0.778502,
+          "fused_logloss": 0.769662,
+          "rps": 0.16355,
+          "draw_brier": null,
+          "scoreline_logloss": 5.748407,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1397,
+            "draw": 0.4013,
+            "away": 0.4591
+          },
+          "fused_probs": {
+            "home": 0.1973,
+            "draw": 0.3396,
+            "away": 0.4632
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Argentina vs Algeria",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-0",
+          "dc_brier": 0.663442,
+          "fused_brier": 0.582265,
+          "dc_logloss": 1.093733,
+          "fused_logloss": 0.974639,
+          "rps": 0.248257,
+          "draw_brier": null,
+          "scoreline_logloss": 3.931254,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.335,
+            "draw": 0.3365,
+            "away": 0.3285
+          },
+          "fused_probs": {
+            "home": 0.3773,
+            "draw": 0.2928,
+            "away": 0.3298
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Austria vs Jordan",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.16674,
+          "fused_brier": 0.230604,
+          "dc_logloss": 0.401894,
+          "fused_logloss": 0.49773,
+          "rps": 0.096242,
+          "draw_brier": null,
+          "scoreline_logloss": 2.695243,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6691,
+            "draw": 0.2005,
+            "away": 0.1305
+          },
+          "fused_probs": {
+            "home": 0.6079,
+            "draw": 0.1952,
+            "away": 0.1968
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Portugal vs DR Congo",
+          "date": "2026-06-17",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.49974,
+          "fused_brier": 0.626282,
+          "dc_logloss": 0.857054,
+          "fused_logloss": 1.030807,
+          "rps": 0.106236,
+          "draw_brier": 0.626282,
+          "scoreline_logloss": 2.249349,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3251,
+            "draw": 0.4244,
+            "away": 0.2505
+          },
+          "fused_probs": {
+            "home": 0.3744,
+            "draw": 0.3567,
+            "away": 0.2689
+          },
+          "half_life": 90
+        },
+        {
+          "match": "England vs Croatia",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "4-2",
+          "dc_brier": 0.497185,
+          "fused_brier": 0.466112,
+          "dc_logloss": 0.850264,
+          "fused_logloss": 0.814559,
+          "rps": 0.189904,
+          "draw_brier": null,
+          "scoreline_logloss": 6.343073,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4273,
+            "draw": 0.3374,
+            "away": 0.2353
+          },
+          "fused_probs": {
+            "home": 0.4428,
+            "draw": 0.2938,
+            "away": 0.2634
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Ghana vs Panama",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.585174,
+          "fused_brier": 0.640497,
+          "dc_logloss": 0.972096,
+          "fused_logloss": 1.037359,
+          "rps": 0.29254,
+          "draw_brier": null,
+          "scoreline_logloss": 2.392293,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3783,
+            "draw": 0.259,
+            "away": 0.3628
+          },
+          "fused_probs": {
+            "home": 0.3544,
+            "draw": 0.2354,
+            "away": 0.4102
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Uzbekistan vs Colombia",
+          "date": "2026-06-18",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-3",
+          "dc_brier": 0.534302,
+          "fused_brier": 0.511316,
+          "dc_logloss": 0.897197,
+          "fused_logloss": 0.875901,
+          "rps": 0.207966,
+          "draw_brier": null,
+          "scoreline_logloss": 3.598085,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2325,
+            "draw": 0.3598,
+            "away": 0.4077
+          },
+          "fused_probs": {
+            "home": 0.2747,
+            "draw": 0.3088,
+            "away": 0.4165
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Czech Republic vs South Africa",
+          "date": "2026-06-18",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-1",
+          "dc_brier": 0.811131,
+          "fused_brier": 0.864199,
+          "dc_logloss": 1.308183,
+          "fused_logloss": 1.410629,
+          "rps": 0.146324,
+          "draw_brier": 0.864199,
+          "scoreline_logloss": 2.098841,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4438,
+            "draw": 0.2703,
+            "away": 0.2859
+          },
+          "fused_probs": {
+            "home": 0.4366,
+            "draw": 0.244,
+            "away": 0.3194
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Switzerland vs Bosnia and Herzegovina",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "4-1",
+          "dc_brier": 0.209372,
+          "fused_brier": 0.196967,
+          "dc_logloss": 0.453209,
+          "fused_logloss": 0.443546,
+          "rps": 0.072868,
+          "draw_brier": null,
+          "scoreline_logloss": 3.604931,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6356,
+            "draw": 0.2535,
+            "away": 0.1109
+          },
+          "fused_probs": {
+            "home": 0.6418,
+            "draw": 0.2263,
+            "away": 0.1319
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Canada vs Qatar",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "6-0",
+          "dc_brier": 0.456835,
+          "fused_brier": 0.386316,
+          "dc_logloss": 0.779005,
+          "fused_logloss": 0.699479,
+          "rps": 0.145454,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4589,
+            "draw": 0.3643,
+            "away": 0.1768
+          },
+          "fused_probs": {
+            "home": 0.4968,
+            "draw": 0.3089,
+            "away": 0.1943
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Mexico vs South Korea",
+          "date": "2026-06-19",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.364273,
+          "fused_brier": 0.401939,
+          "dc_logloss": 0.66057,
+          "fused_logloss": 0.727122,
+          "rps": 0.160232,
+          "draw_brier": null,
+          "scoreline_logloss": 1.431846,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5166,
+            "draw": 0.3245,
+            "away": 0.159
+          },
+          "fused_probs": {
+            "home": 0.4833,
+            "draw": 0.2854,
+            "away": 0.2313
+          },
+          "half_life": 90
+        },
+        {
+          "match": "United States vs Australia",
+          "date": "2026-06-19",
+          "stage": "Group D - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 1.161894,
+          "fused_brier": 1.023848,
+          "dc_logloss": 1.851645,
+          "fused_logloss": 1.57591,
+          "rps": 0.492636,
+          "draw_brier": null,
+          "scoreline_logloss": 3.851364,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.157,
+            "draw": 0.2026,
+            "away": 0.6404
+          },
+          "fused_probs": {
+            "home": 0.2068,
+            "draw": 0.1964,
+            "away": 0.5968
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Scotland vs Morocco",
+          "date": "2026-06-19",
+          "stage": "Group C - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.489336,
+          "fused_brier": 0.386807,
+          "dc_logloss": 0.828921,
+          "fused_logloss": 0.7008,
+          "rps": 0.146283,
+          "draw_brier": null,
+          "scoreline_logloss": 1.476619,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2009,
+            "draw": 0.3626,
+            "away": 0.4365
+          },
+          "fused_probs": {
+            "home": 0.1968,
+            "draw": 0.307,
+            "away": 0.4962
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Brazil vs Haiti",
+          "date": "2026-06-20",
+          "stage": "Group C - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.047187,
+          "fused_brier": 0.085609,
+          "dc_logloss": 0.184022,
+          "fused_logloss": 0.270644,
+          "rps": 0.032463,
+          "draw_brier": null,
+          "scoreline_logloss": 1.905987,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8319,
+            "draw": 0.1331,
+            "away": 0.035
+          },
+          "fused_probs": {
+            "home": 0.7629,
+            "draw": 0.1438,
+            "away": 0.0933
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Turkey vs Paraguay",
+          "date": "2026-06-20",
+          "stage": "Group D - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.779456,
+          "fused_brier": 0.77915,
+          "dc_logloss": 1.268301,
+          "fused_logloss": 1.2519,
+          "rps": 0.352515,
+          "draw_brier": null,
+          "scoreline_logloss": 2.576307,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4077,
+            "draw": 0.311,
+            "away": 0.2813
+          },
+          "fused_probs": {
+            "home": 0.4418,
+            "draw": 0.2722,
+            "away": 0.286
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Netherlands vs Sweden",
+          "date": "2026-06-20",
+          "stage": "Group F - Matchday 2",
+          "actual": "5-1",
+          "dc_brier": 0.66587,
+          "fused_brier": 0.554263,
+          "dc_logloss": 1.058012,
+          "fused_logloss": 0.908887,
+          "rps": 0.257228,
+          "draw_brier": null,
+          "scoreline_logloss": 4.457764,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3471,
+            "draw": 0.2112,
+            "away": 0.4416
+          },
+          "fused_probs": {
+            "home": 0.403,
+            "draw": 0.1995,
+            "away": 0.3975
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Germany vs Ivory Coast",
+          "date": "2026-06-20",
+          "stage": "Group E - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.856038,
+          "fused_brier": 0.749095,
+          "dc_logloss": 1.399658,
+          "fused_logloss": 1.212748,
+          "rps": 0.333704,
+          "draw_brier": null,
+          "scoreline_logloss": 2.824764,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2467,
+            "draw": 0.3276,
+            "away": 0.4257
+          },
+          "fused_probs": {
+            "home": 0.2974,
+            "draw": 0.2858,
+            "away": 0.4168
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Ecuador vs Curacao",
+          "date": "2026-06-21",
+          "stage": "Group E - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.753582,
+          "fused_brier": 0.837844,
+          "dc_logloss": 1.086657,
+          "fused_logloss": 1.235163,
+          "rps": 0.167431,
+          "draw_brier": 0.837844,
+          "scoreline_logloss": 1.516931,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5492,
+            "draw": 0.3373,
+            "away": 0.1135
+          },
+          "fused_probs": {
+            "home": 0.5588,
+            "draw": 0.2908,
+            "away": 0.1504
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Tunisia vs Japan",
+          "date": "2026-06-21",
+          "stage": "Group F - Matchday 2",
+          "actual": "0-4",
+          "dc_brier": 0.155402,
+          "fused_brier": 0.181957,
+          "dc_logloss": 0.365616,
+          "fused_logloss": 0.421064,
+          "rps": 0.066585,
+          "draw_brier": null,
+          "scoreline_logloss": 3.12973,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0673,
+            "draw": 0.239,
+            "away": 0.6938
+          },
+          "fused_probs": {
+            "home": 0.1228,
+            "draw": 0.2209,
+            "away": 0.6563
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Spain vs Saudi Arabia",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "4-0",
+          "dc_brier": 0.049623,
+          "fused_brier": 0.068404,
+          "dc_logloss": 0.184762,
+          "fused_logloss": 0.233019,
+          "rps": 0.023497,
+          "draw_brier": null,
+          "scoreline_logloss": 2.363002,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8313,
+            "draw": 0.1432,
+            "away": 0.0255
+          },
+          "fused_probs": {
+            "home": 0.7921,
+            "draw": 0.1463,
+            "away": 0.0615
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Belgium vs Iran",
+          "date": "2026-06-21",
+          "stage": "Group G - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.112263,
+          "fused_brier": 0.198338,
+          "dc_logloss": 0.31273,
+          "fused_logloss": 0.451962,
+          "rps": 0.082994,
+          "draw_brier": null,
+          "scoreline_logloss": 2.350505,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7314,
+            "draw": 0.1795,
+            "away": 0.0891
+          },
+          "fused_probs": {
+            "home": 0.6364,
+            "draw": 0.1799,
+            "away": 0.1838
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Uruguay vs Cape Verde",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "2-2",
+          "dc_brier": 0.408363,
+          "fused_brier": 0.53493,
+          "dc_logloss": 0.70448,
+          "fused_logloss": 0.897113,
+          "rps": 0.092082,
+          "draw_brier": 0.53493,
+          "scoreline_logloss": 5.723464,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1413,
+            "draw": 0.4944,
+            "away": 0.3643
+          },
+          "fused_probs": {
+            "home": 0.2299,
+            "draw": 0.4077,
+            "away": 0.3624
+          },
+          "half_life": 90
+        },
+        {
+          "match": "New Zealand vs Egypt",
+          "date": "2026-06-22",
+          "stage": "Group G - Matchday 2",
+          "actual": "1-3",
+          "dc_brier": 0.29877,
+          "fused_brier": 0.291321,
+          "dc_logloss": 0.568836,
+          "fused_logloss": 0.573846,
+          "rps": 0.109222,
+          "draw_brier": null,
+          "scoreline_logloss": 3.350647,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1261,
+            "draw": 0.3077,
+            "away": 0.5662
+          },
+          "fused_probs": {
+            "home": 0.1667,
+            "draw": 0.27,
+            "away": 0.5634
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Argentina vs Austria",
+          "date": "2026-06-22",
+          "stage": "Group J - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 0.231561,
+          "fused_brier": 0.232643,
+          "dc_logloss": 0.475103,
+          "fused_logloss": 0.491806,
+          "rps": 0.085015,
+          "draw_brier": null,
+          "scoreline_logloss": 1.83287,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6218,
+            "draw": 0.2814,
+            "away": 0.0968
+          },
+          "fused_probs": {
+            "home": 0.6115,
+            "draw": 0.2502,
+            "away": 0.1383
+          },
+          "half_life": 90
+        },
+        {
+          "match": "France vs Iraq",
+          "date": "2026-06-22",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.032505,
+          "fused_brier": 0.061025,
+          "dc_logloss": 0.149267,
+          "fused_logloss": 0.222344,
+          "rps": 0.022548,
+          "draw_brier": null,
+          "scoreline_logloss": 1.836513,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8613,
+            "draw": 0.1121,
+            "away": 0.0265
+          },
+          "fused_probs": {
+            "home": 0.8006,
+            "draw": 0.1262,
+            "away": 0.0731
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Norway vs Senegal",
+          "date": "2026-06-23",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-2",
+          "dc_brier": 0.317201,
+          "fused_brier": 0.395824,
+          "dc_logloss": 0.615247,
+          "fused_logloss": 0.713992,
+          "rps": 0.177063,
+          "draw_brier": null,
+          "scoreline_logloss": 3.102517,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5405,
+            "draw": 0.2139,
+            "away": 0.2456
+          },
+          "fused_probs": {
+            "home": 0.4897,
+            "draw": 0.2042,
+            "away": 0.3061
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Jordan vs Algeria",
+          "date": "2026-06-23",
+          "stage": "Group J - Matchday 2",
+          "actual": "1-2",
+          "dc_brier": 0.217107,
+          "fused_brier": 0.243881,
+          "dc_logloss": 0.478718,
+          "fused_logloss": 0.515744,
+          "rps": 0.104169,
+          "draw_brier": null,
+          "scoreline_logloss": 2.31525,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1867,
+            "draw": 0.1938,
+            "away": 0.6196
+          },
+          "fused_probs": {
+            "home": 0.2144,
+            "draw": 0.1885,
+            "away": 0.5971
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Portugal vs Uzbekistan",
+          "date": "2026-06-23",
+          "stage": "Group K - Matchday 2",
+          "actual": "5-0",
+          "dc_brier": 0.069059,
+          "fused_brier": 0.128229,
+          "dc_logloss": 0.235269,
+          "fused_logloss": 0.345609,
+          "rps": 0.052145,
+          "draw_brier": null,
+          "scoreline_logloss": 3.223377,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7904,
+            "draw": 0.1444,
+            "away": 0.0652
+          },
+          "fused_probs": {
+            "home": 0.7078,
+            "draw": 0.1547,
+            "away": 0.1375
+          },
+          "half_life": 90
+        },
+        {
+          "match": "England vs Ghana",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.930744,
+          "fused_brier": 0.993396,
+          "dc_logloss": 1.399912,
+          "fused_logloss": 1.502571,
+          "rps": 0.194489,
+          "draw_brier": 0.993396,
+          "scoreline_logloss": 2.390259,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5759,
+            "draw": 0.2466,
+            "away": 0.1775
+          },
+          "fused_probs": {
+            "home": 0.597,
+            "draw": 0.2226,
+            "away": 0.1804
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Panama vs Croatia",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.307819,
+          "fused_brier": 0.337706,
+          "dc_logloss": 0.603223,
+          "fused_logloss": 0.641345,
+          "rps": 0.146987,
+          "draw_brier": null,
+          "scoreline_logloss": 2.45307,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2323,
+            "draw": 0.2207,
+            "away": 0.547
+          },
+          "fused_probs": {
+            "home": 0.2643,
+            "draw": 0.2091,
+            "away": 0.5266
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Colombia vs DR Congo",
+          "date": "2026-06-24",
+          "stage": "Group K - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 1.169679,
+          "fused_brier": 0.927631,
+          "dc_logloss": 2.068633,
+          "fused_logloss": 1.5012,
+          "rps": 0.423384,
+          "draw_brier": null,
+          "scoreline_logloss": 2.707047,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1264,
+            "draw": 0.3255,
+            "away": 0.5482
+          },
+          "fused_probs": {
+            "home": 0.2229,
+            "draw": 0.2844,
+            "away": 0.4928
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Switzerland vs Canada",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "2-1",
+          "dc_brier": 0.8782,
+          "fused_brier": 0.761355,
+          "dc_logloss": 1.440637,
+          "fused_logloss": 1.233219,
+          "rps": 0.338411,
+          "draw_brier": null,
+          "scoreline_logloss": 2.889229,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2368,
+            "draw": 0.3345,
+            "away": 0.4287
+          },
+          "fused_probs": {
+            "home": 0.2914,
+            "draw": 0.2907,
+            "away": 0.4179
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Bosnia and Herzegovina vs Qatar",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "3-1",
+          "dc_brier": 0.08391,
+          "fused_brier": 0.168157,
+          "dc_logloss": 0.253733,
+          "fused_logloss": 0.407319,
+          "rps": 0.068142,
+          "draw_brier": null,
+          "scoreline_logloss": 2.869356,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7759,
+            "draw": 0.1775,
+            "away": 0.0466
+          },
+          "fused_probs": {
+            "home": 0.6654,
+            "draw": 0.1785,
+            "away": 0.156
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Scotland vs Brazil",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.299145,
+          "fused_brier": 0.277479,
+          "dc_logloss": 0.5749,
+          "fused_logloss": 0.556193,
+          "rps": 0.104771,
+          "draw_brier": null,
+          "scoreline_logloss": 2.709611,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1399,
+            "draw": 0.2973,
+            "away": 0.5628
+          },
+          "fused_probs": {
+            "home": 0.166,
+            "draw": 0.2606,
+            "away": 0.5734
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Morocco vs Haiti",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "4-2",
+          "dc_brier": 0.106906,
+          "fused_brier": 0.114661,
+          "dc_logloss": 0.272344,
+          "fused_logloss": 0.305216,
+          "rps": 0.036262,
+          "draw_brier": null,
+          "scoreline_logloss": 8.463176,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7616,
+            "draw": 0.2232,
+            "away": 0.0152
+          },
+          "fused_probs": {
+            "home": 0.737,
+            "draw": 0.2053,
+            "away": 0.0578
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Czech Republic vs Mexico",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.139146,
+          "fused_brier": 0.169197,
+          "dc_logloss": 0.3368,
+          "fused_logloss": 0.401048,
+          "rps": 0.060949,
+          "draw_brier": null,
+          "scoreline_logloss": 2.210757,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0522,
+            "draw": 0.2338,
+            "away": 0.7141
+          },
+          "fused_probs": {
+            "home": 0.1129,
+            "draw": 0.2175,
+            "away": 0.6696
+          },
+          "half_life": 90
+        },
+        {
+          "match": "South Africa vs South Korea",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "1-0",
+          "dc_brier": 1.094565,
+          "fused_brier": 1.017715,
+          "dc_logloss": 1.834688,
+          "fused_logloss": 1.639405,
+          "rps": 0.476221,
+          "draw_brier": null,
+          "scoreline_logloss": 2.679438,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1597,
+            "draw": 0.2873,
+            "away": 0.5531
+          },
+          "fused_probs": {
+            "home": 0.1941,
+            "draw": 0.2555,
+            "away": 0.5504
+          },
+          "half_life": 90
+        },
+        {
+          "match": "South Africa vs Canada",
+          "date": "2026-06-28",
+          "stage": "Round of 32",
+          "actual": "0-1",
+          "dc_brier": 0.306603,
+          "fused_brier": 0.328851,
+          "dc_logloss": 0.596451,
+          "fused_logloss": 0.63134,
+          "rps": 0.135009,
+          "draw_brier": null,
+          "scoreline_logloss": 2.423217,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1806,
+            "draw": 0.2687,
+            "away": 0.5508
+          },
+          "fused_probs": {
+            "home": 0.2256,
+            "draw": 0.2426,
+            "away": 0.5319
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Netherlands vs Morocco",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 0.752482,
+          "fused_brier": 0.824968,
+          "dc_logloss": 1.231582,
+          "fused_logloss": 1.352307,
+          "rps": 0.137679,
+          "draw_brier": 0.824968,
+          "scoreline_logloss": 1.985128,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3647,
+            "draw": 0.2918,
+            "away": 0.3434
+          },
+          "fused_probs": {
+            "home": 0.3541,
+            "draw": 0.2586,
+            "away": 0.3873
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Germany vs Paraguay",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 0.947794,
+          "fused_brier": 0.990381,
+          "dc_logloss": 1.429233,
+          "fused_logloss": 1.519557,
+          "rps": 0.190061,
+          "draw_brier": 0.990381,
+          "scoreline_logloss": 2.218431,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5805,
+            "draw": 0.2395,
+            "away": 0.18
+          },
+          "fused_probs": {
+            "home": 0.5842,
+            "draw": 0.2188,
+            "away": 0.197
+          },
+          "half_life": 90
+        },
+        {
+          "match": "Brazil vs Japan",
+          "date": "2026-06-29",
+          "stage": "Round of 32 - 1st Group C vs 2nd Group F",
+          "actual": "2-1",
+          "dc_brier": 0.98966,
+          "fused_brier": 0.875562,
+          "dc_logloss": 1.625957,
+          "fused_logloss": 1.39766,
+          "rps": 0.403032,
+          "draw_brier": null,
+          "scoreline_logloss": 2.897334,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1967,
+            "draw": 0.2973,
+            "away": 0.506
+          },
+          "fused_probs": {
+            "home": 0.2472,
+            "draw": 0.2636,
+            "away": 0.4892
+          },
+          "half_life": 90
+        }
+      ]
+    },
+    {
+      "half_life_days": 180,
+      "metrics": {
+        "n_matches": 58,
+        "dc_brier": 0.5410733448275863,
+        "fused_brier": 0.546722051724138,
+        "dc_logloss": 0.9023999999999999,
+        "fused_logloss": 0.9177459827586207,
+        "rps": 0.17765596551724136,
+        "ece": 0.571417,
+        "draw_brier": 0.868536,
+        "draw_match_count": 15,
+        "scoreline_logloss": 3.788558189655172,
+        "dc_direction_accuracy": 0.5689655172413793,
+        "fused_direction_accuracy": 0.603448275862069,
+        "dc_direction_counts": {
+          "correct": 33,
+          "wrong": 25
+        },
+        "fused_direction_counts": {
+          "correct": 35,
+          "wrong": 23
+        },
+        "group_stage": {
+          "n": 55,
+          "dc_brier": 0.5330288545454546,
+          "fused_brier": 0.5369741090909091,
+          "fused_direction": 0.6181818181818182
+        },
+        "knockout": {
+          "n": 3,
+          "dc_brier": 0.6885556666666667,
+          "fused_brier": 0.7254343333333333,
+          "draw_brier": 0.9205764999999999,
+          "fused_direction": 0.3333333333333333
+        }
+      },
+      "n_matches_evaluated": 58,
+      "walk_forward_windows": 17,
+      "total_time_s": 835.9,
+      "dc_fit_time_s": 835.8,
+      "details": [
+        {
+          "match": "Mexico vs South Africa",
+          "date": "2026-06-11",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.363996,
+          "fused_brier": 0.351789,
+          "dc_logloss": 0.65124,
+          "fused_logloss": 0.654193,
+          "rps": 0.132443,
+          "draw_brier": null,
+          "scoreline_logloss": 2.022489,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5214,
+            "draw": 0.3403,
+            "away": 0.1383
+          },
+          "fused_probs": {
+            "home": 0.5199,
+            "draw": 0.2948,
+            "away": 0.1853
+          },
+          "half_life": 180
+        },
+        {
+          "match": "South Korea vs Czech Republic",
+          "date": "2026-06-12",
+          "stage": "Group A - Matchday 1",
+          "actual": "2-1",
+          "dc_brier": 0.294732,
+          "fused_brier": 0.299611,
+          "dc_logloss": 0.577513,
+          "fused_logloss": 0.590779,
+          "rps": 0.119429,
+          "draw_brier": null,
+          "scoreline_logloss": 2.405634,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5613,
+            "draw": 0.2743,
+            "away": 0.1644
+          },
+          "fused_probs": {
+            "home": 0.5539,
+            "draw": 0.2465,
+            "away": 0.1996
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Canada vs Bosnia and Herzegovina",
+          "date": "2026-06-12",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.69746,
+          "fused_brier": 0.813757,
+          "dc_logloss": 1.037027,
+          "fused_logloss": 1.20147,
+          "rps": 0.162405,
+          "draw_brier": 0.813757,
+          "scoreline_logloss": 2.224454,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5131,
+            "draw": 0.3545,
+            "away": 0.1324
+          },
+          "fused_probs": {
+            "home": 0.55,
+            "draw": 0.3008,
+            "away": 0.1492
+          },
+          "half_life": 180
+        },
+        {
+          "match": "United States vs Paraguay",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "4-1",
+          "dc_brier": 1.012803,
+          "fused_brier": 0.828053,
+          "dc_logloss": 1.669623,
+          "fused_logloss": 1.321113,
+          "rps": 0.379635,
+          "draw_brier": null,
+          "scoreline_logloss": 6.091348,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1883,
+            "draw": 0.295,
+            "away": 0.5167
+          },
+          "fused_probs": {
+            "home": 0.2668,
+            "draw": 0.2623,
+            "away": 0.4709
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Australia vs Turkey",
+          "date": "2026-06-13",
+          "stage": "Group D - Matchday 1",
+          "actual": "2-0",
+          "dc_brier": 0.674367,
+          "fused_brier": 0.618357,
+          "dc_logloss": 1.107919,
+          "fused_logloss": 1.027122,
+          "rps": 0.260666,
+          "draw_brier": null,
+          "scoreline_logloss": 2.665141,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3302,
+            "draw": 0.3624,
+            "away": 0.3074
+          },
+          "fused_probs": {
+            "home": 0.358,
+            "draw": 0.3115,
+            "away": 0.3305
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Qatar vs Switzerland",
+          "date": "2026-06-13",
+          "stage": "Group B - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 1.491312,
+          "fused_brier": 1.377761,
+          "dc_logloss": 2.131019,
+          "fused_logloss": 2.02977,
+          "rps": 0.311618,
+          "draw_brier": 1.377761,
+          "scoreline_logloss": 2.876323,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.0367,
+            "draw": 0.1187,
+            "away": 0.8446
+          },
+          "fused_probs": {
+            "home": 0.0836,
+            "draw": 0.1314,
+            "away": 0.785
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Brazil vs Morocco",
+          "date": "2026-06-13",
+          "stage": "Group C - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.622904,
+          "fused_brier": 0.725305,
+          "dc_logloss": 1.00402,
+          "fused_logloss": 1.158732,
+          "rps": 0.127275,
+          "draw_brier": 0.725305,
+          "scoreline_logloss": 2.000235,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.215,
+            "draw": 0.3664,
+            "away": 0.4186
+          },
+          "fused_probs": {
+            "home": 0.2451,
+            "draw": 0.3139,
+            "away": 0.441
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Haiti vs Scotland",
+          "date": "2026-06-14",
+          "stage": "Group C - Matchday 1",
+          "actual": "0-1",
+          "dc_brier": 0.495773,
+          "fused_brier": 0.520767,
+          "dc_logloss": 0.855155,
+          "fused_logloss": 0.88455,
+          "rps": 0.229053,
+          "draw_brier": null,
+          "scoreline_logloss": 2.066315,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2976,
+            "draw": 0.2771,
+            "away": 0.4252
+          },
+          "fused_probs": {
+            "home": 0.3368,
+            "draw": 0.2503,
+            "away": 0.4129
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Germany vs Curacao",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "7-1",
+          "dc_brier": 0.103734,
+          "fused_brier": 0.131295,
+          "dc_logloss": 0.302068,
+          "fused_logloss": 0.350102,
+          "rps": 0.052502,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7393,
+            "draw": 0.1602,
+            "away": 0.1005
+          },
+          "fused_probs": {
+            "home": 0.7046,
+            "draw": 0.1621,
+            "away": 0.1332
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Netherlands vs Japan",
+          "date": "2026-06-14",
+          "stage": "Group F - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.744794,
+          "fused_brier": 0.810814,
+          "dc_logloss": 1.1558,
+          "fused_logloss": 1.281247,
+          "rps": 0.144542,
+          "draw_brier": 0.810814,
+          "scoreline_logloss": 3.833955,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2002,
+            "draw": 0.3148,
+            "away": 0.485
+          },
+          "fused_probs": {
+            "home": 0.2424,
+            "draw": 0.2777,
+            "away": 0.4799
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Ivory Coast vs Ecuador",
+          "date": "2026-06-14",
+          "stage": "Group E - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.899759,
+          "fused_brier": 0.772635,
+          "dc_logloss": 1.468354,
+          "fused_logloss": 1.262803,
+          "rps": 0.312945,
+          "draw_brier": null,
+          "scoreline_logloss": 1.815115,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2303,
+            "draw": 0.4594,
+            "away": 0.3103
+          },
+          "fused_probs": {
+            "home": 0.2829,
+            "draw": 0.3831,
+            "away": 0.3341
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Tunisia vs Sweden",
+          "date": "2026-06-15",
+          "stage": "Group F - Matchday 1",
+          "actual": "1-5",
+          "dc_brier": 0.819222,
+          "fused_brier": 0.800226,
+          "dc_logloss": 1.329233,
+          "fused_logloss": 1.281504,
+          "rps": 0.364278,
+          "draw_brier": null,
+          "scoreline_logloss": 6.85926,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4316,
+            "draw": 0.3037,
+            "away": 0.2647
+          },
+          "fused_probs": {
+            "home": 0.4547,
+            "draw": 0.2677,
+            "away": 0.2776
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Spain vs Cape Verde",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "0-0",
+          "dc_brier": 1.196436,
+          "fused_brier": 1.18809,
+          "dc_logloss": 1.649443,
+          "fused_logloss": 1.700024,
+          "rps": 0.260038,
+          "draw_brier": 1.18809,
+          "scoreline_logloss": 2.585205,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.7337,
+            "draw": 0.1922,
+            "away": 0.0741
+          },
+          "fused_probs": {
+            "home": 0.7137,
+            "draw": 0.1827,
+            "away": 0.1036
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Belgium vs Egypt",
+          "date": "2026-06-15",
+          "stage": "Group G - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.588331,
+          "fused_brier": 0.69158,
+          "dc_logloss": 0.973171,
+          "fused_logloss": 1.130611,
+          "rps": 0.116515,
+          "draw_brier": 0.69158,
+          "scoreline_logloss": 1.970066,
+          "dc_direction_correct": true,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3735,
+            "draw": 0.3779,
+            "away": 0.2487
+          },
+          "fused_probs": {
+            "home": 0.3819,
+            "draw": 0.3228,
+            "away": 0.2953
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Saudi Arabia vs Uruguay",
+          "date": "2026-06-15",
+          "stage": "Group H - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.625754,
+          "fused_brier": 0.728067,
+          "dc_logloss": 0.954405,
+          "fused_logloss": 1.117875,
+          "rps": 0.137551,
+          "draw_brier": 0.728067,
+          "scoreline_logloss": 2.232909,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1365,
+            "draw": 0.385,
+            "away": 0.4785
+          },
+          "fused_probs": {
+            "home": 0.1806,
+            "draw": 0.327,
+            "away": 0.4924
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Iran vs New Zealand",
+          "date": "2026-06-16",
+          "stage": "Group G - Matchday 1",
+          "actual": "2-2",
+          "dc_brier": 0.629189,
+          "fused_brier": 0.743591,
+          "dc_logloss": 1.02863,
+          "fused_logloss": 1.188349,
+          "rps": 0.130091,
+          "draw_brier": 0.743591,
+          "scoreline_logloss": 3.600741,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3919,
+            "draw": 0.3575,
+            "away": 0.2506
+          },
+          "fused_probs": {
+            "home": 0.4438,
+            "draw": 0.3047,
+            "away": 0.2515
+          },
+          "half_life": 180
+        },
+        {
+          "match": "France vs Senegal",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.461452,
+          "fused_brier": 0.446164,
+          "dc_logloss": 0.804282,
+          "fused_logloss": 0.788218,
+          "rps": 0.184376,
+          "draw_brier": null,
+          "scoreline_logloss": 3.274644,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4474,
+            "draw": 0.3176,
+            "away": 0.235
+          },
+          "fused_probs": {
+            "home": 0.4547,
+            "draw": 0.2782,
+            "away": 0.2671
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Iraq vs Norway",
+          "date": "2026-06-16",
+          "stage": "Group I - Matchday 1",
+          "actual": "1-4",
+          "dc_brier": 0.31942,
+          "fused_brier": 0.334261,
+          "dc_logloss": 0.592757,
+          "fused_logloss": 0.632679,
+          "rps": 0.12733,
+          "draw_brier": null,
+          "scoreline_logloss": 4.636396,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.125,
+            "draw": 0.3222,
+            "away": 0.5528
+          },
+          "fused_probs": {
+            "home": 0.1867,
+            "draw": 0.2821,
+            "away": 0.5312
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Argentina vs Algeria",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-0",
+          "dc_brier": 0.340367,
+          "fused_brier": 0.340541,
+          "dc_logloss": 0.612992,
+          "fused_logloss": 0.637368,
+          "rps": 0.126403,
+          "draw_brier": null,
+          "scoreline_logloss": 2.895201,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5417,
+            "draw": 0.3417,
+            "away": 0.1166
+          },
+          "fused_probs": {
+            "home": 0.5287,
+            "draw": 0.2962,
+            "away": 0.1751
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Austria vs Jordan",
+          "date": "2026-06-17",
+          "stage": "Group J - Matchday 1",
+          "actual": "3-1",
+          "dc_brier": 0.324113,
+          "fused_brier": 0.354318,
+          "dc_logloss": 0.618271,
+          "fused_logloss": 0.665313,
+          "rps": 0.145244,
+          "draw_brier": null,
+          "scoreline_logloss": 3.001936,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5389,
+            "draw": 0.2814,
+            "away": 0.1798
+          },
+          "fused_probs": {
+            "home": 0.5141,
+            "draw": 0.2526,
+            "away": 0.2332
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Portugal vs DR Congo",
+          "date": "2026-06-17",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-1",
+          "dc_brier": 0.604031,
+          "fused_brier": 0.710482,
+          "dc_logloss": 0.960379,
+          "fused_logloss": 1.122222,
+          "rps": 0.127803,
+          "draw_brier": 0.710482,
+          "scoreline_logloss": 2.053006,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4362,
+            "draw": 0.3827,
+            "away": 0.1811
+          },
+          "fused_probs": {
+            "home": 0.4559,
+            "draw": 0.3256,
+            "away": 0.2185
+          },
+          "half_life": 180
+        },
+        {
+          "match": "England vs Croatia",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "4-2",
+          "dc_brier": 0.413168,
+          "fused_brier": 0.399897,
+          "dc_logloss": 0.721076,
+          "fused_logloss": 0.720931,
+          "rps": 0.154368,
+          "draw_brier": null,
+          "scoreline_logloss": 6.256363,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4862,
+            "draw": 0.3497,
+            "away": 0.1641
+          },
+          "fused_probs": {
+            "home": 0.4863,
+            "draw": 0.3019,
+            "away": 0.2118
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Ghana vs Panama",
+          "date": "2026-06-17",
+          "stage": "Group L - Matchday 1",
+          "actual": "1-0",
+          "dc_brier": 0.723998,
+          "fused_brier": 0.739601,
+          "dc_logloss": 1.184951,
+          "fused_logloss": 1.197012,
+          "rps": 0.33007,
+          "draw_brier": null,
+          "scoreline_logloss": 2.313205,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3058,
+            "draw": 0.3242,
+            "away": 0.37
+          },
+          "fused_probs": {
+            "home": 0.3021,
+            "draw": 0.2819,
+            "away": 0.416
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Uzbekistan vs Colombia",
+          "date": "2026-06-18",
+          "stage": "Group K - Matchday 1",
+          "actual": "1-3",
+          "dc_brier": 0.488835,
+          "fused_brier": 0.476441,
+          "dc_logloss": 0.828016,
+          "fused_logloss": 0.826612,
+          "rps": 0.189579,
+          "draw_brier": null,
+          "scoreline_logloss": 3.824916,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2002,
+            "draw": 0.3629,
+            "away": 0.4369
+          },
+          "fused_probs": {
+            "home": 0.2506,
+            "draw": 0.3119,
+            "away": 0.4375
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Czech Republic vs South Africa",
+          "date": "2026-06-18",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-1",
+          "dc_brier": 0.722051,
+          "fused_brier": 0.797074,
+          "dc_logloss": 1.173683,
+          "fused_logloss": 1.299485,
+          "rps": 0.134034,
+          "draw_brier": 0.797074,
+          "scoreline_logloss": 1.925543,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.4015,
+            "draw": 0.3092,
+            "away": 0.2893
+          },
+          "fused_probs": {
+            "home": 0.4059,
+            "draw": 0.2727,
+            "away": 0.3214
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Switzerland vs Bosnia and Herzegovina",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "4-1",
+          "dc_brier": 0.29395,
+          "fused_brier": 0.255543,
+          "dc_logloss": 0.568697,
+          "fused_logloss": 0.525043,
+          "rps": 0.095112,
+          "draw_brier": null,
+          "scoreline_logloss": 4.250237,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5663,
+            "draw": 0.2935,
+            "away": 0.1402
+          },
+          "fused_probs": {
+            "home": 0.5915,
+            "draw": 0.2556,
+            "away": 0.1529
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Canada vs Qatar",
+          "date": "2026-06-18",
+          "stage": "Group B - Matchday 2",
+          "actual": "6-0",
+          "dc_brier": 0.310373,
+          "fused_brier": 0.285792,
+          "dc_logloss": 0.583849,
+          "fused_logloss": 0.564789,
+          "rps": 0.105721,
+          "draw_brier": null,
+          "scoreline_logloss": 27.631021,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5577,
+            "draw": 0.3133,
+            "away": 0.129
+          },
+          "fused_probs": {
+            "home": 0.5685,
+            "draw": 0.2727,
+            "away": 0.1588
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Mexico vs South Korea",
+          "date": "2026-06-19",
+          "stage": "Group A - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.517247,
+          "fused_brier": 0.512663,
+          "dc_logloss": 0.855045,
+          "fused_logloss": 0.873772,
+          "rps": 0.200872,
+          "draw_brier": null,
+          "scoreline_logloss": 1.561175,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4253,
+            "draw": 0.3917,
+            "away": 0.183
+          },
+          "fused_probs": {
+            "home": 0.4174,
+            "draw": 0.333,
+            "away": 0.2496
+          },
+          "half_life": 180
+        },
+        {
+          "match": "United States vs Australia",
+          "date": "2026-06-19",
+          "stage": "Group D - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 1.021235,
+          "fused_brier": 0.924643,
+          "dc_logloss": 1.698706,
+          "fused_logloss": 1.486728,
+          "rps": 0.425248,
+          "draw_brier": null,
+          "scoreline_logloss": 3.442862,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1829,
+            "draw": 0.309,
+            "away": 0.5081
+          },
+          "fused_probs": {
+            "home": 0.2261,
+            "draw": 0.2723,
+            "away": 0.5016
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Scotland vs Morocco",
+          "date": "2026-06-19",
+          "stage": "Group C - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.433926,
+          "fused_brier": 0.346829,
+          "dc_logloss": 0.732866,
+          "fused_logloss": 0.63694,
+          "rps": 0.122525,
+          "draw_brier": null,
+          "scoreline_logloss": 1.448762,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.139,
+            "draw": 0.3805,
+            "away": 0.4805
+          },
+          "fused_probs": {
+            "home": 0.1521,
+            "draw": 0.319,
+            "away": 0.5289
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Brazil vs Haiti",
+          "date": "2026-06-20",
+          "stage": "Group C - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.167033,
+          "fused_brier": 0.186907,
+          "dc_logloss": 0.393046,
+          "fused_logloss": 0.431489,
+          "rps": 0.071023,
+          "draw_brier": null,
+          "scoreline_logloss": 2.337109,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.675,
+            "draw": 0.228,
+            "away": 0.097
+          },
+          "fused_probs": {
+            "home": 0.6495,
+            "draw": 0.2118,
+            "away": 0.1387
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Turkey vs Paraguay",
+          "date": "2026-06-20",
+          "stage": "Group D - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.75585,
+          "fused_brier": 0.760444,
+          "dc_logloss": 1.234353,
+          "fused_logloss": 1.228254,
+          "rps": 0.340461,
+          "draw_brier": null,
+          "scoreline_logloss": 2.287633,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3851,
+            "draw": 0.3239,
+            "away": 0.291
+          },
+          "fused_probs": {
+            "home": 0.4252,
+            "draw": 0.282,
+            "away": 0.2928
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Netherlands vs Sweden",
+          "date": "2026-06-20",
+          "stage": "Group F - Matchday 2",
+          "actual": "5-1",
+          "dc_brier": 0.344816,
+          "fused_brier": 0.335295,
+          "dc_logloss": 0.651903,
+          "fused_logloss": 0.63787,
+          "rps": 0.146314,
+          "draw_brier": null,
+          "scoreline_logloss": 3.975406,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5211,
+            "draw": 0.2204,
+            "away": 0.2586
+          },
+          "fused_probs": {
+            "home": 0.5284,
+            "draw": 0.2066,
+            "away": 0.265
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Germany vs Ivory Coast",
+          "date": "2026-06-20",
+          "stage": "Group E - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.439952,
+          "fused_brier": 0.449666,
+          "dc_logloss": 0.776759,
+          "fused_logloss": 0.792961,
+          "rps": 0.188527,
+          "draw_brier": null,
+          "scoreline_logloss": 2.439625,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.4599,
+            "draw": 0.3046,
+            "away": 0.2356
+          },
+          "fused_probs": {
+            "home": 0.4525,
+            "draw": 0.2695,
+            "away": 0.278
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Ecuador vs Curacao",
+          "date": "2026-06-21",
+          "stage": "Group E - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 1.067263,
+          "fused_brier": 1.063067,
+          "dc_logloss": 1.417381,
+          "fused_logloss": 1.503436,
+          "rps": 0.229175,
+          "draw_brier": 1.063067,
+          "scoreline_logloss": 1.897903,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.6999,
+            "draw": 0.2423,
+            "away": 0.0577
+          },
+          "fused_probs": {
+            "home": 0.6681,
+            "draw": 0.2224,
+            "away": 0.1095
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Tunisia vs Japan",
+          "date": "2026-06-21",
+          "stage": "Group F - Matchday 2",
+          "actual": "0-4",
+          "dc_brier": 0.160242,
+          "fused_brier": 0.186656,
+          "dc_logloss": 0.375983,
+          "fused_logloss": 0.429133,
+          "rps": 0.069269,
+          "draw_brier": null,
+          "scoreline_logloss": 3.104038,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.0763,
+            "draw": 0.2371,
+            "away": 0.6866
+          },
+          "fused_probs": {
+            "home": 0.1296,
+            "draw": 0.2194,
+            "away": 0.6511
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Spain vs Saudi Arabia",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "4-0",
+          "dc_brier": 0.116206,
+          "fused_brier": 0.120795,
+          "dc_logloss": 0.306213,
+          "fused_logloss": 0.323798,
+          "rps": 0.041731,
+          "draw_brier": null,
+          "scoreline_logloss": 2.858884,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.7362,
+            "draw": 0.2088,
+            "away": 0.0549
+          },
+          "fused_probs": {
+            "home": 0.7234,
+            "draw": 0.1932,
+            "away": 0.0834
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Belgium vs Iran",
+          "date": "2026-06-21",
+          "stage": "Group G - Matchday 2",
+          "actual": "2-1",
+          "dc_brier": 0.351073,
+          "fused_brier": 0.403361,
+          "dc_logloss": 0.658763,
+          "fused_logloss": 0.730486,
+          "rps": 0.171527,
+          "draw_brier": null,
+          "scoreline_logloss": 2.326907,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5175,
+            "draw": 0.2717,
+            "away": 0.2108
+          },
+          "fused_probs": {
+            "home": 0.4817,
+            "draw": 0.2456,
+            "away": 0.2727
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Uruguay vs Cape Verde",
+          "date": "2026-06-21",
+          "stage": "Group H - Matchday 2",
+          "actual": "2-2",
+          "dc_brier": 0.469815,
+          "fused_brier": 0.600464,
+          "dc_logloss": 0.812944,
+          "fused_logloss": 0.993378,
+          "rps": 0.101986,
+          "draw_brier": 0.600464,
+          "scoreline_logloss": 4.675731,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.33,
+            "draw": 0.4436,
+            "away": 0.2265
+          },
+          "fused_probs": {
+            "home": 0.3683,
+            "draw": 0.3703,
+            "away": 0.2613
+          },
+          "half_life": 180
+        },
+        {
+          "match": "New Zealand vs Egypt",
+          "date": "2026-06-22",
+          "stage": "Group G - Matchday 2",
+          "actual": "1-3",
+          "dc_brier": 0.660467,
+          "fused_brier": 0.54287,
+          "dc_logloss": 1.076054,
+          "fused_logloss": 0.917211,
+          "rps": 0.215855,
+          "draw_brier": null,
+          "scoreline_logloss": 4.071226,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2627,
+            "draw": 0.3963,
+            "away": 0.3409
+          },
+          "fused_probs": {
+            "home": 0.267,
+            "draw": 0.3334,
+            "away": 0.3996
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Argentina vs Austria",
+          "date": "2026-06-22",
+          "stage": "Group J - Matchday 2",
+          "actual": "2-0",
+          "dc_brier": 0.257748,
+          "fused_brier": 0.248732,
+          "dc_logloss": 0.497706,
+          "fused_logloss": 0.507909,
+          "rps": 0.08718,
+          "draw_brier": null,
+          "scoreline_logloss": 1.792155,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6079,
+            "draw": 0.3126,
+            "away": 0.0795
+          },
+          "fused_probs": {
+            "home": 0.6018,
+            "draw": 0.2727,
+            "away": 0.1255
+          },
+          "half_life": 180
+        },
+        {
+          "match": "France vs Iraq",
+          "date": "2026-06-22",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-0",
+          "dc_brier": 0.062093,
+          "fused_brier": 0.087081,
+          "dc_logloss": 0.211338,
+          "fused_logloss": 0.269796,
+          "rps": 0.031014,
+          "draw_brier": null,
+          "scoreline_logloss": 1.907005,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.8095,
+            "draw": 0.1571,
+            "away": 0.0334
+          },
+          "fused_probs": {
+            "home": 0.7635,
+            "draw": 0.1583,
+            "away": 0.0782
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Norway vs Senegal",
+          "date": "2026-06-23",
+          "stage": "Group I - Matchday 2",
+          "actual": "3-2",
+          "dc_brier": 0.34745,
+          "fused_brier": 0.414683,
+          "dc_logloss": 0.655178,
+          "fused_logloss": 0.74451,
+          "rps": 0.178998,
+          "draw_brier": null,
+          "scoreline_logloss": 3.43924,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.5193,
+            "draw": 0.2617,
+            "away": 0.219
+          },
+          "fused_probs": {
+            "home": 0.475,
+            "draw": 0.2381,
+            "away": 0.2869
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Jordan vs Algeria",
+          "date": "2026-06-23",
+          "stage": "Group J - Matchday 2",
+          "actual": "1-2",
+          "dc_brier": 0.328506,
+          "fused_brier": 0.324446,
+          "dc_logloss": 0.62953,
+          "fused_logloss": 0.625629,
+          "rps": 0.134889,
+          "draw_brier": null,
+          "scoreline_logloss": 2.305207,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.2096,
+            "draw": 0.2576,
+            "away": 0.5328
+          },
+          "fused_probs": {
+            "home": 0.2313,
+            "draw": 0.2338,
+            "away": 0.5349
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Portugal vs Uzbekistan",
+          "date": "2026-06-23",
+          "stage": "Group K - Matchday 2",
+          "actual": "5-0",
+          "dc_brier": 0.18743,
+          "fused_brier": 0.227996,
+          "dc_logloss": 0.419913,
+          "fused_logloss": 0.491026,
+          "rps": 0.088233,
+          "draw_brier": null,
+          "scoreline_logloss": 4.251804,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6571,
+            "draw": 0.2458,
+            "away": 0.0971
+          },
+          "fused_probs": {
+            "home": 0.612,
+            "draw": 0.227,
+            "away": 0.161
+          },
+          "half_life": 180
+        },
+        {
+          "match": "England vs Ghana",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-0",
+          "dc_brier": 0.853324,
+          "fused_brier": 0.936836,
+          "dc_logloss": 1.242637,
+          "fused_logloss": 1.377376,
+          "rps": 0.188845,
+          "draw_brier": 0.936836,
+          "scoreline_logloss": 2.001225,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.5728,
+            "draw": 0.2886,
+            "away": 0.1386
+          },
+          "fused_probs": {
+            "home": 0.5954,
+            "draw": 0.2522,
+            "away": 0.1524
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Panama vs Croatia",
+          "date": "2026-06-23",
+          "stage": "Group L - Matchday 2",
+          "actual": "0-1",
+          "dc_brier": 0.397479,
+          "fused_brier": 0.400913,
+          "dc_logloss": 0.721329,
+          "fused_logloss": 0.727641,
+          "rps": 0.168373,
+          "draw_brier": null,
+          "scoreline_logloss": 2.258357,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.231,
+            "draw": 0.2829,
+            "away": 0.4861
+          },
+          "fused_probs": {
+            "home": 0.2636,
+            "draw": 0.2533,
+            "away": 0.483
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Colombia vs DR Congo",
+          "date": "2026-06-24",
+          "stage": "Group K - Matchday 2",
+          "actual": "1-0",
+          "dc_brier": 0.627964,
+          "fused_brier": 0.555761,
+          "dc_logloss": 1.025731,
+          "fused_logloss": 0.935592,
+          "rps": 0.221861,
+          "draw_brier": null,
+          "scoreline_logloss": 1.642464,
+          "dc_direction_correct": false,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.3585,
+            "draw": 0.394,
+            "away": 0.2474
+          },
+          "fused_probs": {
+            "home": 0.3924,
+            "draw": 0.3347,
+            "away": 0.2729
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Switzerland vs Canada",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "2-1",
+          "dc_brier": 0.725839,
+          "fused_brier": 0.653635,
+          "dc_logloss": 1.188994,
+          "fused_logloss": 1.078042,
+          "rps": 0.278615,
+          "draw_brier": null,
+          "scoreline_logloss": 2.984094,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3045,
+            "draw": 0.3603,
+            "away": 0.3352
+          },
+          "fused_probs": {
+            "home": 0.3403,
+            "draw": 0.3105,
+            "away": 0.3492
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Bosnia and Herzegovina vs Qatar",
+          "date": "2026-06-24",
+          "stage": "Group B - Matchday 3",
+          "actual": "3-1",
+          "dc_brier": 0.221443,
+          "fused_brier": 0.304163,
+          "dc_logloss": 0.482193,
+          "fused_logloss": 0.597821,
+          "rps": 0.129941,
+          "draw_brier": null,
+          "scoreline_logloss": 2.722658,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6174,
+            "draw": 0.2221,
+            "away": 0.1605
+          },
+          "fused_probs": {
+            "home": 0.55,
+            "draw": 0.2104,
+            "away": 0.2396
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Scotland vs Brazil",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.327568,
+          "fused_brier": 0.299866,
+          "dc_logloss": 0.621611,
+          "fused_logloss": 0.590025,
+          "rps": 0.117737,
+          "draw_brier": null,
+          "scoreline_logloss": 2.863963,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1761,
+            "draw": 0.2868,
+            "away": 0.5371
+          },
+          "fused_probs": {
+            "home": 0.1919,
+            "draw": 0.2538,
+            "away": 0.5543
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Morocco vs Haiti",
+          "date": "2026-06-24",
+          "stage": "Group C - Matchday 3",
+          "actual": "4-2",
+          "dc_brier": 0.184537,
+          "fused_brier": 0.17486,
+          "dc_logloss": 0.408101,
+          "fused_logloss": 0.405891,
+          "rps": 0.06105,
+          "draw_brier": null,
+          "scoreline_logloss": 6.258477,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.6649,
+            "draw": 0.2573,
+            "away": 0.0778
+          },
+          "fused_probs": {
+            "home": 0.6664,
+            "draw": 0.2297,
+            "away": 0.1039
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Czech Republic vs Mexico",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "0-3",
+          "dc_brier": 0.234967,
+          "fused_brier": 0.244454,
+          "dc_logloss": 0.477957,
+          "fused_logloss": 0.508453,
+          "rps": 0.089768,
+          "draw_brier": null,
+          "scoreline_logloss": 2.549317,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.094,
+            "draw": 0.286,
+            "away": 0.62
+          },
+          "fused_probs": {
+            "home": 0.1438,
+            "draw": 0.2548,
+            "away": 0.6014
+          },
+          "half_life": 180
+        },
+        {
+          "match": "South Africa vs South Korea",
+          "date": "2026-06-25",
+          "stage": "Group A - Matchday 3",
+          "actual": "1-0",
+          "dc_brier": 1.041479,
+          "fused_brier": 0.979554,
+          "dc_logloss": 1.720886,
+          "fused_logloss": 1.568826,
+          "rps": 0.457113,
+          "draw_brier": null,
+          "scoreline_logloss": 2.687819,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.1789,
+            "draw": 0.2877,
+            "away": 0.5334
+          },
+          "fused_probs": {
+            "home": 0.2083,
+            "draw": 0.2556,
+            "away": 0.5361
+          },
+          "half_life": 180
+        },
+        {
+          "match": "South Africa vs Canada",
+          "date": "2026-06-28",
+          "stage": "Round of 32",
+          "actual": "0-1",
+          "dc_brier": 0.319989,
+          "fused_brier": 0.33515,
+          "dc_logloss": 0.604935,
+          "fused_logloss": 0.637379,
+          "rps": 0.132002,
+          "draw_brier": null,
+          "scoreline_logloss": 1.733623,
+          "dc_direction_correct": true,
+          "fused_direction_correct": true,
+          "dc_probs": {
+            "home": 0.1529,
+            "draw": 0.301,
+            "away": 0.5461
+          },
+          "fused_probs": {
+            "home": 0.2046,
+            "draw": 0.2667,
+            "away": 0.5287
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Netherlands vs Morocco",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 0.698916,
+          "fused_brier": 0.782085,
+          "dc_logloss": 1.146816,
+          "fused_logloss": 1.279858,
+          "rps": 0.130456,
+          "draw_brier": 0.782085,
+          "scoreline_logloss": 1.913506,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.3571,
+            "draw": 0.3176,
+            "away": 0.3253
+          },
+          "fused_probs": {
+            "home": 0.3482,
+            "draw": 0.2781,
+            "away": 0.3737
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Germany vs Paraguay",
+          "date": "2026-06-29",
+          "stage": "Round of 32",
+          "actual": "1-1",
+          "dc_brier": 1.046762,
+          "fused_brier": 1.059068,
+          "dc_logloss": 1.521499,
+          "fused_logloss": 1.58808,
+          "rps": 0.212979,
+          "draw_brier": 1.059068,
+          "scoreline_logloss": 2.263247,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.6461,
+            "draw": 0.2184,
+            "away": 0.1355
+          },
+          "fused_probs": {
+            "home": 0.6317,
+            "draw": 0.2043,
+            "away": 0.164
+          },
+          "half_life": 180
+        },
+        {
+          "match": "Brazil vs Japan",
+          "date": "2026-06-29",
+          "stage": "Round of 32 - 1st Group C vs 2nd Group F",
+          "actual": "2-1",
+          "dc_brier": 0.751311,
+          "fused_brier": 0.705124,
+          "dc_logloss": 1.229257,
+          "fused_logloss": 1.150041,
+          "rps": 0.309453,
+          "draw_brier": null,
+          "scoreline_logloss": 2.792274,
+          "dc_direction_correct": false,
+          "fused_direction_correct": false,
+          "dc_probs": {
+            "home": 0.2925,
+            "draw": 0.338,
+            "away": 0.3695
+          },
+          "fused_probs": {
+            "home": 0.3166,
+            "draw": 0.2936,
+            "away": 0.3897
+          },
+          "half_life": 180
+        }
+      ]
+    }
+  ]
+}

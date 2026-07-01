@@ -9,8 +9,8 @@
     "stage": "",
     "model_version": "4.3.0-beta",
     "mode": "internal_research",
-    "as_of": "2026-07-01T04:15:53Z",
-    "generated_at": "2026-07-01T04:15:53Z",
+    "as_of": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "components_used": [
       "dixon_coles",
       "tabular_enhancer",
@@ -229,6 +229,14 @@
       "reason": "not a knockout match",
       "risk_factors": [],
       "action": "none"
+    },
+    "effective_weights": {
+      "dc_effective": 0.202836,
+      "enhancer_effective": 0.52158,
+      "weibull_effective": 0.098784,
+      "elo_effective": 0.0168,
+      "pi_effective": 0.16,
+      "_sum_to_1": true
     }
   },
   "missing_inputs": [],
@@ -296,8 +304,8 @@
   "evaluation_sample": {
     "schema_version": "v1",
     "match_id": "",
-    "as_of_time": "2026-07-01T04:15:53Z",
-    "generated_at": "2026-07-01T04:15:53Z",
+    "as_of_time": "2026-07-01T05:20:25Z",
+    "generated_at": "2026-07-01T05:20:25Z",
     "model_version": "4.3.0-beta",
     "weight_label": "FRIENDLY_ADJUSTED_V2",
     "candidate_probs": {
