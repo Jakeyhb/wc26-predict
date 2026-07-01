@@ -316,6 +316,8 @@
 
 **设计依据**: IPP Porto (2025) 多篇论文独立验证 stacking 优于单一融合。7 组件 → 21 特征 → 3 类 multinomial logistic regression。系数序列化为 JSON（非 pickle）以保证可审计性。
 
+**已知风险**: NegBin 概率由 DC xG 推导而来（`compute_negbin_probs()` 输入为 DC 输出的 home_xg/away_xg），与 DC 本身携带高度重叠信号。在 58 样本 + 只有 DC/Elo/Pi 有效的条件下，LR 可能不可靠地同时给 DC 和 NegBin 分配大系数（当前 |coef| ≈ 0.64），因为两者信息几乎相同。训练数据中仅 3/7 组件有真实概率，剩余 4 组件均匀填充 → 系数矩阵对均匀特征几乎是零敏感（|coef| < 1e-4）。当 Enhancer/Weibull/Market 有真实概率后应重新训练并确认 NegBin 系数是否合理。
+
 ---
 
 ## 16. B1 Weighted Conformal Prediction (`core/conformal_core.py` + `services/conformal_predictor.py`)

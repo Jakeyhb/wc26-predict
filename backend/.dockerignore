@@ -1,0 +1,71 @@
+# Environment files with secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Model artifacts (downloaded/built separately)
+*.pkl
+model_artifacts/
+artifacts/calibrator.json
+artifacts/calibrator_wc.json
+
+# Logs and temporary files
+*.log
+tmp/
+*.bak
+*.backup
+
+# Reports and predictions (generated at runtime)
+reports/
+reports_batch/
+predictions/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+.cheat-*
+.auth/
+
+# Test fixtures
+tests/fixtures/
+
+# Data caches
+backend/data/_pred_*.json
+backend/data/_bootstrap_*.json
+backend/data/hermes_agent_state.json
+
+# Development-only
+backend/scripts/_*.py
+docs/公众号*.md

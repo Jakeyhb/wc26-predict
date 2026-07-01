@@ -5,9 +5,9 @@
 > 2026 世界杯概率预测研究系统。目标只有一个：在可审计、可复现、无数据泄漏的前提下，把预测做得更准。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-V4.3.0_beta-blue?style=flat-square" alt="version">
-  <img src="https://img.shields.io/badge/phase-Phase_2B_self_evolution-red?style=flat-square" alt="phase">
-  <img src="https://img.shields.io/badge/backend_tests-213_passed-success?style=flat-square" alt="backend tests">
+  <img src="https://img.shields.io/badge/version-V4.5.0_beta-blue?style=flat-square" alt="version">
+  <img src="https://img.shields.io/badge/phase-A3_Stacking_+_B1_Conformal-orange?style=flat-square" alt="phase">
+  <img src="https://img.shields.io/badge/backend_tests-287_passed-success?style=flat-square" alt="backend tests">
   <img src="https://img.shields.io/badge/python-3.11+-blue?style=flat-square" alt="python">
   <img src="https://img.shields.io/badge/model_loading-disk_cache_only-brightgreen?style=flat-square" alt="model loading">
   <img src="https://img.shields.io/badge/license-MIT-yellow?style=flat-square" alt="license">
@@ -19,17 +19,17 @@
 
 ### 当前结论
 
-WC26 Predict 现在处在 **Phase 2B：自进化 + 赛后复盘学习** 阶段，已进入 WC 2026 小组赛实时预测。
+WC26 Predict 现在处在 **Phase 4：A3 Stacking元学习 + B1加权共形预测** 阶段，已进入 WC 2026 淘汰赛实时预测。
 
-**V4.3.0-beta（2026-06-26）当前状态：**
+**V4.5.0-beta（2026-07-01）当前状态：**
 
-- **组件表现（13场累计）**：Market 11/13 (85%), DC 10/13 (77%), Pi 9/13 (69%), Elo 9/13 (69%), Enhancer 3/13 (23%)
-- **权重版本**：`WORLD_CUP_V4.3.0` — dc=0.68 enhancer_blend=0.32 elo=0.12 pi=0.17 weibull=0.10 market_max=0.30
-- **54/104 场小组赛已完成**，50 场待进行
-- **预测流水线**：DC → Enhancer → NegBin(5%) → Weibull → Elo → Pi → Market（6 级顺序融合）+ 战意因子 + 平局下限 12% + 分歧自适应 + 动态市场提升
-- **赛后复盘**：13 场完整复盘报告在 `reports/postmatch/`，含组件级 Brier/LogLoss/方向正确率
-- **自进化**：Pi 权重从 0.12 → 0.14（5/6 方向正确，最佳非市场组件）
-- **已知问题**：Enhancer 系统性偏向下盘（累计 23% 方向正确），分歧 guard (dc=0.68) 有效压制其影响
+- **组件表现（58场累计）**：Market 85%, DC 77%, Pi 69%, Elo 69%, Enhancer 23%
+- **权重版本**：`WORLD_CUP_V4.5.0` — dc=0.90 elo=0.12 pi=0.17 weibull=0.10 market_max=0.30
+- **58/104 场比赛已完成**（54 场小组赛 + 4 场淘汰赛），46 场待进行
+- **预测流水线**：DC → Enhancer → NegBin(5%) → Weibull → Elo → Pi → Market（7 级顺序融合）+ 战意因子 + 平局下限 12% + 分歧自适应 + 动态市场提升 + DC半衰期学习(180d最优) + A3 Stacking元学习器(21维特征) + B1加权共形预测(α=0.1)
+- **赛后复盘**：58 场完整复盘报告在 `reports/postmatch/`，含组件级 Brier/LogLoss/方向正确率
+- **新功能**：A3 Stacking元学习器（7组件×3结果=21维特征Logistic Regression）+ B1加权共形预测（指数衰减加权，halflife=30d，名义覆盖0.90）
+- **已知风险**：NegBin-DC特征重叠（NegBin从DC xG派生），A3在walk-forward CV上未优于序贯融合（+0.058 Brier delta）
 
 ### 系统目标
 
@@ -258,10 +258,14 @@ V3.5 之后，任何"更准"的结论必须满足这些门槛：
 
 ### 版本历史
 
-当前主版本：**V4.3.0-beta**
+当前主版本：**V4.5.0-beta**
 
 | 版本 | 日期 | 关键变更 |
 |------|------|---------|
+| **V4.5.0-beta** | 2026-07-01 | A3 Stacking元学习器(7组件×3结果=21维LR) + B1加权共形预测(α=0.1 halflife=30d) + DC半衰期学习(180d最优) + 全文档化魔数注册表 |
+| **V4.4.2-beta** | 2026-06-30 | 全流水线回测验证 + 有效权重报告 + P1-2参数验证 |
+| **V4.4.1-beta** | 2026-06-29 | 结构自洽修复: Score Matrix Calibrator + KO Draw Guard + λ公式审计 + Gates全路径接入 |
+| **V4.3.11-beta** | 2026-06-29 | B2 MC λ公式升级 + B3 去水分域驱动修正 |
 | **V4.3.0-beta** | 2026-06-26 | NegBin 5%融合 + 积分榜填表 + 校准器重建(69样本) + core/engine.py 纯融合引擎 |
 | **V4.2.2-beta** | 2026-06-25 | 自进化 Pi 0.12→0.14 + 6场 June25 赛后复盘 |
 | **V4.2.1-beta** | 2026-06-25 | 8项修复: pipeline 同步/战意/平局下限/分歧悖论 |
@@ -288,15 +292,17 @@ V3.5 之后，任何"更准"的结论必须满足这些门槛：
 
 ### Current Status
 
-WC26 Predict is in **Phase 2B: Self-Evolution + Post-Match Learning**, actively making real-time predictions for WC 2026 group stage matches.
+WC26 Predict is in **Phase 4: A3 Stacking + B1 Weighted Conformal**, actively making real-time predictions for WC 2026 knockout stage matches.
 
-**V4.3.0-beta (2026-06-26) State:**
+**V4.5.0-beta (2026-07-01) State:**
 
-- **Component accuracy (13-match cumulative)**: Market 11/13 (85%), DC 10/13 (77%), Pi 9/13 (69%), Elo 9/13 (69%), Enhancer 3/13 (23%)
-- **Weights**: `WORLD_CUP_V4.3.0` — dc=0.68 enhancer_blend=0.32 elo=0.12 pi=0.17 weibull=0.10 market_max=0.30
-- **54/104 group stage matches completed**, 50 remaining
-- **Fusion chain**: DC → Enhancer → NegBin(5%) → Weibull → Elo → Pi → Market (6-stage sequential fusion) + motivation factor + 12% draw floor + adaptive divergence guard + dynamic market boost
-- **Post-match**: 13 complete review reports in `reports/postmatch/` with component-level Brier/LogLoss/direction accuracy
+- **Component accuracy (58-match cumulative)**: Market 85%, DC 77%, Pi 69%, Elo 69%, Enhancer 23%
+- **Weights**: `WORLD_CUP_V4.5.0` — dc=0.90 elo=0.12 pi=0.17 weibull=0.10 market_max=0.30
+- **58/104 matches completed** (54 group + 4 knockout), 46 remaining
+- **Fusion chain**: DC → Enhancer → NegBin(5%) → Weibull → Elo → Pi → Market (7-stage sequential fusion) + motivation factor + 12% draw floor + adaptive divergence guard + dynamic market boost + DC half-life learning (180d optimal) + A3 Stacking meta-learner (21-dim features) + B1 Weighted Conformal Prediction (α=0.1)
+- **Post-match**: 58 complete review reports in `reports/postmatch/` with component-level Brier/LogLoss/direction accuracy
+- **New**: A3 Stacking (7 components × 3 outcomes = 21-dim Logistic Regression) + B1 Weighted Conformal (exponential recency weighting, halflife=30d, 90% nominal coverage)
+- **Known risk**: NegBin-DC feature overlap (NegBin derived from DC xG); A3 did not outperform sequential fusion in walk-forward CV (+0.058 Brier delta)
 - **Self-evolution**: Pi weight 0.12 → 0.17 (67% direction correct in latest panel, best non-market component)
 - **Known issues**: Enhancer systematically biased toward underdogs (23% cumulative direction correct), divergence guard (dc=0.68) effectively suppresses impact
 
@@ -524,10 +530,14 @@ See [`docs/COMPLIANCE_AND_OUTPUT_POLICY.md`](docs/COMPLIANCE_AND_OUTPUT_POLICY.m
 
 ### Version History
 
-Current version: **V4.3.0-beta**
+Current version: **V4.5.0-beta**
 
 | Version | Date | Key Changes |
 |------|------|---------|
+| **V4.5.0-beta** | 2026-07-01 | A3 Stacking meta-learner (7 components × 3 outcomes = 21-dim LR) + B1 Weighted Conformal Prediction (α=0.1 halflife=30d) + DC half-life learning (180d optimal) + complete magic number registry |
+| **V4.4.2-beta** | 2026-06-30 | Full-pipeline backtest verification + effective weights report + P1-2 parameter validation |
+| **V4.4.1-beta** | 2026-06-29 | Structural consistency: Score Matrix Calibrator + KO Draw Guard + λ audit + Gates in pipeline |
+| **V4.3.11-beta** | 2026-06-29 | B2 MC λ formula upgrade + B3 domain-driven de-vig |
 | **V4.3.0-beta** | 2026-06-26 | NegBin 5% fusion + group standings + calibrator rebuild (69 samples) + core/engine.py |
 | **V4.2.2-beta** | 2026-06-25 | Self-evolution Pi 0.12→0.14 + 6-match June25 post-match |
 | **V4.2.1-beta** | 2026-06-25 | 8 fixes: pipeline sync, motivation, draw floor, divergence paradox |
